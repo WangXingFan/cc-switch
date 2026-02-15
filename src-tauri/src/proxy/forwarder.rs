@@ -75,6 +75,24 @@ const HEADER_BLACKLIST: &[&str] = &[
     "x-real-ip",
 ];
 
+fn mask_key_for_log(key: &str) -> String {
+    if key.chars().count() <= 8 {
+        return "***".to_string();
+    }
+
+    let prefix: String = key.chars().take(4).collect();
+    let suffix: String = key
+        .chars()
+        .rev()
+        .take(4)
+        .collect::<Vec<_>>()
+        .into_iter()
+        .rev()
+        .collect();
+
+    format!("{prefix}...{suffix}")
+}
+
 pub struct ForwardResult {
     pub response: Response,
     pub provider: Provider,
@@ -768,11 +786,7 @@ impl RequestForwarder {
 
                 for (attempt, &key_idx) in key_order.iter().enumerate() {
                     let key = &config.keys[key_idx];
-                    let masked = if key.len() > 8 {
-                        format!("{}...{}", &key[..4], &key[key.len()-4..])
-                    } else {
-                        "***".to_string()
-                    };
+                    let masked = mask_key_for_log(key);
 
                     log::info!(
                         "[{}] [KEY-001] 多Key轮换: 尝试 Key #{} ({}) [{}/{}]",
@@ -1040,5 +1054,28 @@ fn extract_error_message(error: &ProxyError) -> Option<String> {
     match error {
         ProxyError::UpstreamError { body, .. } => body.clone(),
         _ => Some(error.to_string()),
+    }
+}
+
+
+#[cfg(test)]
+mod tests {
+    use super::mask_key_for_log;
+
+    #[test]
+    fn test_mask_key_for_log_short_key() {
+        assert_eq!(mask_key_for_log("short"), "***");
+    }
+
+    #[test]
+    fn test_mask_key_for_log_ascii_key() {
+        assert_eq!(mask_key_for_log("sk-1234567890abcd"), "sk-1...abcd");
+    }
+
+    #[test]
+    fn test_mask_key_for_log_utf8_safe() {
+        let masked = mask_key_for_log("test\u{1F511}\u{4F60}\u{597D}1234567890");
+        assert!(!masked.is_empty());
+        assert!(masked.contains("..."));
     }
 }

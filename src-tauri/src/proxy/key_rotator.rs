@@ -41,18 +41,22 @@ impl KeyRotator {
         if key_count == 1 {
             return vec![0];
         }
-
-        let start = match config.strategy {
-            KeyRotationStrategy::RoundRobin => self.next_round_robin(provider_id, key_count),
-            KeyRotationStrategy::Random => self.random_start(key_count),
-            KeyRotationStrategy::Fixed => {
-                // 固定模式：使用用户指定的索引，越界则回退到 0
-                config.fixed_index.unwrap_or(0).min(key_count - 1)
+        match config.strategy {
+            KeyRotationStrategy::RoundRobin => {
+                let start = self.next_round_robin(provider_id, key_count);
+                // Try all keys starting from the selected offset.
+                (0..key_count).map(|i| (start + i) % key_count).collect()
             }
-        };
-
-        // 从 start 位置开始，依次遍历所有 Key
-        (0..key_count).map(|i| (start + i) % key_count).collect()
+            KeyRotationStrategy::Random => {
+                let start = self.random_start(key_count);
+                // Try all keys starting from the selected offset.
+                (0..key_count).map(|i| (start + i) % key_count).collect()
+            }
+            KeyRotationStrategy::Fixed => {
+                // Fixed mode: only try the user-selected key.
+                vec![config.fixed_index.unwrap_or(0).min(key_count - 1)]
+            }
+        }
     }
 
     /// RoundRobin：获取下一个计数器位置并自增
@@ -196,12 +200,11 @@ mod tests {
 
         // 固定模式：始终从 index 1 开始
         let order1 = rotator.select_key_order("p1", &config);
-        assert_eq!(order1[0], 1);
-        assert_eq!(order1, vec![1, 2, 0]);
+        assert_eq!(order1, vec![1]);
 
         // 再次调用依然从 index 1 开始（无状态）
         let order2 = rotator.select_key_order("p1", &config);
-        assert_eq!(order2[0], 1);
+        assert_eq!(order2, vec![1]);
     }
 
     #[test]
@@ -211,7 +214,7 @@ mod tests {
 
         // 未设置 fixed_index 时默认使用 0
         let order = rotator.select_key_order("p1", &config);
-        assert_eq!(order[0], 0);
+        assert_eq!(order, vec![0]);
     }
 
     #[test]
@@ -221,6 +224,6 @@ mod tests {
 
         // 越界时钳位到最后一个 key
         let order = rotator.select_key_order("p1", &config);
-        assert_eq!(order[0], 2);
+        assert_eq!(order, vec![2]);
     }
 }
