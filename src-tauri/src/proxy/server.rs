@@ -11,6 +11,7 @@
 use super::{
     failover_switch::FailoverSwitchManager,
     handlers,
+    key_rotator::KeyRotator,
     log_codes::srv as log_srv,
     provider_router::ProviderRouter,
     providers::{codex_chat_history::CodexChatHistoryStore, gemini_shadow::GeminiShadowStore},
@@ -48,6 +49,8 @@ pub struct ProxyState {
     pub app_handle: Option<tauri::AppHandle>,
     /// 故障转移切换管理器
     pub failover_manager: Arc<FailoverSwitchManager>,
+    /// 多 Key 轮换器（跨请求保持轮询计数器）
+    pub key_rotator: Arc<KeyRotator>,
 }
 
 /// 代理HTTP服务器
@@ -69,6 +72,8 @@ impl ProxyServer {
         let provider_router = Arc::new(ProviderRouter::new(db.clone()));
         // 创建故障转移切换管理器
         let failover_manager = Arc::new(FailoverSwitchManager::new(db.clone()));
+        // 创建多 Key 轮换器
+        let key_rotator = Arc::new(KeyRotator::new());
 
         let state = ProxyState {
             db,
@@ -81,6 +86,7 @@ impl ProxyServer {
             codex_chat_history: Arc::new(CodexChatHistoryStore::default()),
             app_handle,
             failover_manager,
+            key_rotator,
         };
 
         Self {

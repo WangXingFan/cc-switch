@@ -177,6 +177,17 @@
         "apiKeyPlaceholder": "Enter Gemini API Key"
       }
     },
+    "multiKey": {
+      "count": "{{count}} Keys",
+      "placeholder": "API Key #{{index}}",
+      "addKey": "Add API Key",
+      "hint": "Multiple keys will be rotated according to the strategy, automatically trying the next one on failure",
+      "strategy": "Rotation Strategy",
+      "roundRobin": "Round Robin",
+      "roundRobinDesc": "Use each key in sequence",
+      "random": "Random",
+      "randomDesc": "Start from a random key"
+    },
     "duplicateLiveIdsLoadFailed": "Failed to read provider identifiers from config, please fix the config and try again"
   },
   "claudeCode": {

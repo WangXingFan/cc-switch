@@ -28,6 +28,7 @@ import type {
   CodexChatReasoning,
   PromptCacheRoutingMode,
   ClaudeApiKeyField,
+  MultiKeyConfig,
 } from "@/types";
 import {
   providerPresets,
@@ -365,6 +366,9 @@ function ProviderFormFull({
     return initialData?.meta?.isFullUrl ?? false;
   });
 
+  const [multiKeyConfig, setMultiKeyConfig] = useState<
+    MultiKeyConfig | undefined
+  >(() => initialData?.meta?.multiKeyConfig);
   const [pricingConfig, setPricingConfig] = useState<{
     enabled: boolean;
     costMultiplier?: string;
@@ -402,6 +406,7 @@ function ProviderFormFull({
     setLocalIsFullUrl(
       supportsFullUrl ? (initialData?.meta?.isFullUrl ?? false) : false,
     );
+    setMultiKeyConfig(initialData?.meta?.multiKeyConfig);
     setPricingConfig({
       enabled:
         initialData?.meta?.costMultiplier !== undefined ||
@@ -1828,6 +1833,19 @@ function ProviderFormFull({
         localIsFullUrl
           ? true
           : undefined,
+      multiKeyConfig: (() => {
+        if (
+          !(appId === "claude" || appId === "codex" || appId === "gemini") ||
+          category === "official" ||
+          !multiKeyConfig
+        ) {
+          return undefined;
+        }
+        const filteredKeys = multiKeyConfig.keys.filter((k) => k.trim() !== "");
+        return filteredKeys.length > 1
+          ? { ...multiKeyConfig, keys: filteredKeys }
+          : undefined;
+      })(),
     };
 
     if (!isClaudeCodexOauthProvider && "codexFastMode" in nextMeta) {
@@ -2113,6 +2131,7 @@ function ProviderFormFull({
 
     setLocalApiKeyField(preset.apiKeyField ?? "ANTHROPIC_AUTH_TOKEN");
     setLocalIsFullUrl(false);
+    setMultiKeyConfig(undefined);
 
     form.reset({
       name: preset.nameKey ? t(preset.nameKey) : preset.name,
@@ -2376,6 +2395,8 @@ function ProviderFormFull({
               isCopilotPreset={isCopilotProvider}
               isCodexOauthPreset={isClaudeCodexOauthProvider}
               isXaiOauthPreset={isXaiOauthProvider}
+              multiKeyConfig={multiKeyConfig}
+              onMultiKeyConfigChange={setMultiKeyConfig}
               usesOAuth={
                 templatePreset?.requiresOAuth === true ||
                 isCopilotProvider ||
@@ -2474,6 +2495,8 @@ function ProviderFormFull({
               codexOauthRequireExplicitSelection={
                 requiresExplicitCodexOfficialSelection
               }
+              multiKeyConfig={multiKeyConfig}
+              onMultiKeyConfigChange={setMultiKeyConfig}
               shouldShowSpeedTest={shouldShowSpeedTest}
               codexBaseUrl={codexBaseUrl}
               onBaseUrlChange={handleCodexBaseUrlChange}
@@ -2526,6 +2549,8 @@ function ProviderFormFull({
               websiteUrl={geminiWebsiteUrl}
               isPartner={isGeminiPartner}
               partnerPromotionKey={geminiPartnerPromotionKey}
+              multiKeyConfig={multiKeyConfig}
+              onMultiKeyConfigChange={setMultiKeyConfig}
               shouldShowSpeedTest={shouldShowSpeedTest}
               baseUrl={geminiBaseUrl}
               onBaseUrlChange={handleGeminiBaseUrlChange}

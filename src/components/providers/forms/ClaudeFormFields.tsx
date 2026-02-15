@@ -52,6 +52,7 @@ import type {
   ProviderCategory,
   ClaudeApiFormat,
   ClaudeApiKeyField,
+  MultiKeyConfig,
 } from "@/types";
 import type { ManagedAuthProvider } from "@/lib/api";
 import {
@@ -80,6 +81,8 @@ interface ClaudeFormFieldsProps {
   websiteUrl: string;
   isPartner?: boolean;
   partnerPromotionKey?: string;
+  multiKeyConfig?: MultiKeyConfig;
+  onMultiKeyConfigChange?: (config: MultiKeyConfig | undefined) => void;
 
   // GitHub Copilot OAuth
   isCopilotPreset?: boolean;
@@ -171,6 +174,8 @@ export function ClaudeFormFields({
   websiteUrl,
   isPartner,
   partnerPromotionKey,
+  multiKeyConfig,
+  onMultiKeyConfigChange,
   isCopilotPreset,
   usesOAuth,
   isCopilotAuthenticated,
@@ -695,6 +700,9 @@ export function ClaudeFormFields({
           websiteUrl={websiteUrl}
           isPartner={isPartner}
           partnerPromotionKey={partnerPromotionKey}
+          multiKeyConfig={multiKeyConfig}
+          onMultiKeyConfigChange={onMultiKeyConfigChange}
+          enableMultiKey={category !== "official"}
         />
       )}
 

@@ -177,6 +177,17 @@
         "apiKeyPlaceholder": "Gemini API Key を入力"
       }
     },
+    "multiKey": {
+      "count": "{{count}} 個のキー",
+      "placeholder": "API Key #{{index}}",
+      "addKey": "キーを追加",
+      "hint": "複数のキーは戦略に従ってローテーションされ、失敗時は自動的に次のキーを試行します",
+      "strategy": "ローテーション戦略",
+      "roundRobin": "ラウンドロビン",
+      "roundRobinDesc": "各キーを順番に使用",
+      "random": "ランダム",
+      "randomDesc": "ランダムなキーから開始"
+    },
     "duplicateLiveIdsLoadFailed": "設定内のプロバイダー識別子を読み込めませんでした。設定を修正してから再度お試しください"
   },
   "claudeCode": {

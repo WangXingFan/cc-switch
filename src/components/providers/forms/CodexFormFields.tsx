@@ -60,6 +60,7 @@ import type {
   CodexChatReasoning,
   PromptCacheRoutingMode,
   ProviderCategory,
+  MultiKeyConfig,
 } from "@/types";
 import type { ManagedAuthProvider } from "@/lib/api";
 import type { AppId } from "@/lib/api";
@@ -97,6 +98,8 @@ interface CodexFormFieldsProps {
   codexOauthAllowUnboundSelectionWithoutStatus?: boolean;
   codexOauthNativeLoginOnly?: boolean;
   codexOauthRequireExplicitSelection?: boolean;
+  multiKeyConfig?: MultiKeyConfig;
+  onMultiKeyConfigChange?: (config: MultiKeyConfig | undefined) => void;
 
   // Base URL
   shouldShowSpeedTest: boolean;
@@ -391,6 +394,8 @@ export function CodexFormFields({
   codexOauthAllowUnboundSelectionWithoutStatus,
   codexOauthNativeLoginOnly,
   codexOauthRequireExplicitSelection,
+  multiKeyConfig,
+  onMultiKeyConfigChange,
   shouldShowSpeedTest,
   codexBaseUrl,
   onBaseUrlChange,
@@ -764,6 +769,9 @@ export function CodexFormFields({
           websiteUrl={websiteUrl}
           isPartner={isPartner}
           partnerPromotionKey={partnerPromotionKey}
+          multiKeyConfig={multiKeyConfig}
+          onMultiKeyConfigChange={onMultiKeyConfigChange}
+          enableMultiKey={category !== "official"}
           placeholder={{
             official: t("providerForm.codexOfficialNoApiKey", {
               defaultValue: "官方供应商无需 API Key",

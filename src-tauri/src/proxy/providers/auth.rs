@@ -25,6 +25,15 @@ impl AuthInfo {
         }
     }
 
+    /// 用新的 api_key 克隆一个 AuthInfo（用于多 Key 轮换）
+    pub fn with_key(&self, new_key: String) -> Self {
+        Self {
+            api_key: new_key,
+            strategy: self.strategy,
+            access_token: self.access_token.clone(),
+        }
+    }
+
     /// 创建带有 access_token 的认证信息（用于 OAuth）
     pub fn with_access_token(api_key: String, access_token: String) -> Self {
         Self {
