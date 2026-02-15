@@ -1,0 +1,116 @@
+name: Build Windows
+
+on:
+  # 手动触发
+  workflow_dispatch:
+    inputs:
+      build_release:
+        description: 'Build release artifacts (MSI + Portable)'
+        required: false
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+
+concurrency:
+  group: build-windows-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Build & Verify (Windows)
+    runs-on: windows-2022
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: 10.12.3
+          run_install: false
+
+      - name: Get pnpm store directory
+        id: pnpm-store
+        shell: bash
+        run: echo "path=$(pnpm store path --silent)" >> $GITHUB_OUTPUT
+
+      - name: Setup pnpm cache
+        uses: actions/cache@v4
+        with:
+          path: ${{ steps.pnpm-store.outputs.path }}
+          key: windows-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: windows-pnpm-store-
+
+      - name: Rust cache
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+
+      - name: Install frontend deps
+        run: pnpm install --frozen-lockfile
+
+      - name: TypeScript type check
+        run: pnpm typecheck
+
+      - name: Rust check (cargo check)
+        working-directory: src-tauri
+        run: cargo check --all-features
+
+      - name: Rust clippy (lint)
+        working-directory: src-tauri
+        run: cargo clippy --all-features -- -D warnings
+        continue-on-error: true
+
+      - name: Build Tauri App (dev mode, fast)
+        if: ${{ !inputs.build_release }}
+        shell: bash
+        run: pnpm tauri build --debug --config '{"bundle":{"createUpdaterArtifacts":false}}'
+
+      - name: Build Tauri App (release mode)
+        if: ${{ inputs.build_release }}
+        shell: bash
+        run: pnpm tauri build --config '{"bundle":{"createUpdaterArtifacts":false}}'
+
+      - name: List build artifacts
+        shell: pwsh
+        run: |
+          Write-Host "=== Build Artifacts ==="
+          if (Test-Path "src-tauri/target/debug/bundle") {
+            Get-ChildItem -Path "src-tauri/target/debug/bundle" -Recurse -File | Select-Object FullName, Length
+          }
+          if (Test-Path "src-tauri/target/release/bundle") {
+            Get-ChildItem -Path "src-tauri/target/release/bundle" -Recurse -File | Select-Object FullName, Length
+          }
+
+      - name: Upload artifacts (debug)
+        if: ${{ !inputs.build_release }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: cc-switch-windows-debug
+          path: |
+            src-tauri/target/debug/*.exe
+            src-tauri/target/debug/bundle/**/*
+          retention-days: 7
+          if-no-files-found: warn
+
+      - name: Upload artifacts (release)
+        if: ${{ inputs.build_release }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: cc-switch-windows-release
+          path: |
+            src-tauri/target/release/bundle/msi/*.msi
+            src-tauri/target/release/*.exe
+          retention-days: 7
+          if-no-files-found: warn
