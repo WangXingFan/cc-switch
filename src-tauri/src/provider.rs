@@ -13,6 +13,8 @@ pub enum KeyRotationStrategy {
     RoundRobin,
     /// 随机：随机选择一个 Key 开始
     Random,
+    /// 固定：始终使用指定的 Key（由 fixed_index 决定）
+    Fixed,
 }
 
 /// 多 API Key 配置
@@ -24,6 +26,9 @@ pub struct MultiKeyConfig {
     /// 调度策略
     #[serde(default)]
     pub strategy: KeyRotationStrategy,
+    /// 固定模式下使用的 Key 索引（仅 Fixed 策略有效）
+    #[serde(default, rename = "fixedIndex", skip_serializing_if = "Option::is_none")]
+    pub fixed_index: Option<usize>,
 }
 
 // SSOT 模式：不再写供应商副本文件

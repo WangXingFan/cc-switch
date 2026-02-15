@@ -1,7 +1,7 @@
 //! 多 API Key 轮换器
 //!
 //! 维护每个 Provider 的轮询计数器（内存状态），
-//! 根据调度策略（轮询/随机）返回 Key 的尝试顺序。
+//! 根据调度策略（轮询/随机/固定）返回 Key 的尝试顺序。
 
 use crate::provider::{KeyRotationStrategy, MultiKeyConfig};
 use std::collections::HashMap;
@@ -10,7 +10,7 @@ use std::sync::RwLock;
 
 /// Key 轮换器
 ///
-/// 为每个 Provider 维护一个轮询计数器，支持 RoundRobin 和 Random 两种策略。
+/// 为每个 Provider 维护一个轮询计数器，支持 RoundRobin、Random 和 Fixed 三种策略。
 /// 线程安全：使用 `RwLock<HashMap>` + `AtomicUsize`。
 pub struct KeyRotator {
     /// 每个 Provider 的轮询计数器（key: provider_id）
@@ -45,6 +45,10 @@ impl KeyRotator {
         let start = match config.strategy {
             KeyRotationStrategy::RoundRobin => self.next_round_robin(provider_id, key_count),
             KeyRotationStrategy::Random => self.random_start(key_count),
+            KeyRotationStrategy::Fixed => {
+                // 固定模式：使用用户指定的索引，越界则回退到 0
+                config.fixed_index.unwrap_or(0).min(key_count - 1)
+            }
         };
 
         // 从 start 位置开始，依次遍历所有 Key
@@ -95,6 +99,15 @@ mod tests {
         MultiKeyConfig {
             keys: keys.into_iter().map(|s| s.to_string()).collect(),
             strategy,
+            fixed_index: None,
+        }
+    }
+
+    fn make_fixed_config(keys: Vec<&str>, fixed_index: Option<usize>) -> MultiKeyConfig {
+        MultiKeyConfig {
+            keys: keys.into_iter().map(|s| s.to_string()).collect(),
+            strategy: KeyRotationStrategy::Fixed,
+            fixed_index,
         }
     }
 
@@ -174,5 +187,40 @@ mod tests {
         let mut sorted = order.clone();
         sorted.sort();
         assert_eq!(sorted, vec![0, 1, 2]);
+    }
+
+    #[test]
+    fn test_fixed_uses_specified_index() {
+        let rotator = KeyRotator::new();
+        let config = make_fixed_config(vec!["k1", "k2", "k3"], Some(1));
+
+        // 固定模式：始终从 index 1 开始
+        let order1 = rotator.select_key_order("p1", &config);
+        assert_eq!(order1[0], 1);
+        assert_eq!(order1, vec![1, 2, 0]);
+
+        // 再次调用依然从 index 1 开始（无状态）
+        let order2 = rotator.select_key_order("p1", &config);
+        assert_eq!(order2[0], 1);
+    }
+
+    #[test]
+    fn test_fixed_default_index_zero() {
+        let rotator = KeyRotator::new();
+        let config = make_fixed_config(vec!["k1", "k2", "k3"], None);
+
+        // 未设置 fixed_index 时默认使用 0
+        let order = rotator.select_key_order("p1", &config);
+        assert_eq!(order[0], 0);
+    }
+
+    #[test]
+    fn test_fixed_out_of_bounds_clamps() {
+        let rotator = KeyRotator::new();
+        let config = make_fixed_config(vec!["k1", "k2", "k3"], Some(99));
+
+        // 越界时钳位到最后一个 key
+        let order = rotator.select_key_order("p1", &config);
+        assert_eq!(order[0], 2);
     }
 }

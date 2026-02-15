@@ -1,10 +1,11 @@
 import { useState, useCallback } from "react";
 import { useTranslation } from "react-i18next";
-import { Plus, Trash2, Eye, EyeOff, GripVertical } from "lucide-react";
+import { Plus, Trash2, Eye, EyeOff, GripVertical, CircleDot, Circle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
+import type { KeyRotationStrategy } from "@/types";
 
 interface MultiKeyInputProps {
   keys: string[];
@@ -13,13 +14,19 @@ interface MultiKeyInputProps {
   placeholder?: string;
   label?: string;
   className?: string;
+  /** Current rotation strategy - controls fixed mode UI */
+  strategy?: KeyRotationStrategy;
+  /** Index of the fixed key (only used in fixed mode) */
+  fixedIndex?: number;
+  /** Callback when fixed index changes */
+  onFixedIndexChange?: (index: number) => void;
 }
 
 /**
  * 多 API Key 输入组件
  *
  * 支持添加、删除、编辑多个 API Key
- * 当只有一个 Key 时表现与普通输入框一致
+ * 固定模式下显示 radio 选择按钮，让用户指定使用哪个 Key
  */
 export function MultiKeyInput({
   keys,
@@ -28,12 +35,16 @@ export function MultiKeyInput({
   placeholder,
   label,
   className,
+  strategy,
+  fixedIndex = 0,
+  onFixedIndexChange,
 }: MultiKeyInputProps) {
   const { t } = useTranslation();
   const [visibleKeys, setVisibleKeys] = useState<Set<number>>(new Set());
 
   // 确保至少有一个空字符串
   const effectiveKeys = keys.length > 0 ? keys : [""];
+  const isFixedMode = strategy === "fixed";
 
   const toggleVisibility = useCallback((index: number) => {
     setVisibleKeys((prev) => {
@@ -74,8 +85,18 @@ export function MultiKeyInput({
         });
         return next;
       });
+      // 固定模式下调整 fixedIndex
+      if (isFixedMode && onFixedIndexChange) {
+        if (fixedIndex === index) {
+          // 删除的正是选中的，回退到 0
+          onFixedIndexChange(0);
+        } else if (fixedIndex > index) {
+          // 删除的在选中之前，索引前移
+          onFixedIndexChange(fixedIndex - 1);
+        }
+      }
     },
-    [effectiveKeys, onChange]
+    [effectiveKeys, onChange, isFixedMode, fixedIndex, onFixedIndexChange]
   );
 
   const showMultiKeyControls = effectiveKeys.length > 1 || disabled === false;
@@ -85,18 +106,54 @@ export function MultiKeyInput({
       {label && (
         <div className="flex items-center justify-between">
           <Label>{label}</Label>
-          {effectiveKeys.length > 1 && (
-            <span className="text-xs text-muted-foreground">
-              {t("provider.multiKey.count", { count: effectiveKeys.length })}
-            </span>
-          )}
+          <div className="flex items-center gap-2">
+            {isFixedMode && effectiveKeys.length > 1 && (
+              <span className="text-xs text-blue-500">
+                {t("provider.multiKey.fixedSelectHint")}
+              </span>
+            )}
+            {effectiveKeys.length > 1 && (
+              <span className="text-xs text-muted-foreground">
+                {t("provider.multiKey.count", { count: effectiveKeys.length })}
+              </span>
+            )}
+          </div>
         </div>
       )}
 
       <div className="space-y-2">
         {effectiveKeys.map((key, index) => (
           <div key={index} className="flex items-center gap-2">
-            {effectiveKeys.length > 1 && (
+            {/* 固定模式：radio 选择按钮 */}
+            {isFixedMode && effectiveKeys.length > 1 && (
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className={cn(
+                  "flex-shrink-0 h-8 w-8",
+                  fixedIndex === index
+                    ? "text-blue-500"
+                    : "text-muted-foreground hover:text-blue-400"
+                )}
+                onClick={() => onFixedIndexChange?.(index)}
+                disabled={disabled}
+                title={
+                  fixedIndex === index
+                    ? t("provider.multiKey.fixedActive")
+                    : t("provider.multiKey.fixedSelectHint")
+                }
+              >
+                {fixedIndex === index ? (
+                  <CircleDot className="h-4 w-4" />
+                ) : (
+                  <Circle className="h-4 w-4" />
+                )}
+              </Button>
+            )}
+
+            {/* 非固定模式：拖拽手柄 */}
+            {!isFixedMode && effectiveKeys.length > 1 && (
               <GripVertical className="h-4 w-4 text-muted-foreground flex-shrink-0 cursor-grab" />
             )}
 
@@ -112,7 +169,11 @@ export function MultiKeyInput({
                     : t("provider.apiKeyPlaceholder"))
                 }
                 disabled={disabled}
-                className="pr-10"
+                className={cn(
+                  "pr-10",
+                  isFixedMode && fixedIndex === index && effectiveKeys.length > 1 &&
+                    "border-blue-500/50 ring-1 ring-blue-500/20"
+                )}
               />
               <Button
                 type="button"
