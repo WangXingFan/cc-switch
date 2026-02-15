@@ -141,7 +141,11 @@
       "roundRobin": "ラウンドロビン",
       "roundRobinDesc": "各キーを順番に使用",
       "random": "ランダム",
-      "randomDesc": "ランダムなキーから開始"
+      "randomDesc": "ランダムなキーから開始",
+      "fixed": "固定",
+      "fixedDesc": "常に選択したキーを使用",
+      "fixedActive": "使用中",
+      "fixedSelectHint": "使用するキーをクリックして選択"
     }
   },
   "notifications": {

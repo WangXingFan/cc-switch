@@ -20,7 +20,7 @@ interface KeyStrategySelectProps {
  * Key 调度策略选择组件
  *
  * 仅在 Key 数量 > 1 时显示
- * 支持轮询 (Round-Robin) 和随机 (Random) 两种策略
+ * 支持轮询 (Round-Robin)、随机 (Random) 和固定 (Fixed) 三种策略
  */
 export function KeyStrategySelect({
   value,
@@ -57,6 +57,14 @@ export function KeyStrategySelect({
               <span>{t("provider.multiKey.random")}</span>
               <span className="text-xs text-muted-foreground">
                 {t("provider.multiKey.randomDesc")}
+              </span>
+            </div>
+          </SelectItem>
+          <SelectItem value="fixed">
+            <div className="flex flex-col">
+              <span>{t("provider.multiKey.fixed")}</span>
+              <span className="text-xs text-muted-foreground">
+                {t("provider.multiKey.fixedDesc")}
               </span>
             </div>
           </SelectItem>

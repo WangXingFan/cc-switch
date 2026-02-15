@@ -156,12 +156,13 @@ export interface ProviderMeta {
 }
 
 // 多 Key 调度策略
-export type KeyRotationStrategy = "round_robin" | "random";
+export type KeyRotationStrategy = "round_robin" | "random" | "fixed";
 
 // 多 API Key 配置
 export interface MultiKeyConfig {
   keys: string[];
   strategy: KeyRotationStrategy;
+  fixedIndex?: number;
 }
 
 // Skill 同步方式

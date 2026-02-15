@@ -141,7 +141,11 @@
       "roundRobin": "Round Robin",
       "roundRobinDesc": "Use each key in sequence",
       "random": "Random",
-      "randomDesc": "Start from a random key"
+      "randomDesc": "Start from a random key",
+      "fixed": "Fixed",
+      "fixedDesc": "Always use the selected key",
+      "fixedActive": "Active",
+      "fixedSelectHint": "Click to select the key to use"
     }
   },
   "notifications": {
