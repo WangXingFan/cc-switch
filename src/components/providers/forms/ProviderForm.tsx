@@ -16,6 +16,7 @@ import type {
   ProviderProxyConfig,
   ClaudeApiFormat,
   ClaudeApiKeyField,
+  MultiKeyConfig,
 } from "@/types";
 import {
   providerPresets,
@@ -195,6 +196,9 @@ export function ProviderForm({
   const [proxyConfig, setProxyConfig] = useState<ProviderProxyConfig>(
     () => initialData?.meta?.proxyConfig ?? { enabled: false },
   );
+  const [multiKeyConfig, setMultiKeyConfig] = useState<
+    MultiKeyConfig | undefined
+  >(() => initialData?.meta?.multiKeyConfig);
   const [pricingConfig, setPricingConfig] = useState<{
     enabled: boolean;
     costMultiplier?: string;
@@ -232,6 +236,7 @@ export function ProviderForm({
     );
     setTestConfig(initialData?.meta?.testConfig ?? { enabled: false });
     setProxyConfig(initialData?.meta?.proxyConfig ?? { enabled: false });
+    setMultiKeyConfig(initialData?.meta?.multiKeyConfig);
     setPricingConfig({
       enabled:
         initialData?.meta?.costMultiplier !== undefined ||
@@ -1097,6 +1102,19 @@ export function ProviderForm({
         supportsFullUrl && category !== "official" && localIsFullUrl
           ? true
           : undefined,
+      multiKeyConfig: (() => {
+        if (
+          !(appId === "claude" || appId === "codex" || appId === "gemini") ||
+          category === "official" ||
+          !multiKeyConfig
+        ) {
+          return undefined;
+        }
+        const filteredKeys = multiKeyConfig.keys.filter((k) => k.trim() !== "");
+        return filteredKeys.length > 1
+          ? { ...multiKeyConfig, keys: filteredKeys }
+          : undefined;
+      })(),
     };
 
     await onSubmit(payload);
@@ -1337,6 +1355,7 @@ export function ProviderForm({
 
     setLocalApiKeyField(preset.apiKeyField ?? "ANTHROPIC_AUTH_TOKEN");
     setLocalIsFullUrl(false);
+    setMultiKeyConfig(undefined);
 
     form.reset({
       name: preset.nameKey ? t(preset.nameKey) : preset.name,
@@ -1534,6 +1553,8 @@ export function ProviderForm({
               websiteUrl={claudeWebsiteUrl}
               isPartner={isClaudePartner}
               partnerPromotionKey={claudePartnerPromotionKey}
+              multiKeyConfig={multiKeyConfig}
+              onMultiKeyConfigChange={setMultiKeyConfig}
               isCopilotPreset={
                 templatePreset?.providerType === "github_copilot" ||
                 initialData?.meta?.providerType === "github_copilot" ||
@@ -1598,6 +1619,8 @@ export function ProviderForm({
               websiteUrl={codexWebsiteUrl}
               isPartner={isCodexPartner}
               partnerPromotionKey={codexPartnerPromotionKey}
+              multiKeyConfig={multiKeyConfig}
+              onMultiKeyConfigChange={setMultiKeyConfig}
               shouldShowSpeedTest={shouldShowSpeedTest}
               codexBaseUrl={codexBaseUrl}
               onBaseUrlChange={handleCodexBaseUrlChange}
@@ -1631,6 +1654,8 @@ export function ProviderForm({
               websiteUrl={geminiWebsiteUrl}
               isPartner={isGeminiPartner}
               partnerPromotionKey={geminiPartnerPromotionKey}
+              multiKeyConfig={multiKeyConfig}
+              onMultiKeyConfigChange={setMultiKeyConfig}
               shouldShowSpeedTest={shouldShowSpeedTest}
               baseUrl={geminiBaseUrl}
               onBaseUrlChange={handleGeminiBaseUrlChange}

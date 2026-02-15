@@ -11,7 +11,7 @@ import {
   showFetchModelsError,
   type FetchedModel,
 } from "@/lib/api/model-fetch";
-import type { ProviderCategory } from "@/types";
+import type { MultiKeyConfig, ProviderCategory } from "@/types";
 
 interface EndpointCandidate {
   url: string;
@@ -28,6 +28,8 @@ interface GeminiFormFieldsProps {
   websiteUrl: string;
   isPartner?: boolean;
   partnerPromotionKey?: string;
+  multiKeyConfig?: MultiKeyConfig;
+  onMultiKeyConfigChange?: (config: MultiKeyConfig | undefined) => void;
 
   // Base URL
   shouldShowSpeedTest: boolean;
@@ -58,6 +60,8 @@ export function GeminiFormFields({
   websiteUrl,
   isPartner,
   partnerPromotionKey,
+  multiKeyConfig,
+  onMultiKeyConfigChange,
   shouldShowSpeedTest,
   baseUrl,
   onBaseUrlChange,
@@ -141,6 +145,9 @@ export function GeminiFormFields({
           websiteUrl={websiteUrl}
           isPartner={isPartner}
           partnerPromotionKey={partnerPromotionKey}
+          multiKeyConfig={multiKeyConfig}
+          onMultiKeyConfigChange={onMultiKeyConfigChange}
+          enableMultiKey={category !== "official"}
         />
       )}
 

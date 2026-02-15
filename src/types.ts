@@ -172,6 +172,9 @@ export interface ProviderMeta {
   providerType?: string;
   // GitHub Copilot 关联账号 ID（旧字段，保留兼容读取）
   githubAccountId?: string;
+  // 多 API Key 配置（仅 Claude/Codex/Gemini 供应商使用）
+  // 存储多个 Key 和调度策略，代理转发时按策略轮换 Key
+  multiKeyConfig?: MultiKeyConfig;
 }
 
 // Skill 同步方式
@@ -188,6 +191,15 @@ export type ClaudeApiFormat = "anthropic" | "openai_chat" | "openai_responses";
 
 // Claude 认证字段类型
 export type ClaudeApiKeyField = "ANTHROPIC_AUTH_TOKEN" | "ANTHROPIC_API_KEY";
+
+// 多 Key 调度策略
+export type KeyRotationStrategy = "round_robin" | "random";
+
+// 多 API Key 配置
+export interface MultiKeyConfig {
+  keys: string[];
+  strategy: KeyRotationStrategy;
+}
 
 // 主页面显示的应用配置
 export interface VisibleApps {

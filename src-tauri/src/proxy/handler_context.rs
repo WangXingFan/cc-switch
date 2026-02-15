@@ -226,6 +226,7 @@ impl RequestContext {
             self.rectifier_config.clone(),
             self.optimizer_config.clone(),
             self.copilot_optimizer_config.clone(),
+            state.key_rotator.clone(),
         )
     }
 

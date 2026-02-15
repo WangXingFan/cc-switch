@@ -7,6 +7,7 @@ use super::{
     body_filter::filter_private_params_with_whitelist,
     error::*,
     failover_switch::FailoverSwitchManager,
+    key_rotator::KeyRotator,
     log_codes::fwd as log_fwd,
     provider_router::ProviderRouter,
     providers::{get_adapter, AuthInfo, AuthStrategy, ProviderAdapter, ProviderType},
@@ -57,6 +58,8 @@ pub struct RequestForwarder {
     copilot_optimizer_config: CopilotOptimizerConfig,
     /// 非流式请求超时（秒）
     non_streaming_timeout: std::time::Duration,
+    /// 多 Key 轮换器
+    key_rotator: Arc<KeyRotator>,
 }
 
 impl RequestForwarder {
@@ -74,6 +77,7 @@ impl RequestForwarder {
         rectifier_config: RectifierConfig,
         optimizer_config: OptimizerConfig,
         copilot_optimizer_config: CopilotOptimizerConfig,
+        key_rotator: Arc<KeyRotator>,
     ) -> Self {
         Self {
             router,
@@ -86,6 +90,7 @@ impl RequestForwarder {
             optimizer_config,
             copilot_optimizer_config,
             non_streaming_timeout: std::time::Duration::from_secs(non_streaming_timeout),
+            key_rotator,
         }
     }
 
@@ -751,6 +756,131 @@ impl RequestForwarder {
         extensions: &Extensions,
         adapter: &dyn ProviderAdapter,
     ) -> Result<(ProxyResponse, Option<String>), ProxyError> {
+        let multi_key_config = provider
+            .meta
+            .as_ref()
+            .and_then(|meta| meta.multi_key_config.as_ref())
+            .filter(|config| config.keys.len() > 1);
+
+        match multi_key_config {
+            Some(config) => {
+                let key_order = self.key_rotator.select_key_order(&provider.id, config);
+                let total_keys = key_order.len();
+                let mut last_error = None;
+
+                for (attempt, key_idx) in key_order.iter().copied().enumerate() {
+                    let key = &config.keys[key_idx];
+                    let prefix: String = key.chars().take(4).collect();
+                    let suffix: String = key
+                        .chars()
+                        .rev()
+                        .take(4)
+                        .collect::<Vec<_>>()
+                        .into_iter()
+                        .rev()
+                        .collect();
+                    let masked = if key.chars().count() > 8 {
+                        format!("{prefix}...{suffix}")
+                    } else {
+                        "***".to_string()
+                    };
+
+                    log::info!(
+                        "[{}] [KEY-001] 多 Key 轮换: 尝试 Key #{} ({}) [{}/{}]",
+                        adapter.name(),
+                        key_idx,
+                        masked,
+                        attempt + 1,
+                        total_keys
+                    );
+
+                    match self
+                        .forward_single_with_key(
+                            provider,
+                            endpoint,
+                            body,
+                            headers,
+                            extensions,
+                            adapter,
+                            Some(key),
+                        )
+                        .await
+                    {
+                        Ok(response) => {
+                            if attempt > 0 {
+                                log::info!(
+                                    "[{}] [KEY-002] 多 Key 轮换成功: Key #{} (第{}次尝试)",
+                                    adapter.name(),
+                                    key_idx,
+                                    attempt + 1
+                                );
+                            }
+                            return Ok(response);
+                        }
+                        Err(error) => {
+                            let should_try_next_key = matches!(
+                                &error,
+                                ProxyError::UpstreamError { status, .. }
+                                    if *status == 401
+                                        || *status == 403
+                                        || *status == 429
+                                        || *status >= 500
+                            ) || matches!(
+                                &error,
+                                ProxyError::Timeout(_) | ProxyError::ForwardFailed(_)
+                            );
+
+                            if should_try_next_key && attempt + 1 < total_keys {
+                                log::warn!(
+                                    "[{}] [KEY-003] Key #{} 失败 ({}), 尝试下一个 Key",
+                                    adapter.name(),
+                                    key_idx,
+                                    error
+                                );
+                                last_error = Some(error);
+                                continue;
+                            }
+
+                            if attempt + 1 >= total_keys && last_error.is_some() {
+                                log::warn!(
+                                    "[{}] [KEY-004] 所有 {} 个 Key 均失败",
+                                    adapter.name(),
+                                    total_keys
+                                );
+                            }
+
+                            return Err(error);
+                        }
+                    }
+                }
+
+                Err(last_error.unwrap_or(ProxyError::NoAvailableProvider))
+            }
+            None => {
+                self.forward_single_with_key(
+                    provider,
+                    endpoint,
+                    body,
+                    headers,
+                    extensions,
+                    adapter,
+                    None,
+                )
+                .await
+            }
+        }
+    }
+
+    async fn forward_single_with_key(
+        &self,
+        provider: &Provider,
+        endpoint: &str,
+        body: &Value,
+        headers: &axum::http::HeaderMap,
+        extensions: &Extensions,
+        adapter: &dyn ProviderAdapter,
+        override_key: Option<&str>,
+    ) -> Result<(ProxyResponse, Option<String>), ProxyError> {
         // 使用适配器提取 base_url
         let mut base_url = adapter.extract_base_url(provider)?;
 
@@ -923,6 +1053,18 @@ impl RequestForwarder {
 
         // 获取认证头（提前准备，用于内联替换）
         let mut auth_headers = if let Some(mut auth) = adapter.extract_auth(provider) {
+            if let Some(key) = override_key {
+                if matches!(
+                    auth.strategy,
+                    AuthStrategy::Anthropic
+                        | AuthStrategy::ClaudeAuth
+                        | AuthStrategy::Bearer
+                        | AuthStrategy::Google
+                ) {
+                    auth = auth.with_key(key.to_string());
+                }
+            }
+
             // GitHub Copilot 特殊处理：从 CopilotAuthManager 获取真实 token
             if auth.strategy == AuthStrategy::GitHubCopilot {
                 if let Some(app_handle) = &self.app_handle {

@@ -3,6 +3,28 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::collections::HashMap;
 
+/// 多 Key 调度策略
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum KeyRotationStrategy {
+    /// 轮询：按顺序依次使用每个 Key
+    #[default]
+    RoundRobin,
+    /// 随机：随机选择一个 Key 开始
+    Random,
+}
+
+/// 多 API Key 配置
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct MultiKeyConfig {
+    /// Key 列表
+    #[serde(default)]
+    pub keys: Vec<String>,
+    /// 调度策略
+    #[serde(default)]
+    pub strategy: KeyRotationStrategy,
+}
+
 // SSOT 模式：不再写供应商副本文件
 
 /// 供应商结构体
@@ -279,6 +301,10 @@ pub struct ProviderMeta {
     /// Claude 认证字段名（"ANTHROPIC_AUTH_TOKEN" 或 "ANTHROPIC_API_KEY"）
     #[serde(rename = "apiKeyField", skip_serializing_if = "Option::is_none")]
     pub api_key_field: Option<String>,
+    /// 多 API Key 配置（仅 Claude/Codex/Gemini 供应商使用）
+    /// 存储多个 Key 和调度策略，代理转发时按策略轮换 Key
+    #[serde(rename = "multiKeyConfig", skip_serializing_if = "Option::is_none")]
+    pub multi_key_config: Option<MultiKeyConfig>,
     /// 是否将 base_url 视为完整 API 端点（不拼接 endpoint 路径）
     #[serde(rename = "isFullUrl", skip_serializing_if = "Option::is_none")]
     pub is_full_url: Option<bool>,

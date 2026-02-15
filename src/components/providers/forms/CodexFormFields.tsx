@@ -10,7 +10,7 @@ import {
   showFetchModelsError,
   type FetchedModel,
 } from "@/lib/api/model-fetch";
-import type { ProviderCategory } from "@/types";
+import type { MultiKeyConfig, ProviderCategory } from "@/types";
 
 interface EndpointCandidate {
   url: string;
@@ -26,6 +26,8 @@ interface CodexFormFieldsProps {
   websiteUrl: string;
   isPartner?: boolean;
   partnerPromotionKey?: string;
+  multiKeyConfig?: MultiKeyConfig;
+  onMultiKeyConfigChange?: (config: MultiKeyConfig | undefined) => void;
 
   // Base URL
   shouldShowSpeedTest: boolean;
@@ -57,6 +59,8 @@ export function CodexFormFields({
   websiteUrl,
   isPartner,
   partnerPromotionKey,
+  multiKeyConfig,
+  onMultiKeyConfigChange,
   shouldShowSpeedTest,
   codexBaseUrl,
   onBaseUrlChange,
@@ -117,6 +121,9 @@ export function CodexFormFields({
         websiteUrl={websiteUrl}
         isPartner={isPartner}
         partnerPromotionKey={partnerPromotionKey}
+        multiKeyConfig={multiKeyConfig}
+        onMultiKeyConfigChange={onMultiKeyConfigChange}
+        enableMultiKey={category !== "official"}
         placeholder={{
           official: t("providerForm.codexOfficialNoApiKey", {
             defaultValue: "官方供应商无需 API Key",
