@@ -177,7 +177,11 @@
       "roundRobin": "轮询",
       "roundRobinDesc": "按顺序依次使用每个 Key",
       "random": "随机",
-      "randomDesc": "随机选择一个 Key 开始"
+      "randomDesc": "随机选择一个 Key 开始",
+      "fixed": "固定",
+      "fixedDesc": "始终使用选中的 Key",
+      "fixedActive": "使用中",
+      "fixedSelectHint": "点击选择要使用的 Key"
     }
   },
   "notifications": {

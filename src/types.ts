@@ -193,12 +193,13 @@ export type ClaudeApiFormat = "anthropic" | "openai_chat" | "openai_responses";
 export type ClaudeApiKeyField = "ANTHROPIC_AUTH_TOKEN" | "ANTHROPIC_API_KEY";
 
 // 多 Key 调度策略
-export type KeyRotationStrategy = "round_robin" | "random";
+export type KeyRotationStrategy = "round_robin" | "random" | "fixed";
 
 // 多 API Key 配置
 export interface MultiKeyConfig {
   keys: string[];
   strategy: KeyRotationStrategy;
+  fixedIndex?: number;
 }
 
 // 主页面显示的应用配置

@@ -85,6 +85,7 @@ export function ApiKeySection({
       onMultiKeyConfigChange({
         keys,
         strategy: multiKeyConfig?.strategy || "round_robin",
+        fixedIndex: multiKeyConfig?.fixedIndex,
       });
     }
   };
@@ -95,6 +96,17 @@ export function ApiKeySection({
     onMultiKeyConfigChange({
       ...multiKeyConfig,
       strategy,
+      // 切换到固定模式时，默认选中第一个 key
+      fixedIndex: strategy === "fixed" ? (multiKeyConfig.fixedIndex ?? 0) : multiKeyConfig.fixedIndex,
+    });
+  };
+
+  // 处理固定索引变更
+  const handleFixedIndexChange = (index: number) => {
+    if (!onMultiKeyConfigChange || !multiKeyConfig) return;
+    onMultiKeyConfigChange({
+      ...multiKeyConfig,
+      fixedIndex: index,
     });
   };
 
@@ -113,6 +125,9 @@ export function ApiKeySection({
                 ? finalPlaceholder.official
                 : finalPlaceholder.thirdParty
             }
+            strategy={multiKeyConfig?.strategy}
+            fixedIndex={multiKeyConfig?.fixedIndex ?? 0}
+            onFixedIndexChange={handleFixedIndexChange}
           />
 
           {/* 仅在多 Key 时显示策略选择 */}
