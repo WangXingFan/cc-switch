@@ -1,6 +1,8 @@
 import { useTranslation } from "react-i18next";
 import ApiKeyInput from "../ApiKeyInput";
-import type { ProviderCategory } from "@/types";
+import { MultiKeyInput } from "./MultiKeyInput";
+import { KeyStrategySelect } from "./KeyStrategySelect";
+import type { ProviderCategory, KeyRotationStrategy, MultiKeyConfig } from "@/types";
 
 interface ApiKeySectionProps {
   id?: string;
@@ -17,6 +19,10 @@ interface ApiKeySectionProps {
   disabled?: boolean;
   isPartner?: boolean;
   partnerPromotionKey?: string;
+  // 多 Key 支持
+  multiKeyConfig?: MultiKeyConfig;
+  onMultiKeyConfigChange?: (config: MultiKeyConfig | undefined) => void;
+  enableMultiKey?: boolean;
 }
 
 export function ApiKeySection({
@@ -31,6 +37,9 @@ export function ApiKeySection({
   disabled,
   isPartner,
   partnerPromotionKey,
+  multiKeyConfig,
+  onMultiKeyConfigChange,
+  enableMultiKey = false,
 }: ApiKeySectionProps) {
   const { t } = useTranslation();
 
@@ -44,21 +53,93 @@ export function ApiKeySection({
   };
 
   const finalPlaceholder = placeholder || defaultPlaceholder;
+  const isDisabled = disabled ?? category === "official";
+
+  // 获取有效的 Key 列表
+  const effectiveKeys =
+    multiKeyConfig?.keys && multiKeyConfig.keys.length > 0
+      ? multiKeyConfig.keys
+      : value
+        ? [value]
+        : [""];
+
+  // 多 Key 模式：检查是否有多个 Key 条目（含空的正在编辑的）
+  const isMultiKeyMode =
+    enableMultiKey &&
+    onMultiKeyConfigChange &&
+    effectiveKeys.length > 1;
+
+  // 处理多 Key 变更
+  const handleMultiKeysChange = (keys: string[]) => {
+    if (!onMultiKeyConfigChange) return;
+
+    const nonEmptyKeys = keys.filter((k) => k.trim() !== "");
+
+    if (keys.length <= 1) {
+      // 退化为单 Key 模式
+      onChange(nonEmptyKeys[0] || "");
+      onMultiKeyConfigChange(undefined);
+    } else {
+      // 多 Key 模式：第一个非空 Key 同步到 settings_config
+      onChange(nonEmptyKeys[0] || "");
+      onMultiKeyConfigChange({
+        keys,
+        strategy: multiKeyConfig?.strategy || "round_robin",
+      });
+    }
+  };
+
+  // 处理策略变更
+  const handleStrategyChange = (strategy: KeyRotationStrategy) => {
+    if (!onMultiKeyConfigChange || !multiKeyConfig) return;
+    onMultiKeyConfigChange({
+      ...multiKeyConfig,
+      strategy,
+    });
+  };
 
   return (
     <div className="space-y-1">
-      <ApiKeyInput
-        id={id}
-        label={label}
-        value={value}
-        onChange={onChange}
-        placeholder={
-          category === "official"
-            ? finalPlaceholder.official
-            : finalPlaceholder.thirdParty
-        }
-        disabled={disabled ?? category === "official"}
-      />
+      {enableMultiKey && onMultiKeyConfigChange ? (
+        // 多 Key 模式
+        <div className="space-y-3">
+          <MultiKeyInput
+            keys={effectiveKeys}
+            onChange={handleMultiKeysChange}
+            disabled={isDisabled}
+            label={label || "API Key"}
+            placeholder={
+              category === "official"
+                ? finalPlaceholder.official
+                : finalPlaceholder.thirdParty
+            }
+          />
+
+          {/* 仅在多 Key 时显示策略选择 */}
+          {isMultiKeyMode && (
+            <KeyStrategySelect
+              value={multiKeyConfig?.strategy || "round_robin"}
+              onChange={handleStrategyChange}
+              disabled={isDisabled}
+            />
+          )}
+        </div>
+      ) : (
+        // 单 Key 模式（向下兼容）
+        <ApiKeyInput
+          id={id}
+          label={label}
+          value={value}
+          onChange={onChange}
+          placeholder={
+            category === "official"
+              ? finalPlaceholder.official
+              : finalPlaceholder.thirdParty
+          }
+          disabled={isDisabled}
+        />
+      )}
+
       {/* API Key 获取链接 */}
       {shouldShowLink && websiteUrl && (
         <div className="space-y-2 -mt-1 pl-1">

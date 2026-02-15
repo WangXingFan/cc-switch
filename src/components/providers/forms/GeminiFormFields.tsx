@@ -4,7 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Info } from "lucide-react";
 import EndpointSpeedTest from "./EndpointSpeedTest";
 import { ApiKeySection, EndpointField } from "./shared";
-import type { ProviderCategory } from "@/types";
+import type { ProviderCategory, MultiKeyConfig } from "@/types";
 
 interface EndpointCandidate {
   url: string;
@@ -21,6 +21,9 @@ interface GeminiFormFieldsProps {
   websiteUrl: string;
   isPartner?: boolean;
   partnerPromotionKey?: string;
+  // 多 Key 支持
+  multiKeyConfig?: MultiKeyConfig;
+  onMultiKeyConfigChange?: (config: MultiKeyConfig | undefined) => void;
 
   // Base URL
   shouldShowSpeedTest: boolean;
@@ -51,6 +54,8 @@ export function GeminiFormFields({
   websiteUrl,
   isPartner,
   partnerPromotionKey,
+  multiKeyConfig,
+  onMultiKeyConfigChange,
   shouldShowSpeedTest,
   baseUrl,
   onBaseUrlChange,
@@ -104,6 +109,9 @@ export function GeminiFormFields({
           websiteUrl={websiteUrl}
           isPartner={isPartner}
           partnerPromotionKey={partnerPromotionKey}
+          multiKeyConfig={multiKeyConfig}
+          onMultiKeyConfigChange={onMultiKeyConfigChange}
+          enableMultiKey={category !== "official"}
         />
       )}
 

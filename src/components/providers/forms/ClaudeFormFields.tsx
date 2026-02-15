@@ -14,6 +14,7 @@ import type {
   ProviderCategory,
   ClaudeApiFormat,
   ClaudeApiKeyField,
+  MultiKeyConfig,
 } from "@/types";
 import type { TemplateValueConfig } from "@/config/claudeProviderPresets";
 
@@ -32,6 +33,9 @@ interface ClaudeFormFieldsProps {
   websiteUrl: string;
   isPartner?: boolean;
   partnerPromotionKey?: string;
+  // 多 Key 支持
+  multiKeyConfig?: MultiKeyConfig;
+  onMultiKeyConfigChange?: (config: MultiKeyConfig | undefined) => void;
 
   // Template Values
   templateValueEntries: Array<[string, TemplateValueConfig]>;
@@ -88,6 +92,8 @@ export function ClaudeFormFields({
   websiteUrl,
   isPartner,
   partnerPromotionKey,
+  multiKeyConfig,
+  onMultiKeyConfigChange,
   templateValueEntries,
   templateValues,
   templatePresetName,
@@ -127,6 +133,9 @@ export function ClaudeFormFields({
           websiteUrl={websiteUrl}
           isPartner={isPartner}
           partnerPromotionKey={partnerPromotionKey}
+          multiKeyConfig={multiKeyConfig}
+          onMultiKeyConfigChange={onMultiKeyConfigChange}
+          enableMultiKey={category !== "official"}
         />
       )}
 

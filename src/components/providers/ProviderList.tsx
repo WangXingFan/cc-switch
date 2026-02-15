@@ -92,6 +92,7 @@ export function ProviderList({
     providers,
     appId,
   );
+  const { checkProvider, isChecking } = useStreamCheck(appId);
 
   const { data: opencodeLiveIds } = useQuery({
     queryKey: ["opencodeLiveProviderIds"],
@@ -312,7 +313,8 @@ export function ProviderList({
                 onConfigureUsage={onConfigureUsage}
                 onOpenWebsite={onOpenWebsite}
                 onOpenTerminal={onOpenTerminal}
-                isTesting={false} // isChecking(provider.id) - 测试功能已隐藏
+                onTest={(provider) => checkProvider(provider.id, provider.name)}
+                isTesting={isChecking(provider.id)}
                 isProxyRunning={isProxyRunning}
                 isProxyTakeover={isProxyTakeover}
                 isAutoFailoverEnabled={isFailoverModeActive}

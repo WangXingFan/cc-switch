@@ -335,3 +335,93 @@ export const setCodexModelName = (
   const lines = normalizedText.split("\n");
   return `${replacementLine}\n${lines.join("\n")}`;
 };
+
+// ============================================================================
+// 多 Key 配置工具函数
+// ============================================================================
+
+import type { MultiKeyConfig, KeyRotationStrategy, ProviderMeta } from "@/types";
+
+/**
+ * 从 ProviderMeta 中获取多 Key 配置
+ */
+export const getMultiKeyConfig = (
+  meta: ProviderMeta | undefined
+): MultiKeyConfig | undefined => {
+  return meta?.multiKeyConfig;
+};
+
+/**
+ * 创建或更新 ProviderMeta 中的多 Key 配置
+ */
+export const setMultiKeyConfig = (
+  meta: ProviderMeta | undefined,
+  config: MultiKeyConfig | undefined
+): ProviderMeta => {
+  const baseMeta = meta || {};
+
+  if (!config || config.keys.length === 0) {
+    // 移除多 Key 配置
+    const { multiKeyConfig: _, ...rest } = baseMeta;
+    return rest;
+  }
+
+  // 如果只有一个 Key，也移除多 Key 配置（使用 settings_config 中的单 Key）
+  if (config.keys.length === 1) {
+    const { multiKeyConfig: _, ...rest } = baseMeta;
+    return rest;
+  }
+
+  return {
+    ...baseMeta,
+    multiKeyConfig: config,
+  };
+};
+
+/**
+ * 从多 Key 列表和 settings_config 中同步获取有效的 Key 列表
+ *
+ * 规则：
+ * - 如果有多 Key 配置，返回多 Key 列表
+ * - 否则返回 settings_config 中的单 Key 作为数组
+ */
+export const getEffectiveKeys = (
+  multiKeyConfig: MultiKeyConfig | undefined,
+  singleKey: string | undefined
+): string[] => {
+  if (multiKeyConfig && multiKeyConfig.keys.length > 0) {
+    return multiKeyConfig.keys;
+  }
+  return singleKey ? [singleKey] : [];
+};
+
+/**
+ * 将 Key 列表同步回 settings_config 和 meta
+ *
+ * 规则：
+ * - 第一个 Key 写入 settings_config（保持与 CLI 工具兼容）
+ * - 完整列表写入 meta.multiKeyConfig（仅当 > 1 个 Key 时）
+ */
+export const syncKeysToConfig = (
+  keys: string[],
+  strategy: KeyRotationStrategy = "round_robin"
+): { firstKey: string; multiKeyConfig: MultiKeyConfig | undefined } => {
+  const validKeys = keys.filter((k) => k.trim() !== "");
+
+  if (validKeys.length === 0) {
+    return { firstKey: "", multiKeyConfig: undefined };
+  }
+
+  if (validKeys.length === 1) {
+    return { firstKey: validKeys[0], multiKeyConfig: undefined };
+  }
+
+  return {
+    firstKey: validKeys[0],
+    multiKeyConfig: {
+      keys: validKeys,
+      strategy,
+    },
+  };
+};
+

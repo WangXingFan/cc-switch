@@ -6,6 +6,7 @@ use super::{
     body_filter::filter_private_params_with_whitelist,
     error::*,
     failover_switch::FailoverSwitchManager,
+    key_rotator::KeyRotator,
     provider_router::ProviderRouter,
     providers::{get_adapter, ProviderAdapter, ProviderType},
     thinking_budget_rectifier::{rectify_thinking_budget, should_rectify_thinking_budget},
@@ -99,6 +100,8 @@ pub struct RequestForwarder {
     rectifier_config: RectifierConfig,
     /// 非流式请求超时（秒）
     non_streaming_timeout: std::time::Duration,
+    /// 多 Key 轮换器
+    key_rotator: Arc<KeyRotator>,
 }
 
 impl RequestForwarder {
@@ -114,6 +117,7 @@ impl RequestForwarder {
         _streaming_first_byte_timeout: u64,
         _streaming_idle_timeout: u64,
         rectifier_config: RectifierConfig,
+        key_rotator: Arc<KeyRotator>,
     ) -> Self {
         Self {
             router,
@@ -124,6 +128,7 @@ impl RequestForwarder {
             current_provider_id_at_start,
             rectifier_config,
             non_streaming_timeout: std::time::Duration::from_secs(non_streaming_timeout),
+            key_rotator,
         }
     }
 
@@ -734,7 +739,11 @@ impl RequestForwarder {
         })
     }
 
-    /// 转发单个请求（使用适配器）
+    /// 转发单个请求（使用适配器）- 支持多 Key 轮换
+    ///
+    /// 如果 Provider 配置了多 Key，则按策略选择 Key 顺序，
+    /// 依次尝试每个 Key，直到成功或全部失败。
+    /// 如果没有多 Key 配置，则直接使用原始 Key（零开销）。
     async fn forward(
         &self,
         provider: &Provider,
@@ -742,6 +751,108 @@ impl RequestForwarder {
         body: &Value,
         headers: &axum::http::HeaderMap,
         adapter: &dyn ProviderAdapter,
+    ) -> Result<Response, ProxyError> {
+        // 检查是否有多 Key 配置
+        let multi_key_config = provider
+            .meta
+            .as_ref()
+            .and_then(|m| m.multi_key_config.as_ref())
+            .filter(|c| c.keys.len() > 1);
+
+        match multi_key_config {
+            Some(config) => {
+                // 多 Key 模式：按策略选择 Key 顺序
+                let key_order = self.key_rotator.select_key_order(&provider.id, config);
+                let total_keys = key_order.len();
+                let mut last_error = None;
+
+                for (attempt, &key_idx) in key_order.iter().enumerate() {
+                    let key = &config.keys[key_idx];
+                    let masked = if key.len() > 8 {
+                        format!("{}...{}", &key[..4], &key[key.len()-4..])
+                    } else {
+                        "***".to_string()
+                    };
+
+                    log::info!(
+                        "[{}] [KEY-001] 多Key轮换: 尝试 Key #{} ({}) [{}/{}]",
+                        adapter.name(),
+                        key_idx,
+                        masked,
+                        attempt + 1,
+                        total_keys
+                    );
+
+                    match self
+                        .forward_single_with_key(provider, endpoint, body, headers, adapter, Some(key))
+                        .await
+                    {
+                        Ok(response) => {
+                            if attempt > 0 {
+                                log::info!(
+                                    "[{}] [KEY-002] 多Key轮换成功: Key #{} (第{}次尝试)",
+                                    adapter.name(),
+                                    key_idx,
+                                    attempt + 1
+                                );
+                            }
+                            return Ok(response);
+                        }
+                        Err(e) => {
+                            // 判断是否为 Key 级别可重试错误（429 限流、401 无效、5xx 服务端错误）
+                            let should_try_next_key = matches!(
+                                &e,
+                                ProxyError::UpstreamError { status, .. }
+                                    if *status == 429 || *status == 401 || *status == 403 || *status >= 500
+                            ) || matches!(
+                                &e,
+                                ProxyError::Timeout(_) | ProxyError::ForwardFailed(_)
+                            );
+
+                            if should_try_next_key && attempt + 1 < total_keys {
+                                log::warn!(
+                                    "[{}] [KEY-003] Key #{} 失败 ({}), 尝试下一个 Key",
+                                    adapter.name(),
+                                    key_idx,
+                                    e
+                                );
+                                last_error = Some(e);
+                                continue;
+                            }
+
+                            // 不可重试或已是最后一个 Key
+                            if attempt + 1 >= total_keys && last_error.is_some() {
+                                log::warn!(
+                                    "[{}] [KEY-004] 所有 {} 个 Key 均失败",
+                                    adapter.name(),
+                                    total_keys
+                                );
+                            }
+                            return Err(e);
+                        }
+                    }
+                }
+
+                // 所有 Key 都失败了
+                Err(last_error.unwrap_or(ProxyError::NoAvailableProvider))
+            }
+            None => {
+                // 单 Key 模式：直接转发（零开销）
+                self.forward_single_with_key(provider, endpoint, body, headers, adapter, None)
+                    .await
+            }
+        }
+    }
+
+    /// 转发单个请求（使用适配器），可选替换 API Key
+    async fn forward_single_with_key(
+        &self,
+        provider: &Provider,
+        endpoint: &str,
+        body: &Value,
+        headers: &axum::http::HeaderMap,
+        adapter: &dyn ProviderAdapter,
+        override_key: Option<&str>,
     ) -> Result<Response, ProxyError> {
         // 使用适配器提取 base_url
         let base_url = adapter.extract_base_url(provider)?;
@@ -840,9 +951,13 @@ impl RequestForwarder {
         // 参考 CCH: undici 在连接提前关闭时会对不完整的 gzip 流抛出错误
         request = request.header("accept-encoding", "identity");
 
-        // 使用适配器添加认证头
+        // 使用适配器添加认证头（支持多 Key 轮换时替换 API Key）
         if let Some(auth) = adapter.extract_auth(provider) {
-            request = adapter.add_auth_headers(request, &auth);
+            let effective_auth = match override_key {
+                Some(key) => auth.with_key(key.to_string()),
+                None => auth,
+            };
+            request = adapter.add_auth_headers(request, &effective_auth);
         }
 
         // anthropic-version 统一处理（仅 Claude）：优先使用客户端的版本号，否则使用默认值

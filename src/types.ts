@@ -150,6 +150,18 @@ export interface ProviderMeta {
   // - "ANTHROPIC_AUTH_TOKEN" (默认): 大多数第三方/聚合供应商
   // - "ANTHROPIC_API_KEY": 少数供应商需要原生 API Key
   apiKeyField?: "ANTHROPIC_AUTH_TOKEN" | "ANTHROPIC_API_KEY";
+  // 多 API Key 配置（仅 Claude/Codex 供应商使用）
+  // 存储多个 Key 和调度策略，代理转发时按策略轮换 Key
+  multiKeyConfig?: MultiKeyConfig;
+}
+
+// 多 Key 调度策略
+export type KeyRotationStrategy = "round_robin" | "random";
+
+// 多 API Key 配置
+export interface MultiKeyConfig {
+  keys: string[];
+  strategy: KeyRotationStrategy;
 }
 
 // Skill 同步方式

@@ -15,6 +15,9 @@ import type {
   ProviderProxyConfig,
   ClaudeApiFormat,
   ClaudeApiKeyField,
+  OpenCodeModel,
+  OpenCodeProviderConfig,
+  MultiKeyConfig,
 } from "@/types";
 import {
   providerPresets,
@@ -164,6 +167,9 @@ export function ProviderForm({
   const [proxyConfig, setProxyConfig] = useState<ProviderProxyConfig>(
     () => initialData?.meta?.proxyConfig ?? { enabled: false },
   );
+  const [multiKeyConfig, setMultiKeyConfig] = useState<
+    MultiKeyConfig | undefined
+  >(() => initialData?.meta?.multiKeyConfig);
   const [pricingConfig, setPricingConfig] = useState<{
     enabled: boolean;
     costMultiplier?: string;
@@ -826,6 +832,21 @@ export function ProviderForm({
         appId === "claude" && category !== "official"
           ? localApiKeyField
           : undefined,
+      // 多 Key 配置：仅在 Claude/Codex/Gemini 且非官方类别时保存
+      multiKeyConfig: (() => {
+        if (
+          !(appId === "claude" || appId === "codex" || appId === "gemini") ||
+          category === "official" ||
+          !multiKeyConfig
+        )
+          return undefined;
+        const filteredKeys = multiKeyConfig.keys.filter(
+          (k) => k.trim() !== ""
+        );
+        return filteredKeys.length > 1
+          ? { ...multiKeyConfig, keys: filteredKeys }
+          : undefined;
+      })(),
     };
 
     onSubmit(payload);
@@ -1253,6 +1274,8 @@ export function ProviderForm({
             websiteUrl={claudeWebsiteUrl}
             isPartner={isClaudePartner}
             partnerPromotionKey={claudePartnerPromotionKey}
+            multiKeyConfig={multiKeyConfig}
+            onMultiKeyConfigChange={setMultiKeyConfig}
             templateValueEntries={templateValueEntries}
             templateValues={templateValues}
             templatePresetName={templatePreset?.name || ""}
@@ -1292,6 +1315,8 @@ export function ProviderForm({
             websiteUrl={codexWebsiteUrl}
             isPartner={isCodexPartner}
             partnerPromotionKey={codexPartnerPromotionKey}
+            multiKeyConfig={multiKeyConfig}
+            onMultiKeyConfigChange={setMultiKeyConfig}
             shouldShowSpeedTest={shouldShowSpeedTest}
             codexBaseUrl={codexBaseUrl}
             onBaseUrlChange={handleCodexBaseUrlChange}
@@ -1323,6 +1348,8 @@ export function ProviderForm({
             websiteUrl={geminiWebsiteUrl}
             isPartner={isGeminiPartner}
             partnerPromotionKey={geminiPartnerPromotionKey}
+            multiKeyConfig={multiKeyConfig}
+            onMultiKeyConfigChange={setMultiKeyConfig}
             shouldShowSpeedTest={shouldShowSpeedTest}
             baseUrl={geminiBaseUrl}
             onBaseUrlChange={handleGeminiBaseUrlChange}

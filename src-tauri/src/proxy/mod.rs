@@ -13,6 +13,7 @@ pub mod handler_context;
 mod handlers;
 mod health;
 pub mod http_client;
+pub mod key_rotator;
 pub mod log_codes;
 pub mod model_mapper;
 pub mod provider_router;

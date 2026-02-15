@@ -1,7 +1,7 @@
 import { useTranslation } from "react-i18next";
 import EndpointSpeedTest from "./EndpointSpeedTest";
 import { ApiKeySection, EndpointField } from "./shared";
-import type { ProviderCategory } from "@/types";
+import type { ProviderCategory, MultiKeyConfig } from "@/types";
 
 interface EndpointCandidate {
   url: string;
@@ -17,6 +17,9 @@ interface CodexFormFieldsProps {
   websiteUrl: string;
   isPartner?: boolean;
   partnerPromotionKey?: string;
+  // 多 Key 支持
+  multiKeyConfig?: MultiKeyConfig;
+  onMultiKeyConfigChange?: (config: MultiKeyConfig | undefined) => void;
 
   // Base URL
   shouldShowSpeedTest: boolean;
@@ -46,6 +49,8 @@ export function CodexFormFields({
   websiteUrl,
   isPartner,
   partnerPromotionKey,
+  multiKeyConfig,
+  onMultiKeyConfigChange,
   shouldShowSpeedTest,
   codexBaseUrl,
   onBaseUrlChange,
@@ -74,6 +79,9 @@ export function CodexFormFields({
         websiteUrl={websiteUrl}
         isPartner={isPartner}
         partnerPromotionKey={partnerPromotionKey}
+        multiKeyConfig={multiKeyConfig}
+        onMultiKeyConfigChange={onMultiKeyConfigChange}
+        enableMultiKey={category !== "official"}
         placeholder={{
           official: t("providerForm.codexOfficialNoApiKey", {
             defaultValue: "官方供应商无需 API Key",

@@ -131,6 +131,17 @@
         "oauthHint": "Google 官方使用 OAuth 个人认证，无需填写 API Key。首次使用时会自动打开浏览器进行登录。",
         "apiKeyPlaceholder": "请输入 Gemini API Key"
       }
+    },
+    "multiKey": {
+      "count": "共 {{count}} 个 Key",
+      "placeholder": "API Key #{{index}}",
+      "addKey": "添加 API Key",
+      "hint": "多个 Key 将按策略轮换使用，单个 Key 失败时自动尝试下一个",
+      "strategy": "调度策略",
+      "roundRobin": "轮询",
+      "roundRobinDesc": "按顺序依次使用每个 Key",
+      "random": "随机",
+      "randomDesc": "随机选择一个 Key 开始"
     }
   },
   "notifications": {
