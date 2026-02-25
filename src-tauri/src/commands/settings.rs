@@ -196,6 +196,39 @@ pub async fn get_auto_launch_status() -> Result<bool, String> {
     crate::auto_launch::is_auto_launch_enabled().map_err(|e| format!("获取开机自启状态失败: {e}"))
 }
 
+/// 注册全局快捷键（注销旧的、注册新的、保存到 settings）
+#[tauri::command]
+pub async fn register_global_shortcut(
+    app: AppHandle,
+    shortcut: String,
+) -> Result<bool, String> {
+    // 先注销所有旧快捷键
+    crate::unregister_all_shortcuts(&app);
+
+    // 注册新快捷键
+    crate::register_shortcut_inner(&app, &shortcut)?;
+
+    // 保存到 settings
+    let mut settings = crate::settings::get_settings();
+    settings.global_shortcut = Some(shortcut);
+    crate::settings::update_settings(settings).map_err(|e| e.to_string())?;
+
+    Ok(true)
+}
+
+/// 注销全局快捷键并清除 settings
+#[tauri::command]
+pub async fn unregister_global_shortcut(app: AppHandle) -> Result<bool, String> {
+    crate::unregister_all_shortcuts(&app);
+
+    let mut settings = crate::settings::get_settings();
+    settings.global_shortcut = None;
+    crate::settings::update_settings(settings).map_err(|e| e.to_string())?;
+
+    log::info!("全局快捷键已注销并清除");
+    Ok(true)
+}
+
 /// 获取整流器配置
 #[tauri::command]
 pub async fn get_rectifier_config(

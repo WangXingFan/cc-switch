@@ -169,6 +169,14 @@ export const settingsApi = {
     return await invoke("set_auto_launch", { enabled });
   },
 
+  async registerGlobalShortcut(shortcut: string): Promise<boolean> {
+    return await invoke("register_global_shortcut", { shortcut });
+  },
+
+  async unregisterGlobalShortcut(): Promise<boolean> {
+    return await invoke("unregister_global_shortcut");
+  },
+
   async getAutoLaunchStatus(): Promise<boolean> {
     return await invoke("get_auto_launch_status");
   },
