@@ -58,6 +58,65 @@ use tauri::image::Image;
 use tauri::tray::{TrayIconBuilder, TrayIconEvent};
 use tauri::RunEvent;
 use tauri::{Emitter, Manager};
+use tauri_plugin_global_shortcut::GlobalShortcutExt;
+
+/// 切换主窗口显示/隐藏
+pub fn toggle_main_window(app: &tauri::AppHandle) {
+    let Some(window) = app.get_webview_window("main") else {
+        log::warn!("toggle_main_window: 找不到主窗口");
+        return;
+    };
+    let visible = window.is_visible().unwrap_or(false);
+    if visible {
+        let _ = window.hide();
+        #[cfg(target_os = "windows")]
+        {
+            let _ = window.set_skip_taskbar(true);
+        }
+        #[cfg(target_os = "macos")]
+        {
+            tray::apply_tray_policy(app, false);
+        }
+    } else {
+        #[cfg(target_os = "windows")]
+        {
+            let _ = window.set_skip_taskbar(false);
+        }
+        let _ = window.unminimize();
+        let _ = window.show();
+        let _ = window.set_focus();
+        #[cfg(target_os = "macos")]
+        {
+            tray::apply_tray_policy(app, true);
+        }
+    }
+}
+
+/// 注册全局快捷键（内部使用）
+pub(crate) fn register_shortcut_inner(app: &tauri::AppHandle, shortcut_str: &str) -> Result<(), String> {
+    let shortcut = shortcut_str
+        .parse::<tauri_plugin_global_shortcut::Shortcut>()
+        .map_err(|e| format!("无效的快捷键格式 '{}': {}", shortcut_str, e))?;
+
+    let app_handle = app.clone();
+    app.global_shortcut()
+        .on_shortcut(shortcut, move |_app, _scut, event| {
+            if event.state == tauri_plugin_global_shortcut::ShortcutState::Pressed {
+                toggle_main_window(&app_handle);
+            }
+        })
+        .map_err(|e| format!("注册快捷键失败: {}", e))?;
+
+    log::info!("全局快捷键已注册: {}", shortcut_str);
+    Ok(())
+}
+
+/// 注销所有全局快捷键
+pub(crate) fn unregister_all_shortcuts(app: &tauri::AppHandle) {
+    if let Err(e) = app.global_shortcut().unregister_all() {
+        log::warn!("注销全局快捷键失败: {}", e);
+    }
+}
 
 fn redact_url_for_log(url_str: &str) -> String {
     match url::Url::parse(url_str) {
@@ -252,6 +311,7 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_store::Builder::new().build())
+        .plugin(tauri_plugin_global_shortcut::Builder::new().build())
         .setup(|app| {
             // 预先刷新 Store 覆盖配置，确保后续路径读取正确（日志/数据库等）
             app_store::refresh_app_config_dir_override(app.handle());
@@ -822,6 +882,13 @@ pub fn run() {
                 }
             }
 
+            // 全局快捷键：从 settings 读取并注册
+            if let Some(shortcut_str) = &settings.global_shortcut {
+                if let Err(e) = register_shortcut_inner(app.handle(), shortcut_str) {
+                    log::warn!("启动时注册全局快捷键失败: {}", e);
+                }
+            }
+
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -949,6 +1016,9 @@ pub fn run() {
             // Auto launch
             commands::set_auto_launch,
             commands::get_auto_launch_status,
+            // Global shortcut
+            commands::register_global_shortcut,
+            commands::unregister_global_shortcut,
             // Proxy server management
             commands::start_proxy_server,
             commands::stop_proxy_with_restore,

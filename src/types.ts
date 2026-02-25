@@ -286,6 +286,10 @@ export interface Settings {
   // Windows: "cmd" | "powershell" | "wt"
   // Linux: "gnome-terminal" | "konsole" | "xfce4-terminal" | "alacritty" | "kitty" | "ghostty"
   preferredTerminal?: string;
+
+  // ===== 全局快捷键 =====
+  // 全局快捷键（用于切换主窗口显示/隐藏）
+  globalShortcut?: string;
 }
 
 export interface SessionMeta {
