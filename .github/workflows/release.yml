@@ -94,6 +94,9 @@ jobs:
       - name: Install frontend deps
         run: pnpm install --frozen-lockfile
 
+      - name: TypeScript type check
+        run: pnpm typecheck
+
       - name: Build Tauri App (macOS)
         if: runner.os == 'macOS'
         run: pnpm tauri build --target universal-apple-darwin --config '{"bundle":{"createUpdaterArtifacts":false}}'
