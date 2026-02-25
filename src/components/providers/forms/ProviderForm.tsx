@@ -15,8 +15,6 @@ import type {
   ProviderProxyConfig,
   ClaudeApiFormat,
   ClaudeApiKeyField,
-  OpenCodeModel,
-  OpenCodeProviderConfig,
   MultiKeyConfig,
 } from "@/types";
 import {
