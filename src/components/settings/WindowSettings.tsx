@@ -163,26 +163,28 @@ export function WindowSettings({ settings, onChange }: WindowSettingsProps) {
           }
         />
 
-        <div className="flex items-start gap-3 py-2">
-          <div className="mt-0.5">
-            <Keyboard className="h-4 w-4 text-yellow-500" />
-          </div>
-          <div className="flex-1 min-w-0">
-            <div className="text-sm font-medium">
-              {t("settings.globalShortcut")}
+        <div className="flex items-center justify-between gap-4 rounded-xl border border-border bg-card/50 p-4 transition-colors hover:bg-muted/50">
+          <div className="flex items-center gap-3">
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-background ring-1 ring-border">
+              <Keyboard className="h-4 w-4 text-yellow-500" />
             </div>
-            <div className="text-xs text-muted-foreground mt-0.5">
-              {t("settings.globalShortcutDescription")}
+            <div className="space-y-1">
+              <p className="text-sm font-medium leading-none">
+                {t("settings.globalShortcut")}
+              </p>
+              <p className="text-xs text-muted-foreground">
+                {t("settings.globalShortcutDescription")}
+              </p>
             </div>
           </div>
           <div className="flex items-center gap-1.5 shrink-0">
             <button
               ref={inputRef}
               type="button"
-              className={`h-9 min-w-[180px] px-3 rounded-md border text-sm text-left transition-colors ${
+              className={`h-8 min-w-[160px] px-3 rounded-lg border text-sm text-left transition-colors ${
                 isRecording
                   ? "border-primary bg-primary/5 ring-1 ring-primary/30"
-                  : "border-border-default bg-background hover:border-border-active"
+                  : "border-border bg-background hover:border-border/80"
               }`}
               onClick={() => {
                 setIsRecording(true);
@@ -201,7 +203,7 @@ export function WindowSettings({ settings, onChange }: WindowSettingsProps) {
             {settings.globalShortcut && !isRecording && (
               <button
                 type="button"
-                className="h-9 w-9 flex items-center justify-center rounded-md border border-border-default hover:bg-destructive/10 hover:border-destructive/30 transition-colors"
+                className="h-8 w-8 flex items-center justify-center rounded-lg border border-border bg-background hover:bg-destructive/10 hover:border-destructive/30 transition-colors ring-1 ring-border"
                 onClick={handleClear}
                 title={t("settings.globalShortcutClear")}
               >
