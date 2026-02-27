@@ -5,6 +5,7 @@ import { AppWindow, MonitorUp, Power, EyeOff, Keyboard, X } from "lucide-react";
 import { ToggleRow } from "@/components/ui/toggle-row";
 import { settingsApi } from "@/lib/api";
 import { toast } from "sonner";
+import { AnimatePresence, motion } from "framer-motion";
 
 /** Convert a KeyboardEvent into a Tauri-compatible shortcut string like "Ctrl+Shift+S" */
 function keyEventToShortcut(e: React.KeyboardEvent): string | null {
@@ -114,13 +115,25 @@ export function WindowSettings({ settings, onChange }: WindowSettingsProps) {
           onCheckedChange={(value) => onChange({ launchOnStartup: value })}
         />
 
-        <ToggleRow
-          icon={<EyeOff className="h-4 w-4 text-green-500" />}
-          title={t("settings.silentStartup")}
-          description={t("settings.silentStartupDescription")}
-          checked={!!settings.silentStartup}
-          onCheckedChange={(value) => onChange({ silentStartup: value })}
-        />
+        <AnimatePresence initial={false}>
+          {settings.launchOnStartup && (
+            <motion.div
+              key="silent-startup"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 10 }}
+              transition={{ duration: 0.3 }}
+            >
+              <ToggleRow
+                icon={<EyeOff className="h-4 w-4 text-green-500" />}
+                title={t("settings.silentStartup")}
+                description={t("settings.silentStartupDescription")}
+                checked={!!settings.silentStartup}
+                onCheckedChange={(value) => onChange({ silentStartup: value })}
+              />
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         <ToggleRow
           icon={<MonitorUp className="h-4 w-4 text-purple-500" />}
