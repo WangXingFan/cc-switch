@@ -827,11 +827,6 @@ export function ProviderForm({
         appId === "claude" && category !== "official"
           ? localApiFormat
           : undefined,
-<<<<<<< HEAD
-      apiKeyField:
-        appId === "claude" && category !== "official"
-          ? localApiKeyField
-          : undefined,
       // 多 Key 配置：仅在 Claude/Codex/Gemini 且非官方类别时保存
       multiKeyConfig: (() => {
         if (
@@ -847,8 +842,6 @@ export function ProviderForm({
           ? { ...multiKeyConfig, keys: filteredKeys }
           : undefined;
       })(),
-=======
->>>>>>> upstream/main
     };
 
     onSubmit(payload);
