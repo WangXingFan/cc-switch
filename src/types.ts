@@ -173,11 +173,6 @@ export type SkillSyncMethod = "auto" | "symlink" | "copy";
 // - "openai_chat": OpenAI Chat Completions 格式，需要格式转换
 export type ClaudeApiFormat = "anthropic" | "openai_chat";
 
-// Claude 认证字段类型
-// - "ANTHROPIC_AUTH_TOKEN": 大多数第三方/聚合供应商使用（默认）
-// - "ANTHROPIC_API_KEY": 少数供应商需要原生 API Key
-export type ClaudeApiKeyField = "ANTHROPIC_AUTH_TOKEN" | "ANTHROPIC_API_KEY";
-
 // 主页面显示的应用配置
 export interface VisibleApps {
   claude: boolean;

@@ -2,7 +2,7 @@
 
 # CC Switch - 二开自用版
 
-[![Base Version](https://img.shields.io/badge/base-v3.10.3-blue.svg)](https://github.com/farion1231/cc-switch)
+[![Base Version](https://img.shields.io/badge/base-v3.11.1-blue.svg)](https://github.com/farion1231/cc-switch)
 [![Platform](https://img.shields.io/badge/platform-Windows-lightgrey.svg)](https://github.com/WangXingFan/cc-switch/releases)
 
 **基于 [CC Switch](https://github.com/farion1231/cc-switch) 的个人二次开发版本**
