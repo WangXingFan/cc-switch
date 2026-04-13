@@ -1841,7 +1841,9 @@ function ProviderFormFull({
         ) {
           return undefined;
         }
-        const filteredKeys = multiKeyConfig.keys.filter((k) => k.trim() !== "");
+        const filteredKeys = multiKeyConfig.keys
+          .map((k) => k.trim())
+          .filter((k) => k !== "");
         return filteredKeys.length > 1
           ? { ...multiKeyConfig, keys: filteredKeys }
           : undefined;
