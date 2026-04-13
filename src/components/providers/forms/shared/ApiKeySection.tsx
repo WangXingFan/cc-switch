@@ -2,7 +2,11 @@ import { useTranslation } from "react-i18next";
 import ApiKeyInput from "../ApiKeyInput";
 import { MultiKeyInput } from "./MultiKeyInput";
 import { KeyStrategySelect } from "./KeyStrategySelect";
-import type { ProviderCategory, KeyRotationStrategy, MultiKeyConfig } from "@/types";
+import type {
+  ProviderCategory,
+  KeyRotationStrategy,
+  MultiKeyConfig,
+} from "@/types";
 
 interface ApiKeySectionProps {
   id?: string;
@@ -65,9 +69,7 @@ export function ApiKeySection({
 
   // 多 Key 模式：检查是否有多个 Key 条目（含空的正在编辑的）
   const isMultiKeyMode =
-    enableMultiKey &&
-    onMultiKeyConfigChange &&
-    effectiveKeys.length > 1;
+    enableMultiKey && onMultiKeyConfigChange && effectiveKeys.length > 1;
 
   // 处理多 Key 变更
   const handleMultiKeysChange = (keys: string[]) => {
@@ -97,7 +99,10 @@ export function ApiKeySection({
       ...multiKeyConfig,
       strategy,
       // 切换到固定模式时，默认选中第一个 key
-      fixedIndex: strategy === "fixed" ? (multiKeyConfig.fixedIndex ?? 0) : multiKeyConfig.fixedIndex,
+      fixedIndex:
+        strategy === "fixed"
+          ? (multiKeyConfig.fixedIndex ?? 0)
+          : multiKeyConfig.fixedIndex,
     });
   };
 

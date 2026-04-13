@@ -8,7 +8,9 @@ import { isLinux } from "@/lib/platform";
 import { settingsApi } from "@/lib/api";
 import { toast } from "sonner";
 
-function keyEventToShortcut(event: KeyboardEvent<HTMLButtonElement>): string | null {
+function keyEventToShortcut(
+  event: KeyboardEvent<HTMLButtonElement>,
+): string | null {
   const ignoredKeys = new Set([
     "Control",
     "Shift",
@@ -101,7 +103,7 @@ export function WindowSettings({ settings, onChange }: WindowSettingsProps) {
 
   const displayValue = isRecording
     ? pendingKeys || t("settings.globalShortcutRecording")
-    : settings.globalShortcut ?? "";
+    : (settings.globalShortcut ?? "");
 
   return (
     <section className="space-y-4">
@@ -208,7 +210,7 @@ export function WindowSettings({ settings, onChange }: WindowSettingsProps) {
             {settings.globalShortcut && !isRecording && (
               <button
                 type="button"
-                className="h-8 w-8 flex items-center justify-center rounded-lg border border-border bg-background hover:bg-destructive/10 hover:border-destructive/30 transition-colors ring-1 ring-border"
+                className="h-8 w-8 flex items-center justify-center rounded-lg border border-border bg-background transition-colors ring-1 ring-border hover:border-destructive/30 hover:bg-destructive/10"
                 onClick={() => {
                   void handleClear();
                 }}

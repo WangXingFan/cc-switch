@@ -1,6 +1,14 @@
 import { useState, useCallback } from "react";
 import { useTranslation } from "react-i18next";
-import { Plus, Trash2, Eye, EyeOff, GripVertical, CircleDot, Circle } from "lucide-react";
+import {
+  Plus,
+  Trash2,
+  Eye,
+  EyeOff,
+  GripVertical,
+  CircleDot,
+  Circle,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -64,7 +72,7 @@ export function MultiKeyInput({
       newKeys[index] = value;
       onChange(newKeys);
     },
-    [effectiveKeys, onChange]
+    [effectiveKeys, onChange],
   );
 
   const handleAddKey = useCallback(() => {
@@ -96,7 +104,7 @@ export function MultiKeyInput({
         }
       }
     },
-    [effectiveKeys, onChange, isFixedMode, fixedIndex, onFixedIndexChange]
+    [effectiveKeys, onChange, isFixedMode, fixedIndex, onFixedIndexChange],
   );
 
   const showMultiKeyControls = effectiveKeys.length > 1 || disabled === false;
@@ -134,7 +142,7 @@ export function MultiKeyInput({
                   "flex-shrink-0 h-8 w-8",
                   fixedIndex === index
                     ? "text-blue-500"
-                    : "text-muted-foreground hover:text-blue-400"
+                    : "text-muted-foreground hover:text-blue-400",
                 )}
                 onClick={() => onFixedIndexChange?.(index)}
                 disabled={disabled}
@@ -171,8 +179,10 @@ export function MultiKeyInput({
                 disabled={disabled}
                 className={cn(
                   "pr-10",
-                  isFixedMode && fixedIndex === index && effectiveKeys.length > 1 &&
-                    "border-blue-500/50 ring-1 ring-blue-500/20"
+                  isFixedMode &&
+                    fixedIndex === index &&
+                    effectiveKeys.length > 1 &&
+                    "border-blue-500/50 ring-1 ring-blue-500/20",
                 )}
               />
               <Button

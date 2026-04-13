@@ -26,7 +26,11 @@ pub struct MultiKeyConfig {
     #[serde(default)]
     pub strategy: KeyRotationStrategy,
     /// 固定模式下使用的 Key 索引（仅 Fixed 策略有效）
-    #[serde(default, rename = "fixedIndex", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        default,
+        rename = "fixedIndex",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub fixed_index: Option<usize>,
 }
 

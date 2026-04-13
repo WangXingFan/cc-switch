@@ -198,10 +198,7 @@ pub async fn get_auto_launch_status() -> Result<bool, String> {
 
 /// 注册全局快捷键（注销旧的、注册新的、保存到 settings）
 #[tauri::command]
-pub async fn register_global_shortcut(
-    app: AppHandle,
-    shortcut: String,
-) -> Result<bool, String> {
+pub async fn register_global_shortcut(app: AppHandle, shortcut: String) -> Result<bool, String> {
     // 先注销所有旧快捷键
     crate::unregister_all_shortcuts(&app);
 

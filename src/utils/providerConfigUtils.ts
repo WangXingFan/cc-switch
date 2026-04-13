@@ -569,9 +569,9 @@ const isOtherProviderSection = (
 ): boolean =>
   Boolean(
     sectionName &&
-      sectionName !== targetSectionName &&
-      (sectionName === "model_providers" ||
-        sectionName.startsWith("model_providers.")),
+    sectionName !== targetSectionName &&
+    (sectionName === "model_providers" ||
+      sectionName.startsWith("model_providers.")),
   );
 
 const getRecoverableBaseUrlAssignments = (
@@ -921,13 +921,17 @@ export const removeCodexTopLevelField = (
 // 多 Key 配置工具函数
 // ============================================================================
 
-import type { MultiKeyConfig, KeyRotationStrategy, ProviderMeta } from "@/types";
+import type {
+  MultiKeyConfig,
+  KeyRotationStrategy,
+  ProviderMeta,
+} from "@/types";
 
 /**
  * 从 ProviderMeta 中获取多 Key 配置
  */
 export const getMultiKeyConfig = (
-  meta: ProviderMeta | undefined
+  meta: ProviderMeta | undefined,
 ): MultiKeyConfig | undefined => {
   return meta?.multiKeyConfig;
 };
@@ -937,7 +941,7 @@ export const getMultiKeyConfig = (
  */
 export const setMultiKeyConfig = (
   meta: ProviderMeta | undefined,
-  config: MultiKeyConfig | undefined
+  config: MultiKeyConfig | undefined,
 ): ProviderMeta => {
   const baseMeta = meta || {};
 
@@ -968,7 +972,7 @@ export const setMultiKeyConfig = (
  */
 export const getEffectiveKeys = (
   multiKeyConfig: MultiKeyConfig | undefined,
-  singleKey: string | undefined
+  singleKey: string | undefined,
 ): string[] => {
   if (multiKeyConfig && multiKeyConfig.keys.length > 0) {
     return multiKeyConfig.keys;
@@ -985,7 +989,7 @@ export const getEffectiveKeys = (
  */
 export const syncKeysToConfig = (
   keys: string[],
-  strategy: KeyRotationStrategy = "round_robin"
+  strategy: KeyRotationStrategy = "round_robin",
 ): { firstKey: string; multiKeyConfig: MultiKeyConfig | undefined } => {
   const validKeys = keys.filter((k) => k.trim() !== "");
 
@@ -1005,4 +1009,3 @@ export const syncKeysToConfig = (
     },
   };
 };
-
