@@ -760,11 +760,28 @@ impl RequestForwarder {
             .meta
             .as_ref()
             .and_then(|meta| meta.multi_key_config.as_ref())
-            .filter(|config| config.keys.len() > 1);
+            .and_then(|config| {
+                let normalized_keys: Vec<String> = config
+                    .keys
+                    .iter()
+                    .map(|key| key.trim().to_string())
+                    .filter(|key| !key.is_empty())
+                    .collect();
+
+                if normalized_keys.len() <= 1 {
+                    return None;
+                }
+
+                Some(crate::provider::MultiKeyConfig {
+                    keys: normalized_keys,
+                    strategy: config.strategy.clone(),
+                    fixed_index: config.fixed_index,
+                })
+            });
 
         match multi_key_config {
             Some(config) => {
-                let key_order = self.key_rotator.select_key_order(&provider.id, config);
+                let key_order = self.key_rotator.select_key_order(&provider.id, &config);
                 let total_keys = key_order.len();
                 let mut last_error = None;
 
