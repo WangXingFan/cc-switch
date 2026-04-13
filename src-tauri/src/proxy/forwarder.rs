@@ -865,6 +865,7 @@ impl RequestForwarder {
         }
     }
 
+    #[allow(clippy::too_many_arguments)]
     async fn forward_single_with_key(
         &self,
         provider: &Provider,

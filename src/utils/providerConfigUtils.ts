@@ -1,6 +1,11 @@
 // 供应商配置处理工具函数
 
 import type { TemplateValueConfig } from "../config/claudeProviderPresets";
+import type {
+  KeyRotationStrategy,
+  MultiKeyConfig,
+  ProviderMeta,
+} from "@/types";
 import { normalizeTomlText } from "@/utils/textNormalization";
 import { parse as parseToml, stringify as stringifyToml } from "smol-toml";
 
@@ -920,12 +925,6 @@ export const removeCodexTopLevelField = (
 // ============================================================================
 // 多 Key 配置工具函数
 // ============================================================================
-
-import type {
-  MultiKeyConfig,
-  KeyRotationStrategy,
-  ProviderMeta,
-} from "@/types";
 
 /**
  * 从 ProviderMeta 中获取多 Key 配置
