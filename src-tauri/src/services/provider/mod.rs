@@ -6329,6 +6329,7 @@ impl ProviderService {
         access_token: Option<&str>,
         user_id: Option<&str>,
         template_type: Option<&str>,
+        new_api_accounts: Option<&[crate::provider::NewApiAccountConfig]>,
     ) -> Result<UsageResult, AppError> {
         usage::test_usage_script(
             state,
@@ -6341,6 +6342,7 @@ impl ProviderService {
             access_token,
             user_id,
             template_type,
+            new_api_accounts,
         )
         .await
     }

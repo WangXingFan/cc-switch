@@ -83,6 +83,7 @@ interface ClaudeFormFieldsProps {
   partnerPromotionKey?: string;
   multiKeyConfig?: MultiKeyConfig;
   onMultiKeyConfigChange?: (config: MultiKeyConfig | undefined) => void;
+  showMultiKeyBalanceMetadata?: boolean;
 
   // GitHub Copilot OAuth
   isCopilotPreset?: boolean;
@@ -176,6 +177,7 @@ export function ClaudeFormFields({
   partnerPromotionKey,
   multiKeyConfig,
   onMultiKeyConfigChange,
+  showMultiKeyBalanceMetadata,
   isCopilotPreset,
   usesOAuth,
   isCopilotAuthenticated,
@@ -703,6 +705,7 @@ export function ClaudeFormFields({
           multiKeyConfig={multiKeyConfig}
           onMultiKeyConfigChange={onMultiKeyConfigChange}
           enableMultiKey={category !== "official"}
+          showBalanceMetadata={showMultiKeyBalanceMetadata}
         />
       )}
 

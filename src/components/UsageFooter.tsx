@@ -192,6 +192,20 @@ const UsageFooter: React.FC<UsageFooterProps> = ({
   if (inline) {
     const firstUsage = usageDataList[0];
     const isExpired = firstUsage.isValid === false;
+    const validUsages = usageDataList.filter(
+      (item) => item.isValid !== false && item.remaining !== undefined,
+    );
+    const invalidCount = usageDataList.filter(
+      (item) => item.isValid === false,
+    ).length;
+    const units = Array.from(
+      new Set(validUsages.map((item) => item.unit).filter(Boolean)),
+    );
+    const sharedUnit = units.length === 1 ? units[0] : undefined;
+    const totalRemaining = validUsages.reduce(
+      (sum, item) => sum + (item.remaining || 0),
+      0,
+    );
 
     return (
       <div className="flex flex-col items-end gap-1 text-xs whitespace-nowrap flex-shrink-0">
@@ -221,8 +235,36 @@ const UsageFooter: React.FC<UsageFooterProps> = ({
 
         {/* 第二行：用量和剩余 */}
         <div className="flex items-center gap-2">
+          {usageDataList.length > 1 && (
+            <span className="text-gray-500 dark:text-gray-400">
+              {t("usage.accounts", { count: usageDataList.length })}
+            </span>
+          )}
+
+          {usageDataList.length > 1 && validUsages.length > 0 && (
+            <>
+              <span className="text-gray-500 dark:text-gray-400">
+                {t("usage.remaining")}
+              </span>
+              <span className="font-semibold tabular-nums text-green-600 dark:text-green-400">
+                {totalRemaining.toFixed(2)}
+              </span>
+              {sharedUnit && (
+                <span className="text-gray-500 dark:text-gray-400">
+                  {sharedUnit}
+                </span>
+              )}
+            </>
+          )}
+
+          {usageDataList.length > 1 && invalidCount > 0 && (
+            <span className="text-red-500 dark:text-red-400">
+              {t("usage.invalidAccounts", { count: invalidCount })}
+            </span>
+          )}
+
           {/* 已用 */}
-          {firstUsage.used !== undefined && (
+          {usageDataList.length === 1 && firstUsage.used !== undefined && (
             <div className="flex items-center gap-0.5">
               <span className="text-gray-500 dark:text-gray-400">
                 {t("usage.used")}
@@ -234,7 +276,7 @@ const UsageFooter: React.FC<UsageFooterProps> = ({
           )}
 
           {/* 剩余 */}
-          {firstUsage.remaining !== undefined && (
+          {usageDataList.length === 1 && firstUsage.remaining !== undefined && (
             <div className="flex items-center gap-0.5">
               <span className="text-gray-500 dark:text-gray-400">
                 {t("usage.remaining")}
@@ -255,14 +297,14 @@ const UsageFooter: React.FC<UsageFooterProps> = ({
           )}
 
           {/* 单位 */}
-          {firstUsage.unit && (
+          {usageDataList.length === 1 && firstUsage.unit && (
             <span className="text-gray-500 dark:text-gray-400">
               {firstUsage.unit}
             </span>
           )}
 
           {/* 扩展字段 extra */}
-          {firstUsage.extra && (
+          {usageDataList.length === 1 && firstUsage.extra && (
             <span
               className="text-gray-500 dark:text-gray-400 truncate max-w-[150px]"
               title={firstUsage.extra}

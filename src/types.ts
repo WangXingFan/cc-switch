@@ -51,6 +51,18 @@ export interface EndpointCandidate {
 
 import type { TemplateType } from "./config/constants";
 
+export interface NewApiAccountConfig {
+  id?: string;
+  name?: string;
+  baseUrl?: string;
+  accessToken: string;
+  userId: string;
+}
+
+export interface MultiKeyMetadata {
+  balanceQuery?: NewApiAccountConfig;
+}
+
 // 用量查询脚本配置
 export interface UsageScript {
   enabled: boolean; // 是否启用用量查询
@@ -66,6 +78,7 @@ export interface UsageScript {
   secretAccessKey?: string; // 火山方舟 SecretAccessKey
   teamOrganizationId?: string; // 智谱团队套餐组织 ID（请求头 bigmodel-organization）
   teamProjectId?: string; // 智谱团队套餐项目 ID（请求头 bigmodel-project）
+  newApiAccounts?: NewApiAccountConfig[]; // NewAPI 多账号余额查询配置
   codingPlanProvider?: string; // Coding Plan 供应商标识（如 "kimi", "zhipu", "minimax"）
   autoQueryInterval?: number; // 自动查询间隔（单位：分钟，0 表示禁用）
   autoIntervalMinutes?: number; // 自动查询间隔（分钟）- 别名字段
@@ -298,6 +311,7 @@ export interface MultiKeyConfig {
   keys: string[];
   strategy: KeyRotationStrategy;
   fixedIndex?: number;
+  keyMetadata?: MultiKeyMetadata[];
 }
 
 // 主页面显示的应用配置

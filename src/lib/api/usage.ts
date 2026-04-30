@@ -16,6 +16,7 @@ import type {
   DataSourceSummary,
 } from "@/types/usage";
 import type { UsageResult } from "@/types";
+import type { NewApiAccountConfig } from "@/types";
 import type { AppId } from "./types";
 import type { TemplateType } from "@/config/constants";
 
@@ -35,6 +36,7 @@ export const usageApi = {
     accessToken?: string,
     userId?: string,
     templateType?: TemplateType,
+    newApiAccounts?: NewApiAccountConfig[],
   ): Promise<UsageResult> => {
     return invoke("testUsageScript", {
       providerId,
@@ -46,6 +48,7 @@ export const usageApi = {
       accessToken,
       userId,
       templateType,
+      newApiAccounts,
     });
   },
 

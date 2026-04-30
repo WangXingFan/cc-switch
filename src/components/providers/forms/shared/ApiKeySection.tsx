@@ -6,6 +6,7 @@ import type {
   ProviderCategory,
   KeyRotationStrategy,
   MultiKeyConfig,
+  MultiKeyMetadata,
 } from "@/types";
 
 interface ApiKeySectionProps {
@@ -27,6 +28,7 @@ interface ApiKeySectionProps {
   multiKeyConfig?: MultiKeyConfig;
   onMultiKeyConfigChange?: (config: MultiKeyConfig | undefined) => void;
   enableMultiKey?: boolean;
+  showBalanceMetadata?: boolean;
 }
 
 export function ApiKeySection({
@@ -43,6 +45,7 @@ export function ApiKeySection({
   multiKeyConfig,
   onMultiKeyConfigChange,
   enableMultiKey = false,
+  showBalanceMetadata = false,
 }: ApiKeySectionProps) {
   const { t } = useTranslation();
 
@@ -71,16 +74,43 @@ export function ApiKeySection({
     enableMultiKey && onMultiKeyConfigChange && effectiveKeys.length > 1;
 
   // 处理多 Key 变更
-  const handleMultiKeysChange = (keys: string[], fixedIndex?: number) => {
+  const hasMetadata = (metadata?: MultiKeyMetadata[]) =>
+    metadata?.some((item) => {
+      const query = item.balanceQuery;
+      return Boolean(
+        query?.name?.trim() ||
+          query?.baseUrl?.trim() ||
+          query?.accessToken?.trim() ||
+          query?.userId?.trim(),
+      );
+    }) ?? false;
+
+  const handleMultiKeysChange = (
+    keys: string[],
+    fixedIndex?: number,
+    keyMetadata?: MultiKeyMetadata[],
+  ) => {
     if (!onMultiKeyConfigChange) return;
 
     const nonEmptyKeys = keys.filter((k) => k.trim() !== "");
     const nextFixedIndex = fixedIndex ?? multiKeyConfig?.fixedIndex;
+    const nextMetadata = keyMetadata ?? multiKeyConfig?.keyMetadata;
+    const shouldKeepMetadata =
+      nonEmptyKeys.length === 1 && hasMetadata(nextMetadata);
 
     if (keys.length <= 1) {
       // 退化为单 Key 模式
       onChange(nonEmptyKeys[0] || "");
-      onMultiKeyConfigChange(undefined);
+      onMultiKeyConfigChange(
+        shouldKeepMetadata
+          ? {
+              keys,
+              strategy: multiKeyConfig?.strategy || "round_robin",
+              fixedIndex: nextFixedIndex,
+              keyMetadata: nextMetadata,
+            }
+          : undefined,
+      );
     } else {
       // 多 Key 模式：第一个非空 Key 同步到 settings_config
       onChange(nonEmptyKeys[0] || "");
@@ -88,6 +118,7 @@ export function ApiKeySection({
         keys,
         strategy: multiKeyConfig?.strategy || "round_robin",
         fixedIndex: nextFixedIndex,
+        keyMetadata: hasMetadata(nextMetadata) ? nextMetadata : undefined,
       });
     }
   };
@@ -133,6 +164,8 @@ export function ApiKeySection({
             strategy={multiKeyConfig?.strategy}
             fixedIndex={multiKeyConfig?.fixedIndex ?? 0}
             onFixedIndexChange={handleFixedIndexChange}
+            keyMetadata={multiKeyConfig?.keyMetadata}
+            showBalanceMetadata={showBalanceMetadata}
           />
 
           {/* 仅在多 Key 时显示策略选择 */}

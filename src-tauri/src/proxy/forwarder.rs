@@ -1197,6 +1197,7 @@ impl RequestForwarder {
                     keys: normalized_keys,
                     strategy: config.strategy.clone(),
                     fixed_index: config.fixed_index,
+                    key_metadata: None,
                 })
             });
 

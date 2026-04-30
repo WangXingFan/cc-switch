@@ -266,8 +266,14 @@ export function ProviderCard({
   }, [provider.notes, displayUrl, fallbackUrlText]);
 
   const isBoundCodexOfficial = codexOfficialIdentity === "managed_account";
+  const hasKeyBalanceQuery =
+    provider.meta?.multiKeyConfig?.keyMetadata?.some((metadata) => {
+      const query = metadata.balanceQuery;
+      return Boolean(query?.accessToken?.trim() && query?.userId?.trim());
+    }) ?? false;
   const usageEnabled =
-    provider.meta?.usage_script?.enabled ?? isBoundCodexOfficial;
+    (provider.meta?.usage_script?.enabled ?? isBoundCodexOfficial) ||
+    hasKeyBalanceQuery;
   const isOfficial = isOfficialProvider(provider, appId);
   const supportsOfficialSubscription =
     isOfficial && ["claude", "codex", "gemini", "grokbuild"].includes(appId);

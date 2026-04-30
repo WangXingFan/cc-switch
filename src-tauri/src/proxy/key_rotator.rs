@@ -100,6 +100,7 @@ mod tests {
             keys: keys.into_iter().map(|s| s.to_string()).collect(),
             strategy,
             fixed_index: None,
+            key_metadata: None,
         }
     }
 
@@ -108,6 +109,7 @@ mod tests {
             keys: keys.into_iter().map(|s| s.to_string()).collect(),
             strategy: KeyRotationStrategy::Fixed,
             fixed_index,
+            key_metadata: None,
         }
     }
 

@@ -2399,6 +2399,9 @@ function ProviderFormFull({
               isXaiOauthPreset={isXaiOauthProvider}
               multiKeyConfig={multiKeyConfig}
               onMultiKeyConfigChange={setMultiKeyConfig}
+              showMultiKeyBalanceMetadata={
+                settingsData?.enableMultiKeyBalanceQuery ?? false
+              }
               usesOAuth={
                 templatePreset?.requiresOAuth === true ||
                 isCopilotProvider ||
@@ -2499,6 +2502,9 @@ function ProviderFormFull({
               }
               multiKeyConfig={multiKeyConfig}
               onMultiKeyConfigChange={setMultiKeyConfig}
+              showMultiKeyBalanceMetadata={
+                settingsData?.enableMultiKeyBalanceQuery ?? false
+              }
               shouldShowSpeedTest={shouldShowSpeedTest}
               codexBaseUrl={codexBaseUrl}
               onBaseUrlChange={handleCodexBaseUrlChange}
@@ -2553,6 +2559,9 @@ function ProviderFormFull({
               partnerPromotionKey={geminiPartnerPromotionKey}
               multiKeyConfig={multiKeyConfig}
               onMultiKeyConfigChange={setMultiKeyConfig}
+              showMultiKeyBalanceMetadata={
+                settingsData?.enableMultiKeyBalanceQuery ?? false
+              }
               shouldShowSpeedTest={shouldShowSpeedTest}
               baseUrl={geminiBaseUrl}
               onBaseUrlChange={handleGeminiBaseUrlChange}

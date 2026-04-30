@@ -100,6 +100,7 @@ interface CodexFormFieldsProps {
   codexOauthRequireExplicitSelection?: boolean;
   multiKeyConfig?: MultiKeyConfig;
   onMultiKeyConfigChange?: (config: MultiKeyConfig | undefined) => void;
+  showMultiKeyBalanceMetadata?: boolean;
 
   // Base URL
   shouldShowSpeedTest: boolean;
@@ -396,6 +397,7 @@ export function CodexFormFields({
   codexOauthRequireExplicitSelection,
   multiKeyConfig,
   onMultiKeyConfigChange,
+  showMultiKeyBalanceMetadata,
   shouldShowSpeedTest,
   codexBaseUrl,
   onBaseUrlChange,
@@ -772,6 +774,7 @@ export function CodexFormFields({
           multiKeyConfig={multiKeyConfig}
           onMultiKeyConfigChange={onMultiKeyConfigChange}
           enableMultiKey={category !== "official"}
+          showBalanceMetadata={showMultiKeyBalanceMetadata}
           placeholder={{
             official: t("providerForm.codexOfficialNoApiKey", {
               defaultValue: "官方供应商无需 API Key",

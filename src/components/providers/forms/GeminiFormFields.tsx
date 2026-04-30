@@ -30,6 +30,7 @@ interface GeminiFormFieldsProps {
   partnerPromotionKey?: string;
   multiKeyConfig?: MultiKeyConfig;
   onMultiKeyConfigChange?: (config: MultiKeyConfig | undefined) => void;
+  showMultiKeyBalanceMetadata?: boolean;
 
   // Base URL
   shouldShowSpeedTest: boolean;
@@ -62,6 +63,7 @@ export function GeminiFormFields({
   partnerPromotionKey,
   multiKeyConfig,
   onMultiKeyConfigChange,
+  showMultiKeyBalanceMetadata,
   shouldShowSpeedTest,
   baseUrl,
   onBaseUrlChange,
@@ -148,6 +150,7 @@ export function GeminiFormFields({
           multiKeyConfig={multiKeyConfig}
           onMultiKeyConfigChange={onMultiKeyConfigChange}
           enableMultiKey={category !== "official"}
+          showBalanceMetadata={showMultiKeyBalanceMetadata}
         />
       )}
 

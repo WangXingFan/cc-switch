@@ -29,6 +29,16 @@ pub struct MultiKeyConfig {
     /// 固定模式下使用的 Key 索引（仅 Fixed 策略有效）
     #[serde(default, rename = "fixedIndex", skip_serializing_if = "Option::is_none")]
     pub fixed_index: Option<usize>,
+    /// 与每个 Key 对齐的附加元数据
+    #[serde(default, rename = "keyMetadata", skip_serializing_if = "Option::is_none")]
+    pub key_metadata: Option<Vec<MultiKeyMetadata>>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct MultiKeyMetadata {
+    /// 当前 Key 对应的账号余额查询凭证
+    #[serde(default, rename = "balanceQuery", skip_serializing_if = "Option::is_none")]
+    pub balance_query: Option<NewApiAccountConfig>,
 }
 
 // SSOT 模式：不再写供应商副本文件
@@ -159,6 +169,27 @@ impl Provider {
             .as_ref()
             .and_then(|m| m.usage_script.as_ref())
             .map(|s| s.enabled)
+            .unwrap_or(false)
+            || self.has_multi_key_balance_query()
+    }
+
+    pub fn has_multi_key_balance_query(&self) -> bool {
+        self.meta
+            .as_ref()
+            .and_then(|m| m.multi_key_config.as_ref())
+            .and_then(|c| c.key_metadata.as_ref())
+            .map(|items| {
+                items.iter().any(|metadata| {
+                    metadata
+                        .balance_query
+                        .as_ref()
+                        .map(|account| {
+                            !account.access_token.trim().is_empty()
+                                && !account.user_id.trim().is_empty()
+                        })
+                        .unwrap_or(false)
+                })
+            })
             .unwrap_or(false)
     }
 
@@ -342,6 +373,26 @@ pub struct UsageScript {
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(rename = "teamProjectId")]
     pub team_project_id: Option<String>,
+    /// NewAPI 多账号余额查询配置
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(rename = "newApiAccounts")]
+    pub new_api_accounts: Option<Vec<NewApiAccountConfig>>,
+}
+
+/// NewAPI 账号余额查询配置
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct NewApiAccountConfig {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub name: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(rename = "baseUrl")]
+    pub base_url: Option<String>,
+    #[serde(default, rename = "accessToken")]
+    pub access_token: String,
+    #[serde(default, rename = "userId")]
+    pub user_id: String,
 }
 
 /// 用量数据

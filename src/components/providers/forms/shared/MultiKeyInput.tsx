@@ -8,16 +8,23 @@ import {
   GripVertical,
   CircleDot,
   Circle,
+  Wallet,
+  ChevronDown,
+  ChevronRight,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
-import type { KeyRotationStrategy } from "@/types";
+import type { KeyRotationStrategy, MultiKeyMetadata } from "@/types";
 
 interface MultiKeyInputProps {
   keys: string[];
-  onChange: (keys: string[], fixedIndex?: number) => void;
+  onChange: (
+    keys: string[],
+    fixedIndex?: number,
+    keyMetadata?: MultiKeyMetadata[],
+  ) => void;
   disabled?: boolean;
   placeholder?: string;
   label?: string;
@@ -28,6 +35,8 @@ interface MultiKeyInputProps {
   fixedIndex?: number;
   /** Callback when fixed index changes */
   onFixedIndexChange?: (index: number) => void;
+  keyMetadata?: MultiKeyMetadata[];
+  showBalanceMetadata?: boolean;
 }
 
 /**
@@ -46,16 +55,24 @@ export function MultiKeyInput({
   strategy,
   fixedIndex = 0,
   onFixedIndexChange,
+  keyMetadata,
+  showBalanceMetadata = false,
 }: MultiKeyInputProps) {
   const { t } = useTranslation();
-  const [visibleKeys, setVisibleKeys] = useState<Set<number>>(new Set());
+  const [hiddenKeys, setHiddenKeys] = useState<Set<number>>(new Set());
+  const [visibleAccessTokens, setVisibleAccessTokens] = useState<Set<number>>(
+    new Set(),
+  );
+  const [expandedBalanceRows, setExpandedBalanceRows] = useState<Set<number>>(
+    new Set(),
+  );
 
   // 确保至少有一个空字符串
   const effectiveKeys = keys.length > 0 ? keys : [""];
   const isFixedMode = strategy === "fixed";
 
   const toggleVisibility = useCallback((index: number) => {
-    setVisibleKeys((prev) => {
+    setHiddenKeys((prev) => {
       const next = new Set(prev);
       if (next.has(index)) {
         next.delete(index);
@@ -70,14 +87,60 @@ export function MultiKeyInput({
     (index: number, value: string) => {
       const newKeys = [...effectiveKeys];
       newKeys[index] = value;
-      onChange(newKeys);
+      onChange(newKeys, undefined, keyMetadata);
     },
-    [effectiveKeys, onChange],
+    [effectiveKeys, onChange, keyMetadata],
   );
 
   const handleAddKey = useCallback(() => {
-    onChange([...effectiveKeys, ""]);
-  }, [effectiveKeys, onChange]);
+    onChange([...effectiveKeys, ""], undefined, [
+      ...(keyMetadata || []),
+      { balanceQuery: undefined },
+    ]);
+  }, [effectiveKeys, keyMetadata, onChange]);
+
+  const handleBalanceMetadataChange = useCallback(
+    (
+      index: number,
+      patch: Partial<NonNullable<MultiKeyMetadata["balanceQuery"]>>,
+    ) => {
+      const nextMetadata = [...(keyMetadata || [])];
+      while (nextMetadata.length < effectiveKeys.length) {
+        nextMetadata.push({});
+      }
+      const current = nextMetadata[index]?.balanceQuery || {
+        accessToken: "",
+        userId: "",
+      };
+      nextMetadata[index] = {
+        ...nextMetadata[index],
+        balanceQuery: {
+          ...current,
+          ...patch,
+        },
+      };
+      onChange(effectiveKeys, undefined, nextMetadata);
+    },
+    [effectiveKeys, keyMetadata, onChange],
+  );
+
+  const toggleAccessTokenVisibility = useCallback((index: number) => {
+    setVisibleAccessTokens((prev) => {
+      const next = new Set(prev);
+      if (next.has(index)) next.delete(index);
+      else next.add(index);
+      return next;
+    });
+  }, []);
+
+  const toggleBalanceRow = useCallback((index: number) => {
+    setExpandedBalanceRows((prev) => {
+      const next = new Set(prev);
+      if (next.has(index)) next.delete(index);
+      else next.add(index);
+      return next;
+    });
+  }, []);
 
   const handleRemoveKey = useCallback(
     (index: number) => {
@@ -94,9 +157,26 @@ export function MultiKeyInput({
         }
       }
 
-      onChange(newKeys, nextFixedIndex);
-      // Adjust visibility indices after removing a key.
-      setVisibleKeys((prev) => {
+      const nextMetadata = keyMetadata?.filter((_, i) => i !== index);
+      onChange(newKeys, nextFixedIndex, nextMetadata);
+      // 调整隐藏状态索引
+      setHiddenKeys((prev) => {
+        const next = new Set<number>();
+        prev.forEach((i) => {
+          if (i < index) next.add(i);
+          else if (i > index) next.add(i - 1);
+        });
+        return next;
+      });
+      setVisibleAccessTokens((prev) => {
+        const next = new Set<number>();
+        prev.forEach((i) => {
+          if (i < index) next.add(i);
+          else if (i > index) next.add(i - 1);
+        });
+        return next;
+      });
+      setExpandedBalanceRows((prev) => {
         const next = new Set<number>();
         prev.forEach((i) => {
           if (i < index) next.add(i);
@@ -105,10 +185,19 @@ export function MultiKeyInput({
         return next;
       });
     },
-    [effectiveKeys, onChange, isFixedMode, fixedIndex],
+    [effectiveKeys, onChange, isFixedMode, fixedIndex, keyMetadata],
   );
 
   const showMultiKeyControls = effectiveKeys.length > 1 || disabled === false;
+  const hasBalanceConfig = (
+    balanceQuery: MultiKeyMetadata["balanceQuery"] | undefined,
+  ) =>
+    Boolean(
+      balanceQuery?.name?.trim() ||
+        balanceQuery?.baseUrl?.trim() ||
+        balanceQuery?.accessToken?.trim() ||
+        balanceQuery?.userId?.trim(),
+    );
 
   return (
     <div className={cn("space-y-2", className)}>
@@ -131,95 +220,212 @@ export function MultiKeyInput({
       )}
 
       <div className="space-y-2">
-        {effectiveKeys.map((key, index) => (
-          <div key={index} className="flex items-center gap-2">
-            {/* 固定模式：radio 选择按钮 */}
-            {isFixedMode && effectiveKeys.length > 1 && (
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                className={cn(
-                  "flex-shrink-0 h-8 w-8",
-                  fixedIndex === index
-                    ? "text-blue-500"
-                    : "text-muted-foreground hover:text-blue-400",
+        {effectiveKeys.map((key, index) => {
+          const balanceQuery = keyMetadata?.[index]?.balanceQuery;
+          const isBalanceExpanded = expandedBalanceRows.has(index);
+          const isBalanceConfigured = hasBalanceConfig(balanceQuery);
+          return (
+            <div key={index} className="space-y-2">
+              <div className="flex items-center gap-2">
+                {/* 固定模式：radio 选择按钮 */}
+                {isFixedMode && effectiveKeys.length > 1 && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className={cn(
+                      "flex-shrink-0 h-8 w-8",
+                      fixedIndex === index
+                        ? "text-blue-500"
+                        : "text-muted-foreground hover:text-blue-400",
+                    )}
+                    onClick={() => onFixedIndexChange?.(index)}
+                    disabled={disabled}
+                    title={
+                      fixedIndex === index
+                        ? t("provider.multiKey.fixedActive")
+                        : t("provider.multiKey.fixedSelectHint")
+                    }
+                  >
+                    {fixedIndex === index ? (
+                      <CircleDot className="h-4 w-4" />
+                    ) : (
+                      <Circle className="h-4 w-4" />
+                    )}
+                  </Button>
                 )}
-                onClick={() => onFixedIndexChange?.(index)}
-                disabled={disabled}
-                title={
-                  fixedIndex === index
-                    ? t("provider.multiKey.fixedActive")
-                    : t("provider.multiKey.fixedSelectHint")
-                }
-              >
-                {fixedIndex === index ? (
-                  <CircleDot className="h-4 w-4" />
-                ) : (
-                  <Circle className="h-4 w-4" />
-                )}
-              </Button>
-            )}
 
-            {/* 非固定模式：拖拽手柄 */}
-            {!isFixedMode && effectiveKeys.length > 1 && (
-              <GripVertical className="h-4 w-4 text-muted-foreground flex-shrink-0 cursor-grab" />
-            )}
+                {/* 非固定模式：拖拽手柄 */}
+                {!isFixedMode && effectiveKeys.length > 1 && (
+                  <GripVertical className="h-4 w-4 text-muted-foreground flex-shrink-0 cursor-grab" />
+                )}
 
-            <div className="relative flex-1">
-              <Input
-                type={visibleKeys.has(index) ? "text" : "password"}
-                value={key}
-                onChange={(e) => handleKeyChange(index, e.target.value)}
-                placeholder={
-                  placeholder ||
-                  (effectiveKeys.length > 1
-                    ? t("provider.multiKey.placeholder", { index: index + 1 })
-                    : t("provider.apiKeyPlaceholder"))
-                }
-                disabled={disabled}
-                className={cn(
-                  "pr-10",
-                  isFixedMode &&
-                    fixedIndex === index &&
-                    effectiveKeys.length > 1 &&
-                    "border-blue-500/50 ring-1 ring-blue-500/20",
+                <div className="relative flex-1">
+                  <Input
+                    type={hiddenKeys.has(index) ? "password" : "text"}
+                    value={key}
+                    onChange={(e) => handleKeyChange(index, e.target.value)}
+                    placeholder={
+                      placeholder ||
+                      (effectiveKeys.length > 1
+                        ? t("provider.multiKey.placeholder", {
+                            index: index + 1,
+                          })
+                        : t("provider.apiKeyPlaceholder"))
+                    }
+                    disabled={disabled}
+                    className={cn(
+                      "pr-10",
+                      isFixedMode &&
+                        fixedIndex === index &&
+                        effectiveKeys.length > 1 &&
+                        "border-blue-500/50 ring-1 ring-blue-500/20",
+                    )}
+                  />
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="absolute right-0 top-0 h-full w-10"
+                    onClick={() => toggleVisibility(index)}
+                    tabIndex={-1}
+                  >
+                    {hiddenKeys.has(index) ? (
+                      <Eye className="h-4 w-4" />
+                    ) : (
+                      <EyeOff className="h-4 w-4" />
+                    )}
+                  </Button>
+                </div>
+
+                {effectiveKeys.length > 1 && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => handleRemoveKey(index)}
+                    disabled={disabled || effectiveKeys.length <= 1}
+                    className="flex-shrink-0 text-muted-foreground hover:text-destructive"
+                    aria-label={t("provider.multiKey.removeKey", {
+                      index: index + 1,
+                      defaultValue: "Remove API Key {{index}}",
+                    })}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
                 )}
-              />
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                className="absolute right-0 top-0 h-full w-10"
-                onClick={() => toggleVisibility(index)}
-                tabIndex={-1}
-              >
-                {visibleKeys.has(index) ? (
-                  <EyeOff className="h-4 w-4" />
-                ) : (
-                  <Eye className="h-4 w-4" />
-                )}
-              </Button>
+              </div>
+
+              {showBalanceMetadata && !disabled && (
+                <div className="ml-6 rounded-lg border border-border-default bg-muted/20 p-3">
+                  <button
+                    type="button"
+                    className="flex w-full items-center justify-between gap-3 text-left"
+                    onClick={() => toggleBalanceRow(index)}
+                    aria-expanded={isBalanceExpanded}
+                    aria-label={t(
+                      isBalanceExpanded
+                        ? "provider.multiKey.balanceCollapse"
+                        : "provider.multiKey.balanceExpand",
+                    )}
+                  >
+                    <span className="flex min-w-0 items-center gap-2 text-xs font-medium text-muted-foreground">
+                      <Wallet className="h-3.5 w-3.5 flex-shrink-0" />
+                      <span>{t("provider.multiKey.balanceTitle")}</span>
+                      <span
+                        className={cn(
+                          "rounded-md border px-1.5 py-0.5 text-[11px] font-normal",
+                          isBalanceConfigured
+                            ? "border-green-500/30 bg-green-500/10 text-green-600 dark:text-green-400"
+                            : "border-border-default bg-background/60 text-muted-foreground",
+                        )}
+                      >
+                        {t(
+                          isBalanceConfigured
+                            ? "provider.multiKey.balanceConfigured"
+                            : "provider.multiKey.balanceNotConfigured",
+                        )}
+                      </span>
+                    </span>
+                    {isBalanceExpanded ? (
+                      <ChevronDown className="h-4 w-4 flex-shrink-0 text-muted-foreground" />
+                    ) : (
+                      <ChevronRight className="h-4 w-4 flex-shrink-0 text-muted-foreground" />
+                    )}
+                  </button>
+
+                  {isBalanceExpanded && (
+                    <div className="mt-3 grid gap-2 md:grid-cols-2">
+                      <Input
+                        value={balanceQuery?.name || ""}
+                        onChange={(e) =>
+                          handleBalanceMetadataChange(index, {
+                            name: e.target.value,
+                          })
+                        }
+                        placeholder={t("provider.multiKey.balanceName")}
+                        className="h-8"
+                      />
+                      <Input
+                        value={balanceQuery?.baseUrl || ""}
+                        onChange={(e) =>
+                          handleBalanceMetadataChange(index, {
+                            baseUrl: e.target.value,
+                          })
+                        }
+                        placeholder={t("provider.multiKey.balanceBaseUrl")}
+                        className="h-8"
+                      />
+                      <div className="relative">
+                        <Input
+                          type={
+                            visibleAccessTokens.has(index)
+                              ? "text"
+                              : "password"
+                          }
+                          value={balanceQuery?.accessToken || ""}
+                          onChange={(e) =>
+                            handleBalanceMetadataChange(index, {
+                              accessToken: e.target.value,
+                            })
+                          }
+                          placeholder={t(
+                            "provider.multiKey.balanceAccessToken",
+                          )}
+                          className="h-8 pr-9"
+                        />
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="absolute right-0 top-0 h-full w-9"
+                          onClick={() => toggleAccessTokenVisibility(index)}
+                          tabIndex={-1}
+                        >
+                          {visibleAccessTokens.has(index) ? (
+                            <EyeOff className="h-4 w-4" />
+                          ) : (
+                            <Eye className="h-4 w-4" />
+                          )}
+                        </Button>
+                      </div>
+                      <Input
+                        value={balanceQuery?.userId || ""}
+                        onChange={(e) =>
+                          handleBalanceMetadataChange(index, {
+                            userId: e.target.value,
+                          })
+                        }
+                        placeholder={t("provider.multiKey.balanceUserId")}
+                        className="h-8"
+                      />
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
-
-            {effectiveKeys.length > 1 && (
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                onClick={() => handleRemoveKey(index)}
-                disabled={disabled || effectiveKeys.length <= 1}
-                className="flex-shrink-0 text-muted-foreground hover:text-destructive"
-                aria-label={t("provider.multiKey.removeKey", {
-                  index: index + 1,
-                  defaultValue: "Remove API Key {{index}}",
-                })}
-              >
-                <Trash2 className="h-4 w-4" />
-              </Button>
-            )}
-          </div>
-        ))}
+          );
+        })}
       </div>
 
       {showMultiKeyControls && !disabled && (

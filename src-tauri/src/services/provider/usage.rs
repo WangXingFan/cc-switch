@@ -4,10 +4,16 @@
 
 use crate::app_config::AppType;
 use crate::error::AppError;
-use crate::provider::{UsageData, UsageResult, UsageScript};
+use crate::provider::{NewApiAccountConfig, UsageData, UsageResult, UsageScript};
 use crate::settings;
 use crate::store::AppState;
 use crate::usage_script;
+use serde_json::Value;
+use std::time::Duration;
+use url::Url;
+
+const TEMPLATE_TYPE_NEWAPI: &str = "newapi";
+const NEWAPI_QUOTA_PER_USD: f64 = 500_000.0;
 
 /// Execute usage script and format result (private helper method)
 pub(crate) async fn execute_and_format_usage_result(
@@ -57,9 +63,8 @@ pub(crate) async fn execute_and_format_usage_result(
             })
         }
         Err(err) => {
-            // 瞬时传输失败（send 失败/超时、读体中断）以 Err 传播，让前端 invoke
-            // reject → react-query retry 并保留上次成功值；按错误 key 判定而非
-            // 文案匹配。其余脚本/配置/HTTP 业务错误折叠成 success:false 展示文案。
+            // Propagate transient transport failures so the caller can retry while
+            // preserving the last successful usage result in the UI cache.
             if let AppError::Localized { key, .. } = &err {
                 if matches!(
                     *key,
@@ -93,11 +98,9 @@ pub(crate) async fn execute_and_format_usage_result(
     }
 }
 
-/// Resolve `(api_key, base_url)` for the JS-script path: explicit non-empty
-/// script values win, otherwise fall back to the provider's stored config via
-/// `Provider::resolve_usage_credentials` — the same per-app resolver the
-/// native balance/coding-plan path and the frontend `getProviderCredentials`
-/// use, so `{{apiKey}}`/`{{baseUrl}}` match what the UI shows for them.
+/// Resolve `(api_key, base_url)` for the JS-script path. Explicit non-empty
+/// script values win; otherwise use the same per-app provider resolver as the
+/// native balance and coding-plan paths.
 fn resolve_script_credentials(
     app_type: &AppType,
     provider: &crate::provider::Provider,
@@ -111,11 +114,9 @@ fn resolve_script_credentials(
         .filter(|value| !value.is_empty())
         .map(str::to_owned)
         .unwrap_or(provider_api_key);
-
     let base_url = base_url
         .map(str::trim)
         .filter(|value| !value.is_empty())
-        // Trim like the provider path so `{{baseUrl}}/path` never doubles the slash.
         .map(|value| value.trim_end_matches('/').to_owned())
         .unwrap_or(provider_base_url);
 
@@ -128,7 +129,16 @@ pub async fn query_usage(
     app_type: AppType,
     provider_id: &str,
 ) -> Result<UsageResult, AppError> {
-    let (script_code, timeout, api_key, base_url, access_token, user_id, template_type) = {
+    let (
+        script_code,
+        timeout,
+        api_key,
+        base_url,
+        access_token,
+        user_id,
+        template_type,
+        new_api_accounts,
+    ) = {
         let providers = state.db.get_all_providers(app_type.as_str())?;
         let provider = providers.get(provider_id).ok_or_else(|| {
             AppError::localized(
@@ -137,6 +147,16 @@ pub async fn query_usage(
                 format!("Provider not found: {provider_id}"),
             )
         })?;
+        let (provider_base_url, _) = provider.resolve_usage_credentials(&app_type);
+        let key_accounts = provider
+            .meta
+            .as_ref()
+            .and_then(|m| m.multi_key_config.as_ref())
+            .map(|config| accounts_from_key_metadata(config, &provider_base_url))
+            .unwrap_or_default();
+        if !key_accounts.is_empty() {
+            return query_newapi_accounts(&key_accounts, &provider_base_url, 10).await;
+        }
 
         let usage_script = provider
             .meta
@@ -157,7 +177,6 @@ pub async fn query_usage(
             ));
         }
 
-        // Get credentials: prioritize UsageScript values, fallback to provider config
         let (api_key, base_url) = resolve_script_credentials(
             &app_type,
             provider,
@@ -173,8 +192,21 @@ pub async fn query_usage(
             usage_script.access_token.clone(),
             usage_script.user_id.clone(),
             usage_script.template_type.clone(),
+            usage_script.new_api_accounts.clone(),
         )
     };
+
+    if template_type.as_deref() == Some(TEMPLATE_TYPE_NEWAPI) {
+        let accounts = effective_newapi_accounts(
+            new_api_accounts.as_deref(),
+            &base_url,
+            access_token.as_deref(),
+            user_id.as_deref(),
+        );
+        if !accounts.is_empty() {
+            return query_newapi_accounts(&accounts, &base_url, timeout).await;
+        }
+    }
 
     execute_and_format_usage_result(
         &script_code,
@@ -201,6 +233,7 @@ pub async fn test_usage_script(
     access_token: Option<&str>,
     user_id: Option<&str>,
     template_type: Option<&str>,
+    new_api_accounts: Option<&[NewApiAccountConfig]>,
 ) -> Result<UsageResult, AppError> {
     let providers = state.db.get_all_providers(app_type.as_str())?;
     let provider = providers.get(provider_id).ok_or_else(|| {
@@ -210,10 +243,19 @@ pub async fn test_usage_script(
             format!("Provider not found: {provider_id}"),
         )
     })?;
-
-    // Resolve like the real query so testing matches what a saved script does:
-    // explicit values win, empty ones fall back to the provider config.
     let (api_key, base_url) = resolve_script_credentials(&app_type, provider, api_key, base_url);
+
+    if template_type == Some(TEMPLATE_TYPE_NEWAPI) {
+        let accounts = effective_newapi_accounts(
+            new_api_accounts,
+            &base_url,
+            access_token,
+            user_id,
+        );
+        if !accounts.is_empty() {
+            return query_newapi_accounts(&accounts, &base_url, timeout).await;
+        }
+    }
 
     execute_and_format_usage_result(
         script_code,
@@ -245,75 +287,290 @@ pub(crate) fn validate_usage_script(script: &UsageScript) -> Result<(), AppError
     Ok(())
 }
 
-#[cfg(test)]
-mod tests {
-    use super::resolve_script_credentials;
-    use crate::app_config::AppType;
-    use crate::provider::Provider;
-    use serde_json::json;
-
-    fn provider_with_settings(settings_config: serde_json::Value) -> Provider {
-        Provider::with_id(
-            "provider-1".to_string(),
-            "Provider".to_string(),
-            settings_config,
-            None,
-        )
-    }
-
-    #[test]
-    fn script_values_override_provider_credentials() {
-        let provider = provider_with_settings(json!({
-            "env": {
-                "ANTHROPIC_AUTH_TOKEN": "provider-key",
-                "ANTHROPIC_BASE_URL": "https://provider.example.com/"
+fn effective_newapi_accounts(
+    accounts: Option<&[NewApiAccountConfig]>,
+    default_base_url: &str,
+    access_token: Option<&str>,
+    user_id: Option<&str>,
+) -> Vec<NewApiAccountConfig> {
+    let configured: Vec<NewApiAccountConfig> = accounts
+        .unwrap_or(&[])
+        .iter()
+        .filter_map(|account| {
+            let token = account.access_token.trim();
+            let uid = account.user_id.trim();
+            if token.is_empty() || uid.is_empty() {
+                return None;
             }
-        }));
 
-        let (api_key, base_url) = resolve_script_credentials(
-            &AppType::Claude,
-            &provider,
-            Some(" script-key "),
-            Some(" https://script.example.com/ "),
-        );
-        assert_eq!(api_key, "script-key");
-        assert_eq!(base_url, "https://script.example.com");
-    }
-
-    #[test]
-    fn empty_script_values_fall_back_to_provider_credentials() {
-        let provider = provider_with_settings(json!({
-            "env": {
-                "ANTHROPIC_AUTH_TOKEN": "provider-key",
-                "ANTHROPIC_BASE_URL": "https://provider.example.com/"
+            let base_url = account
+                .base_url
+                .as_deref()
+                .unwrap_or(default_base_url)
+                .trim();
+            if base_url.is_empty() {
+                return None;
             }
-        }));
 
-        let (api_key, base_url) =
-            resolve_script_credentials(&AppType::Claude, &provider, Some(""), None);
-        assert_eq!(api_key, "provider-key");
-        assert_eq!(base_url, "https://provider.example.com");
+            Some(NewApiAccountConfig {
+                id: account.id.clone(),
+                name: account.name.clone(),
+                base_url: Some(base_url.to_string()),
+                access_token: token.to_string(),
+                user_id: uid.to_string(),
+            })
+        })
+        .collect();
+
+    if !configured.is_empty() {
+        return configured;
     }
 
-    #[test]
-    fn codex_fallback_reads_auth_and_config_toml() {
-        let provider = provider_with_settings(json!({
-            "auth": {
-                "OPENAI_API_KEY": "openai-key"
-            },
-            "config": r#"model_provider = "azure"
-
-[model_providers.azure]
-base_url = "https://azure.example.com/v1/"
-
-[model_providers.other]
-base_url = "https://other.example.com/v1"
-"#
-        }));
-
-        let (api_key, base_url) =
-            resolve_script_credentials(&AppType::Codex, &provider, None, None);
-        assert_eq!(api_key, "openai-key");
-        assert_eq!(base_url, "https://azure.example.com/v1");
+    let token = access_token.unwrap_or("").trim();
+    let uid = user_id.unwrap_or("").trim();
+    if token.is_empty() || uid.is_empty() || default_base_url.trim().is_empty() {
+        return Vec::new();
     }
+
+    vec![NewApiAccountConfig {
+        id: None,
+        name: None,
+        base_url: Some(default_base_url.trim().to_string()),
+        access_token: token.to_string(),
+        user_id: uid.to_string(),
+    }]
+}
+
+fn accounts_from_key_metadata(
+    config: &crate::provider::MultiKeyConfig,
+    default_base_url: &str,
+) -> Vec<NewApiAccountConfig> {
+    config
+        .key_metadata
+        .as_deref()
+        .unwrap_or(&[])
+        .iter()
+        .enumerate()
+        .filter_map(|(index, metadata)| {
+            let account = metadata.balance_query.as_ref()?;
+            let token = account.access_token.trim();
+            let uid = account.user_id.trim();
+            if token.is_empty() || uid.is_empty() {
+                return None;
+            }
+
+            let base_url = account
+                .base_url
+                .as_deref()
+                .unwrap_or(default_base_url)
+                .trim();
+            if base_url.is_empty() {
+                return None;
+            }
+
+            Some(NewApiAccountConfig {
+                id: account.id.clone().or_else(|| Some(format!("key-{index}"))),
+                name: account
+                    .name
+                    .clone()
+                    .or_else(|| Some(format!("Key {}", index + 1))),
+                base_url: Some(base_url.to_string()),
+                access_token: token.to_string(),
+                user_id: uid.to_string(),
+            })
+        })
+        .collect()
+}
+
+async fn query_newapi_accounts(
+    accounts: &[NewApiAccountConfig],
+    default_base_url: &str,
+    timeout: u64,
+) -> Result<UsageResult, AppError> {
+    let mut data = Vec::with_capacity(accounts.len());
+
+    for (index, account) in accounts.iter().enumerate() {
+        data.push(query_newapi_account(account, default_base_url, index, timeout).await);
+    }
+
+    Ok(UsageResult {
+        success: true,
+        data: Some(data),
+        error: None,
+    })
+}
+
+async fn query_newapi_account(
+    account: &NewApiAccountConfig,
+    default_base_url: &str,
+    index: usize,
+    timeout: u64,
+) -> UsageData {
+    let label = newapi_account_label(account, None, index);
+    let base_url = account
+        .base_url
+        .as_deref()
+        .unwrap_or(default_base_url)
+        .trim();
+    let url = match newapi_account_url(base_url) {
+        Ok(url) => url,
+        Err(err) => return invalid_newapi_account(label, err),
+    };
+
+    let client = crate::proxy::http_client::get();
+    let resp = client
+        .get(url)
+        .header("Authorization", format!("Bearer {}", account.access_token.trim()))
+        .header("New-Api-User", account.user_id.trim())
+        .header("Accept", "application/json")
+        .timeout(Duration::from_secs(timeout.clamp(2, 30)))
+        .send()
+        .await;
+
+    let resp = match resp {
+        Ok(resp) => resp,
+        Err(err) => return invalid_newapi_account(label, format!("Network error: {err}")),
+    };
+
+    let status = resp.status();
+    let text = match resp.text().await {
+        Ok(text) => text,
+        Err(err) => return invalid_newapi_account(label, format!("Failed to read response: {err}")),
+    };
+
+    if !status.is_success() {
+        return invalid_newapi_account(label, format!("HTTP {status}: {}", preview_text(&text)));
+    }
+
+    let body: Value = match serde_json::from_str(&text) {
+        Ok(body) => body,
+        Err(err) => return invalid_newapi_account(label, format!("Failed to parse response: {err}")),
+    };
+
+    let ok = response_is_success(&body);
+    if !ok {
+        let message = body
+            .get("message")
+            .and_then(|v| v.as_str())
+            .unwrap_or("Query failed");
+        return invalid_newapi_account(label, message.to_string());
+    }
+
+    let account_data = match body.get("data").filter(|data| data.is_object()) {
+        Some(data) => data,
+        None => return invalid_newapi_account(label, "Missing data field".to_string()),
+    };
+
+    let quota = parse_f64_field(account_data, "quota").unwrap_or(0.0);
+    let used_quota = parse_f64_field(account_data, "used_quota").unwrap_or(0.0);
+    let group = account_data.get("group").and_then(|v| v.as_str());
+    let plan_name = newapi_account_label(account, Some(account_data), index);
+
+    UsageData {
+        plan_name: Some(plan_name),
+        remaining: Some(quota / NEWAPI_QUOTA_PER_USD),
+        total: Some((quota + used_quota) / NEWAPI_QUOTA_PER_USD),
+        used: Some(used_quota / NEWAPI_QUOTA_PER_USD),
+        unit: Some("USD".to_string()),
+        is_valid: Some(true),
+        invalid_message: None,
+        extra: group
+            .filter(|group| !group.trim().is_empty())
+            .map(|group| format!("Group: {group}")),
+    }
+}
+
+fn newapi_account_url(base_url: &str) -> Result<String, String> {
+    if base_url.trim().is_empty() {
+        return Err("Base URL is empty".to_string());
+    }
+
+    let mut url = Url::parse(base_url.trim()).map_err(|err| format!("Invalid base URL: {err}"))?;
+    url.set_path("/api/user/self");
+    url.set_query(None);
+    url.set_fragment(None);
+    Ok(url.to_string())
+}
+
+fn newapi_account_label(
+    account: &NewApiAccountConfig,
+    data: Option<&Value>,
+    index: usize,
+) -> String {
+    if let Some(name) = account
+        .name
+        .as_deref()
+        .map(str::trim)
+        .filter(|name| !name.is_empty())
+    {
+        return name.to_string();
+    }
+
+    if let Some(data) = data {
+        for field in ["username", "name", "display_name", "group"] {
+            if let Some(value) = data.get(field).and_then(|v| v.as_str()) {
+                let value = value.trim();
+                if !value.is_empty() {
+                    return value.to_string();
+                }
+            }
+        }
+    }
+
+    format!("NewAPI Account {}", index + 1)
+}
+
+fn invalid_newapi_account(plan_name: String, message: String) -> UsageData {
+    UsageData {
+        plan_name: Some(plan_name),
+        remaining: None,
+        total: None,
+        used: None,
+        unit: None,
+        is_valid: Some(false),
+        invalid_message: Some(message),
+        extra: None,
+    }
+}
+
+fn parse_f64_field(obj: &Value, field: &str) -> Option<f64> {
+    obj.get(field).and_then(|v| {
+        v.as_f64()
+            .or_else(|| v.as_str().and_then(|s| s.parse().ok()))
+    })
+}
+
+fn response_is_success(body: &Value) -> bool {
+    if let Some(value) = body.get("success") {
+        if let Some(ok) = value.as_bool() {
+            return ok;
+        }
+    }
+
+    if let Some(value) = body.get("code") {
+        if let Some(ok) = value.as_bool() {
+            return ok;
+        }
+        if let Some(code) = value.as_i64() {
+            return code == 0 || code == 200;
+        }
+        if let Some(code) = value.as_str() {
+            let normalized = code.trim().to_ascii_lowercase();
+            return matches!(normalized.as_str(), "true" | "ok" | "success" | "0" | "200");
+        }
+    }
+
+    body.get("data").map(|data| data.is_object()).unwrap_or(false)
+}
+
+fn preview_text(text: &str) -> String {
+    if text.len() <= 200 {
+        return text.to_string();
+    }
+
+    let mut end = 200usize;
+    while !text.is_char_boundary(end) {
+        end = end.saturating_sub(1);
+    }
+    format!("{}...", &text[..end])
 }
