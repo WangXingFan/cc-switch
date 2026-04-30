@@ -190,7 +190,8 @@
       "fixed": "Fixed",
       "fixedDesc": "Always use the selected key",
       "fixedActive": "Active",
-      "fixedSelectHint": "Click to select the key to use"
+      "fixedSelectHint": "Click to select the key to use",
+      "removeKey": "Remove API Key {{index}}"
     },
     "duplicateLiveIdsLoadFailed": "Failed to read provider identifiers from config, please fix the config and try again"
   },

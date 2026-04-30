@@ -1,6 +1,14 @@
 import { useState, useCallback } from "react";
 import { useTranslation } from "react-i18next";
-import { Plus, Trash2, Eye, EyeOff, GripVertical, CircleDot, Circle } from "lucide-react";
+import {
+  Plus,
+  Trash2,
+  Eye,
+  EyeOff,
+  GripVertical,
+  CircleDot,
+  Circle,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -9,7 +17,7 @@ import type { KeyRotationStrategy } from "@/types";
 
 interface MultiKeyInputProps {
   keys: string[];
-  onChange: (keys: string[]) => void;
+  onChange: (keys: string[], fixedIndex?: number) => void;
   disabled?: boolean;
   placeholder?: string;
   label?: string;
@@ -64,7 +72,7 @@ export function MultiKeyInput({
       newKeys[index] = value;
       onChange(newKeys);
     },
-    [effectiveKeys, onChange]
+    [effectiveKeys, onChange],
   );
 
   const handleAddKey = useCallback(() => {
@@ -75,8 +83,19 @@ export function MultiKeyInput({
     (index: number) => {
       if (effectiveKeys.length <= 1) return;
       const newKeys = effectiveKeys.filter((_, i) => i !== index);
-      onChange(newKeys);
-      // 调整可见性索引
+      let nextFixedIndex: number | undefined;
+      if (isFixedMode) {
+        if (fixedIndex === index) {
+          nextFixedIndex = 0;
+        } else if (fixedIndex > index) {
+          nextFixedIndex = fixedIndex - 1;
+        } else {
+          nextFixedIndex = fixedIndex;
+        }
+      }
+
+      onChange(newKeys, nextFixedIndex);
+      // Adjust visibility indices after removing a key.
       setVisibleKeys((prev) => {
         const next = new Set<number>();
         prev.forEach((i) => {
@@ -85,18 +104,8 @@ export function MultiKeyInput({
         });
         return next;
       });
-      // 固定模式下调整 fixedIndex
-      if (isFixedMode && onFixedIndexChange) {
-        if (fixedIndex === index) {
-          // 删除的正是选中的，回退到 0
-          onFixedIndexChange(0);
-        } else if (fixedIndex > index) {
-          // 删除的在选中之前，索引前移
-          onFixedIndexChange(fixedIndex - 1);
-        }
-      }
     },
-    [effectiveKeys, onChange, isFixedMode, fixedIndex, onFixedIndexChange]
+    [effectiveKeys, onChange, isFixedMode, fixedIndex],
   );
 
   const showMultiKeyControls = effectiveKeys.length > 1 || disabled === false;
@@ -134,7 +143,7 @@ export function MultiKeyInput({
                   "flex-shrink-0 h-8 w-8",
                   fixedIndex === index
                     ? "text-blue-500"
-                    : "text-muted-foreground hover:text-blue-400"
+                    : "text-muted-foreground hover:text-blue-400",
                 )}
                 onClick={() => onFixedIndexChange?.(index)}
                 disabled={disabled}
@@ -171,8 +180,10 @@ export function MultiKeyInput({
                 disabled={disabled}
                 className={cn(
                   "pr-10",
-                  isFixedMode && fixedIndex === index && effectiveKeys.length > 1 &&
-                    "border-blue-500/50 ring-1 ring-blue-500/20"
+                  isFixedMode &&
+                    fixedIndex === index &&
+                    effectiveKeys.length > 1 &&
+                    "border-blue-500/50 ring-1 ring-blue-500/20",
                 )}
               />
               <Button
@@ -199,6 +210,10 @@ export function MultiKeyInput({
                 onClick={() => handleRemoveKey(index)}
                 disabled={disabled || effectiveKeys.length <= 1}
                 className="flex-shrink-0 text-muted-foreground hover:text-destructive"
+                aria-label={t("provider.multiKey.removeKey", {
+                  index: index + 1,
+                  defaultValue: "Remove API Key {{index}}",
+                })}
               >
                 <Trash2 className="h-4 w-4" />
               </Button>

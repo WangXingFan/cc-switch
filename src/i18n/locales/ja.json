@@ -190,7 +190,8 @@
       "fixed": "固定",
       "fixedDesc": "常に選択したキーを使用",
       "fixedActive": "使用中",
-      "fixedSelectHint": "使用するキーをクリックして選択"
+      "fixedSelectHint": "使用するキーをクリックして選択",
+      "removeKey": "API Key {{index}} を削除"
     },
     "duplicateLiveIdsLoadFailed": "設定内のプロバイダー識別子を読み込めませんでした。設定を修正してから再度お試しください"
   },

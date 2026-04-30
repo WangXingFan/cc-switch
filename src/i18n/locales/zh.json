@@ -190,7 +190,8 @@
       "fixed": "固定",
       "fixedDesc": "始终使用选中的 Key",
       "fixedActive": "使用中",
-      "fixedSelectHint": "点击选择要使用的 Key"
+      "fixedSelectHint": "点击选择要使用的 Key",
+      "removeKey": "删除 API Key {{index}}"
     },
     "duplicateLiveIdsLoadFailed": "读取配置中的供应商标识失败，请先修复配置后再试"
   },
