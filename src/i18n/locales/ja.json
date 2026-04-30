@@ -361,6 +361,10 @@
     "tabAuth": "認証",
     "tabAdvanced": "詳細",
     "tabProxy": "ルーティング",
+    "balanceQuery": {
+      "title": "API キー残高照会を表示",
+      "description": "有効にすると、複数 API キー入力欄にキーごとの残高照会操作が表示されます"
+    },
     "authCenter": {
       "title": "OAuth 認証センター",
       "description": "Claude Code で他のサブスクリプションをご利用いただけます。コンプライアンスリスクにご注意ください。",

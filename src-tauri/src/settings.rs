@@ -400,6 +400,9 @@ pub struct AppSettings {
     /// a failed migration retries at startup; cleared when the toggle turns off.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub unify_codex_migrate_existing: Option<bool>,
+    /// Whether to show per-key balance query controls in provider API key fields
+    #[serde(default)]
+    pub enable_multi_key_balance_query: bool,
     /// User has confirmed the failover toggle first-run notice
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub failover_confirmed: Option<bool>,
@@ -537,6 +540,7 @@ impl Default for AppSettings {
             preserve_codex_official_auth_on_switch: false,
             unify_codex_session_history: false,
             unify_codex_migrate_existing: None,
+            enable_multi_key_balance_query: false,
             failover_confirmed: None,
             first_run_notice_confirmed: None,
             common_config_confirmed: None,

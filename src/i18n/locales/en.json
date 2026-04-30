@@ -361,6 +361,10 @@
     "tabAuth": "Auth",
     "tabAdvanced": "Advanced",
     "tabProxy": "Routing",
+    "balanceQuery": {
+      "title": "Show API Key Balance Query",
+      "description": "When enabled, per-key balance query controls appear in multi API key fields"
+    },
     "authCenter": {
       "title": "OAuth Authentication Center",
       "description": "Use your other subscriptions in Claude Code — please be mindful of compliance risks.",

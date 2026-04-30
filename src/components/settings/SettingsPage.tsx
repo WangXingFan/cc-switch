@@ -16,6 +16,7 @@ import {
   ScrollText,
   HardDriveDownload,
   FlaskConical,
+  Wallet,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -33,6 +34,7 @@ import {
 } from "@/components/ui/accordion";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
+import { ToggleRow } from "@/components/ui/toggle-row";
 import { settingsApi } from "@/lib/api";
 import { LanguageSettings } from "@/components/settings/LanguageSettings";
 import { ThemeSettings } from "@/components/settings/ThemeSettings";
@@ -260,6 +262,17 @@ export function SettingsPage({
                     <AppVisibilitySettings
                       settings={settings}
                       onChange={handleAutoSave}
+                    />
+                    <ToggleRow
+                      icon={<Wallet className="h-4 w-4 text-emerald-500" />}
+                      title={t("settings.balanceQuery.title")}
+                      description={t("settings.balanceQuery.description")}
+                      checked={settings.enableMultiKeyBalanceQuery ?? false}
+                      onCheckedChange={(checked) =>
+                        handleAutoSave({
+                          enableMultiKeyBalanceQuery: checked,
+                        })
+                      }
                     />
                     <SkillStorageLocationSettings
                       value={settings.skillStorageLocation ?? "cc_switch"}

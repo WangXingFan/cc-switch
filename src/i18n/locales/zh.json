@@ -361,6 +361,10 @@
     "tabAuth": "认证",
     "tabAdvanced": "高级",
     "tabProxy": "路由",
+    "balanceQuery": {
+      "title": "显示 API Key 余额查询",
+      "description": "开启后，在多 API Key 输入区域显示单个 Key 的余额查询入口"
+    },
     "authCenter": {
       "title": "OAuth 认证中心",
       "description": "在 Claude Code 中使用您的其他订阅，请注意合规风险。",
