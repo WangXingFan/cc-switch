@@ -306,11 +306,11 @@ pub struct UsageScript {
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(rename = "baseUrl")]
     pub base_url: Option<String>,
-    /// 访问令牌（用于需要登录的接口，NewAPI 模板使用）
+    /// 访问令牌（用于需要登录的接口，保留旧版 NewAPI 模板兼容）
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(rename = "accessToken")]
     pub access_token: Option<String>,
-    /// 用户ID（用于需要用户标识的接口，NewAPI 模板使用）
+    /// 用户ID（用于需要用户标识的接口，保留旧版 NewAPI 模板兼容）
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(rename = "userId")]
     pub user_id: Option<String>,

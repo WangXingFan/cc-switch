@@ -1,6 +1,6 @@
 //! 供应商余额查询服务
 //!
-//! 支持 DeepSeek、StepFun、SiliconFlow、OpenRouter、Novita AI 的账户余额查询。
+//! 支持 DeepSeek、StepFun、SiliconFlow、OpenRouter、Novita AI、NewAPI 的账户余额查询。
 //! 返回 UsageResult 格式，与现有用量系统无缝对接。
 //!
 //! 错误通道语义（与 coding_plan / subscription 两个服务保持一致）：
@@ -11,6 +11,7 @@
 
 use crate::provider::{UsageData, UsageResult};
 use std::time::Duration;
+use url::Url;
 
 // ── 供应商检测 ──────────────────────────────────────────────
 
@@ -21,6 +22,7 @@ enum BalanceProvider {
     SiliconFlowEn,
     OpenRouter,
     NovitaAI,
+    NewAPI,
 }
 
 fn detect_provider(base_url: &str) -> Option<BalanceProvider> {
@@ -37,6 +39,8 @@ fn detect_provider(base_url: &str) -> Option<BalanceProvider> {
         Some(BalanceProvider::OpenRouter)
     } else if url.contains("api.novita.ai") {
         Some(BalanceProvider::NovitaAI)
+    } else if url.contains("newapi") || url.contains("new-api") {
+        Some(BalanceProvider::NewAPI)
     } else {
         None
     }
@@ -409,6 +413,127 @@ async fn query_novita(api_key: &str) -> Result<UsageResult, String> {
     })
 }
 
+// ── NewAPI ─────────────────────────────────────────────────
+// GET {newapi-origin}/api/usage/token
+// Response:
+// { code, message, data: { object, name, total_granted, total_used, total_available, unlimited_quota } }
+//
+// NewAPI 通常把模型 API 暴露在 /v1，但 token usage 查询在站点根路径的
+// /api/usage/token；因此需要从用户填写的 base_url 中保留 origin，替换 path。
+
+const NEWAPI_QUOTA_PER_USD: f64 = 500_000.0;
+
+fn newapi_usage_url(base_url: &str) -> Result<String, String> {
+    let trimmed = base_url.trim();
+    if trimmed.is_empty() {
+        return Err("Base URL is empty".to_string());
+    }
+
+    let mut url =
+        Url::parse(trimmed).map_err(|e| format!("Invalid base URL: {e}"))?;
+    url.set_path("/api/usage/token");
+    url.set_query(None);
+    url.set_fragment(None);
+    Ok(url.to_string())
+}
+
+fn quota_to_usd(value: Option<f64>) -> Option<f64> {
+    value.map(|v| v / NEWAPI_QUOTA_PER_USD)
+}
+
+async fn query_newapi(base_url: &str, api_key: &str) -> Result<UsageResult, String> {
+    let client = crate::proxy::http_client::get();
+    let url = match newapi_usage_url(base_url) {
+        Ok(url) => url,
+        Err(e) => return Ok(make_error(e)),
+    };
+
+    let resp = client
+        .get(url)
+        .header("Authorization", format!("Bearer {api_key}"))
+        .header("Accept", "application/json")
+        .timeout(Duration::from_secs(10))
+        .send()
+        .await
+        .map_err(|e| format!("Network error: {e}"))?;
+
+    let status = resp.status();
+    if status == reqwest::StatusCode::UNAUTHORIZED || status == reqwest::StatusCode::FORBIDDEN {
+        return Ok(make_auth_error(status));
+    }
+    if status == reqwest::StatusCode::NOT_FOUND {
+        return Ok(make_error("Unknown balance provider".to_string()));
+    }
+    if !status.is_success() {
+        let body = resp.text().await.unwrap_or_default();
+        return Ok(make_error(format!("API error (HTTP {status}): {body}")));
+    }
+
+    let body: serde_json::Value = match resp.json().await {
+        Ok(v) => v,
+        Err(e) => return Ok(make_error(format!("Failed to parse response: {e}"))),
+    };
+
+    let ok = body.get("code").and_then(|v| v.as_bool()).unwrap_or(false);
+    let message = body
+        .get("message")
+        .and_then(|v| v.as_str())
+        .unwrap_or("Query failed");
+    if !ok {
+        return Ok(UsageResult {
+            success: false,
+            data: Some(vec![UsageData {
+                plan_name: Some("NewAPI".to_string()),
+                remaining: None,
+                total: None,
+                used: None,
+                unit: None,
+                is_valid: Some(false),
+                invalid_message: Some(message.to_string()),
+                extra: None,
+            }]),
+            error: Some(message.to_string()),
+        });
+    }
+
+    let data = match body.get("data") {
+        Some(d) => d,
+        None => return Ok(make_error("Missing 'data' field in response".to_string())),
+    };
+
+    let unlimited = data
+        .get("unlimited_quota")
+        .and_then(|v| v.as_bool())
+        .unwrap_or(false);
+    let name = data
+        .get("name")
+        .and_then(|v| v.as_str())
+        .unwrap_or("NewAPI Token");
+
+    Ok(UsageResult {
+        success: true,
+        data: Some(vec![UsageData {
+            plan_name: Some(name.to_string()),
+            remaining: if unlimited {
+                None
+            } else {
+                quota_to_usd(parse_f64_field(data, "total_available"))
+            },
+            total: quota_to_usd(parse_f64_field(data, "total_granted")),
+            used: quota_to_usd(parse_f64_field(data, "total_used")),
+            unit: Some("USD".to_string()),
+            is_valid: Some(true),
+            invalid_message: None,
+            extra: if unlimited {
+                Some("Unlimited quota".to_string())
+            } else {
+                None
+            },
+        }]),
+        error: None,
+    })
+}
+
 // ── 工具函数 ────────────────────────────────────────────────
 
 /// 解析 JSON 字段为 f64，兼容数字和字符串格式
@@ -432,23 +557,40 @@ pub async fn get_balance(base_url: &str, api_key: &str) -> Result<UsageResult, S
         });
     }
 
-    let provider = match detect_provider(base_url) {
-        Some(p) => p,
-        None => {
-            return Ok(UsageResult {
-                success: false,
-                data: None,
-                error: Some("Unknown balance provider".to_string()),
-            })
-        }
-    };
+    match detect_provider(base_url) {
+        Some(BalanceProvider::DeepSeek) => query_deepseek(api_key).await,
+        Some(BalanceProvider::StepFun) => query_stepfun(api_key).await,
+        Some(BalanceProvider::SiliconFlow) => query_siliconflow(api_key, true).await,
+        Some(BalanceProvider::SiliconFlowEn) => query_siliconflow(api_key, false).await,
+        Some(BalanceProvider::OpenRouter) => query_openrouter(api_key).await,
+        Some(BalanceProvider::NovitaAI) => query_novita(api_key).await,
+        Some(BalanceProvider::NewAPI) | None => query_newapi(base_url, api_key).await,
+    }
+}
 
-    match provider {
-        BalanceProvider::DeepSeek => query_deepseek(api_key).await,
-        BalanceProvider::StepFun => query_stepfun(api_key).await,
-        BalanceProvider::SiliconFlow => query_siliconflow(api_key, true).await,
-        BalanceProvider::SiliconFlowEn => query_siliconflow(api_key, false).await,
-        BalanceProvider::OpenRouter => query_openrouter(api_key).await,
-        BalanceProvider::NovitaAI => query_novita(api_key).await,
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn newapi_usage_url_uses_origin_for_v1_base_url() {
+        assert_eq!(
+            newapi_usage_url("https://newapi.example.com/v1").unwrap(),
+            "https://newapi.example.com/api/usage/token"
+        );
+    }
+
+    #[test]
+    fn newapi_usage_url_uses_origin_for_full_endpoint_url() {
+        assert_eq!(
+            newapi_usage_url("https://newapi.example.com/v1/chat/completions?x=1")
+                .unwrap(),
+            "https://newapi.example.com/api/usage/token"
+        );
+    }
+
+    #[test]
+    fn quota_to_usd_converts_newapi_quota_units() {
+        assert_eq!(quota_to_usd(Some(500_000.0)), Some(1.0));
     }
 }

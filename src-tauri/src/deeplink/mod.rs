@@ -127,10 +127,10 @@ pub struct DeepLinkImportRequest {
     /// Usage query base URL (if different from provider endpoint)
     #[serde(skip_serializing_if = "Option::is_none")]
     pub usage_base_url: Option<String>,
-    /// Usage query access token (for NewAPI template)
+    /// Usage query access token (kept for legacy NewAPI templates)
     #[serde(skip_serializing_if = "Option::is_none")]
     pub usage_access_token: Option<String>,
-    /// Usage query user ID (for NewAPI template)
+    /// Usage query user ID (kept for legacy NewAPI templates)
     #[serde(skip_serializing_if = "Option::is_none")]
     pub usage_user_id: Option<String>,
     /// Auto query interval in minutes (0 to disable)
