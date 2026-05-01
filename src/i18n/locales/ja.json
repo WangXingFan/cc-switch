@@ -203,7 +203,7 @@
       "balanceCollapse": "アカウント残高照会設定を折りたたむ",
       "balanceOpen": "API Key {{index}} のアカウント残高照会を設定",
       "balanceDialogDescription": "API Key #{{index}} に対応するアカウント残高照会設定を入力します。空欄の項目はプロバイダーの既定設定を使用します。",
-      "balanceQueryAll": "すべての残高を照会",
+      "balanceQueryAll": "現在のプロバイダー残高を更新",
       "balanceQueryAllNoConfig": "先に少なくとも 1 つのキーの残高照会を設定してください",
       "balanceQueryFailed": "残高照会に失敗しました",
       "balanceInvalid": "照会失敗",

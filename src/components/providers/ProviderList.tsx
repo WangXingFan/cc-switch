@@ -13,7 +13,7 @@ import {
   type CSSProperties,
 } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { AlertTriangle, RefreshCw, Search, X } from "lucide-react";
+import { AlertTriangle, Search, X } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -49,19 +49,6 @@ import { Button } from "@/components/ui/button";
 import { isTextEditableTarget } from "@/utils/domUtils";
 import { usePiCurrentState } from "@/lib/query/pi";
 import { isProxyAppId } from "@/config/appConfig";
-import { usageApi } from "@/lib/api/usage";
-import { usageKeys } from "@/lib/query/usage";
-
-function hasUsageQueryEnabled(provider: Provider): boolean {
-  const hasUsageScript = provider.meta?.usage_script?.enabled ?? false;
-  const hasKeyBalanceQuery =
-    provider.meta?.multiKeyConfig?.keyMetadata?.some((metadata) => {
-      const query = metadata.balanceQuery;
-      return Boolean(query?.accessToken?.trim() && query?.userId?.trim());
-    }) ?? false;
-
-  return hasUsageScript || hasKeyBalanceQuery;
-}
 
 interface ProviderListProps {
   providers: Record<string, Provider>;
@@ -244,52 +231,6 @@ export function ProviderList({
   );
 
   const queryClient = useQueryClient();
-  const syncableUsageProviders = useMemo(
-    () => sortedProviders.filter(hasUsageQueryEnabled),
-    [sortedProviders],
-  );
-  const syncAllUsageMutation = useMutation({
-    mutationFn: async () => {
-      const results = await Promise.all(
-        syncableUsageProviders.map(async (provider) => {
-          try {
-            const result = await usageApi.query(provider.id, appId);
-            queryClient.setQueryData(
-              usageKeys.script(provider.id, appId),
-              result,
-            );
-            return result.success === true;
-          } catch (error) {
-            const message =
-              error instanceof Error ? error.message : String(error);
-            queryClient.setQueryData(usageKeys.script(provider.id, appId), {
-              success: false,
-              data: null,
-              error: message,
-            });
-            return false;
-          }
-        }),
-      );
-      const success = results.filter(Boolean).length;
-      return { success, failed: results.length - success, total: results.length };
-    },
-    onSuccess: ({ success, failed, total }) => {
-      if (total === 0) {
-        toast.info(t("usage.syncAllBalancesEmpty"));
-      } else if (failed === 0) {
-        toast.success(t("usage.syncAllBalancesSuccess", { count: success }));
-      } else if (success > 0) {
-        toast.warning(t("usage.syncAllBalancesPartial", { success, failed }));
-      } else {
-        toast.error(t("usage.syncAllBalancesFailed", { count: failed }));
-      }
-    },
-  });
-  const handleSyncAllUsage = () => {
-    if (!syncAllUsageMutation.isPending) syncAllUsageMutation.mutate();
-  };
-
   // Import current live config as default provider
   const importMutation = useMutation({
     mutationFn: async (): Promise<boolean> => {
@@ -596,28 +537,6 @@ export function ProviderList({
               <li key={message}>{message}</li>
             ))}
           </ul>
-        </div>
-      )}
-      {syncableUsageProviders.length > 0 && (
-        <div className="flex justify-end">
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={handleSyncAllUsage}
-            disabled={syncAllUsageMutation.isPending}
-            className="gap-2"
-            title={t("usage.syncAllBalancesHint")}
-          >
-            <RefreshCw
-              className={`h-4 w-4 ${syncAllUsageMutation.isPending ? "animate-spin" : ""}`}
-            />
-            {syncAllUsageMutation.isPending
-              ? t("usage.syncingAllBalances")
-              : t("usage.syncAllBalances", {
-                  count: syncableUsageProviders.length,
-                })}
-          </Button>
         </div>
       )}
       <AnimatePresence>

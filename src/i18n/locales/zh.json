@@ -203,7 +203,7 @@
       "balanceCollapse": "收起账号余额查询配置",
       "balanceOpen": "配置 API Key {{index}} 的账号余额查询",
       "balanceDialogDescription": "填写 API Key #{{index}} 对应账号的余额查询配置。留空的字段会继续使用供应商默认配置。",
-      "balanceQueryAll": "查询全部余额",
+      "balanceQueryAll": "刷新当前渠道余额",
       "balanceQueryAllNoConfig": "请先配置至少一个 Key 的余额查询",
       "balanceQueryFailed": "余额查询失败",
       "balanceInvalid": "查询失败",
