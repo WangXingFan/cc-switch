@@ -144,10 +144,17 @@ export function MultiKeyInput({
         accessToken: "",
         userId: "",
       };
+      const shouldClearBalanceResult =
+        "baseUrl" in patch || "accessToken" in patch || "userId" in patch;
+      const {
+        lastResult: _lastResult,
+        lastQueriedAt: _lastQueriedAt,
+        ...base
+      } = current;
       nextMetadata[index] = {
         ...nextMetadata[index],
         balanceQuery: {
-          ...current,
+          ...(shouldClearBalanceResult ? base : current),
           ...patch,
         },
       };
@@ -298,13 +305,44 @@ export function MultiKeyInput({
       }
 
       const nextResults: Record<number, UsageData | undefined> = {};
+      const nextMetadata = [...(keyMetadata || [])];
+      while (nextMetadata.length < effectiveKeys.length) {
+        nextMetadata.push({});
+      }
+      const lastQueriedAt = Date.now();
+      queryableBalanceEntries.forEach((entry) => {
+        const current = nextMetadata[entry.index]?.balanceQuery;
+        if (!current) return;
+        const {
+          lastResult: _lastResult,
+          lastQueriedAt: _lastQueriedAt,
+          ...rest
+        } = current;
+        nextMetadata[entry.index] = {
+          ...nextMetadata[entry.index],
+          balanceQuery: rest,
+        };
+      });
       result.data?.forEach((data, resultIndex) => {
         const entry = queryableBalanceEntries[resultIndex];
         if (entry) {
           nextResults[entry.index] = data;
+          const current = nextMetadata[entry.index]?.balanceQuery || {
+            accessToken: entry.account.accessToken,
+            userId: entry.account.userId,
+          };
+          nextMetadata[entry.index] = {
+            ...nextMetadata[entry.index],
+            balanceQuery: {
+              ...current,
+              lastResult: data,
+              lastQueriedAt,
+            },
+          };
         }
       });
       setBalanceResults(nextResults);
+      onChange(effectiveKeys, undefined, nextMetadata);
     } catch (error) {
       toast.error(
         error instanceof Error
@@ -314,7 +352,16 @@ export function MultiKeyInput({
     } finally {
       setIsQueryingBalances(false);
     }
-  }, [appId, balanceQueryBaseUrl, providerId, queryableBalanceEntries, t]);
+  }, [
+    appId,
+    balanceQueryBaseUrl,
+    effectiveKeys,
+    keyMetadata,
+    onChange,
+    providerId,
+    queryableBalanceEntries,
+    t,
+  ]);
 
   const formatBalanceValue = (data: UsageData | undefined) => {
     if (!data || data.isValid === false || data.remaining === undefined) {
@@ -372,7 +419,8 @@ export function MultiKeyInput({
         {effectiveKeys.map((key, index) => {
           const balanceQuery = keyMetadata?.[index]?.balanceQuery;
           const isBalanceConfigured = hasBalanceConfig(balanceQuery);
-          const balanceResult = balanceResults[index];
+          const balanceResult =
+            balanceResults[index] ?? balanceQuery?.lastResult;
           return (
             <div key={index} className="flex items-center gap-2">
               {/* 固定模式：radio 选择按钮 */}

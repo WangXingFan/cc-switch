@@ -192,6 +192,40 @@ describe("MultiKeyInput", () => {
     await waitFor(() => {
       expect(screen.getByText("4.29")).toBeInTheDocument();
       expect(screen.getByText("12")).toBeInTheDocument();
+      expect(
+        getState().multiKeyConfig?.keyMetadata?.[0]?.balanceQuery?.lastResult,
+      ).toMatchObject({ remaining: 4.29, isValid: true });
+      expect(
+        getState().multiKeyConfig?.keyMetadata?.[1]?.balanceQuery
+          ?.lastQueriedAt,
+      ).toEqual(expect.any(Number));
     });
+  });
+
+  it("renders persisted balance query results before another query runs", () => {
+    renderApiKeySection(
+      {
+        keys: ["key-1"],
+        strategy: "round_robin",
+        keyMetadata: [
+          {
+            balanceQuery: {
+              accessToken: "access-token-1",
+              userId: "user-1",
+              lastResult: { remaining: 7.5, isValid: true },
+              lastQueriedAt: 1710000000000,
+            },
+          },
+        ],
+      },
+      {
+        showBalanceMetadata: true,
+        appId: "claude",
+        providerId: "provider-1",
+        balanceQueryBaseUrl: "https://cngpt.net",
+      },
+    );
+
+    expect(screen.getByText("7.50")).toBeInTheDocument();
   });
 });

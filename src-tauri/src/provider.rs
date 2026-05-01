@@ -393,6 +393,12 @@ pub struct NewApiAccountConfig {
     pub access_token: String,
     #[serde(default, rename = "userId")]
     pub user_id: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(rename = "lastResult")]
+    pub last_result: Option<UsageData>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(rename = "lastQueriedAt")]
+    pub last_queried_at: Option<i64>,
 }
 
 /// 用量数据

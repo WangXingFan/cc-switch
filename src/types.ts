@@ -57,6 +57,8 @@ export interface NewApiAccountConfig {
   baseUrl?: string;
   accessToken: string;
   userId: string;
+  lastResult?: UsageData;
+  lastQueriedAt?: number;
 }
 
 export interface MultiKeyMetadata {

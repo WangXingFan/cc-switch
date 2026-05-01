@@ -318,6 +318,8 @@ fn effective_newapi_accounts(
                 base_url: Some(base_url.to_string()),
                 access_token: token.to_string(),
                 user_id: uid.to_string(),
+                last_result: None,
+                last_queried_at: None,
             })
         })
         .collect();
@@ -338,6 +340,8 @@ fn effective_newapi_accounts(
         base_url: Some(default_base_url.trim().to_string()),
         access_token: token.to_string(),
         user_id: uid.to_string(),
+        last_result: None,
+        last_queried_at: None,
     }]
 }
 
@@ -377,6 +381,8 @@ fn accounts_from_key_metadata(
                 base_url: Some(base_url.to_string()),
                 access_token: token.to_string(),
                 user_id: uid.to_string(),
+                last_result: None,
+                last_queried_at: None,
             })
         })
         .collect()
