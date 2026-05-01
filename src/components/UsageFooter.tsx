@@ -302,16 +302,6 @@ const UsageFooter: React.FC<UsageFooterProps> = ({
               {firstUsage.unit}
             </span>
           )}
-
-          {/* 扩展字段 extra */}
-          {usageDataList.length === 1 && firstUsage.extra && (
-            <span
-              className="text-gray-500 dark:text-gray-400 truncate max-w-[150px]"
-              title={firstUsage.extra}
-            >
-              {firstUsage.extra}
-            </span>
-          )}
         </div>
       </div>
     );

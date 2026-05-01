@@ -762,6 +762,8 @@ export function CodexFormFields({
       {/* Codex API Key 输入框（托管 OAuth 预设无需 Key） */}
       {!isCodexOauthPreset && !isXaiOauthPreset && (
         <ApiKeySection
+          appId="codex"
+          providerId={providerId}
           id="codexApiKey"
           label="API Key"
           value={codexApiKey}
@@ -775,6 +777,7 @@ export function CodexFormFields({
           onMultiKeyConfigChange={onMultiKeyConfigChange}
           enableMultiKey={category !== "official"}
           showBalanceMetadata={showMultiKeyBalanceMetadata}
+          balanceQueryBaseUrl={codexBaseUrl}
           placeholder={{
             official: t("providerForm.codexOfficialNoApiKey", {
               defaultValue: "官方供应商无需 API Key",

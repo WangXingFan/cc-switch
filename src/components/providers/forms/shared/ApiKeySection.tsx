@@ -2,6 +2,7 @@ import { useTranslation } from "react-i18next";
 import ApiKeyInput from "../ApiKeyInput";
 import { MultiKeyInput } from "./MultiKeyInput";
 import { KeyStrategySelect } from "./KeyStrategySelect";
+import type { AppId } from "@/lib/api";
 import type {
   ProviderCategory,
   KeyRotationStrategy,
@@ -10,6 +11,8 @@ import type {
 } from "@/types";
 
 interface ApiKeySectionProps {
+  appId?: AppId;
+  providerId?: string;
   id?: string;
   label?: string;
   value: string;
@@ -29,9 +32,12 @@ interface ApiKeySectionProps {
   onMultiKeyConfigChange?: (config: MultiKeyConfig | undefined) => void;
   enableMultiKey?: boolean;
   showBalanceMetadata?: boolean;
+  balanceQueryBaseUrl?: string;
 }
 
 export function ApiKeySection({
+  appId,
+  providerId,
   id,
   label,
   value,
@@ -46,6 +52,7 @@ export function ApiKeySection({
   onMultiKeyConfigChange,
   enableMultiKey = false,
   showBalanceMetadata = false,
+  balanceQueryBaseUrl,
 }: ApiKeySectionProps) {
   const { t } = useTranslation();
 
@@ -166,6 +173,9 @@ export function ApiKeySection({
             onFixedIndexChange={handleFixedIndexChange}
             keyMetadata={multiKeyConfig?.keyMetadata}
             showBalanceMetadata={showBalanceMetadata}
+            appId={appId}
+            providerId={providerId}
+            balanceQueryBaseUrl={balanceQueryBaseUrl}
           />
 
           {/* 仅在多 Key 时显示策略选择 */}

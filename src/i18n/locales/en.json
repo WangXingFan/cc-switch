@@ -200,7 +200,14 @@
       "balanceConfigured": "Configured",
       "balanceNotConfigured": "Not configured",
       "balanceExpand": "Expand account balance query settings",
-      "balanceCollapse": "Collapse account balance query settings"
+      "balanceCollapse": "Collapse account balance query settings",
+      "balanceOpen": "Configure account balance query for API Key {{index}}",
+      "balanceDialogDescription": "Fill in the balance query settings for API Key #{{index}}. Blank fields continue to use the provider defaults.",
+      "balanceQueryAll": "Query all balances",
+      "balanceQueryAllNoConfig": "Configure balance query for at least one key first",
+      "balanceQueryFailed": "Balance query failed",
+      "balanceInvalid": "Query failed",
+      "balanceNotQueried": "Not queried"
     },
     "duplicateLiveIdsLoadFailed": "Failed to read provider identifiers from config, please fix the config and try again"
   },

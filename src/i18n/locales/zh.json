@@ -200,7 +200,14 @@
       "balanceConfigured": "已配置",
       "balanceNotConfigured": "未配置",
       "balanceExpand": "展开账号余额查询配置",
-      "balanceCollapse": "收起账号余额查询配置"
+      "balanceCollapse": "收起账号余额查询配置",
+      "balanceOpen": "配置 API Key {{index}} 的账号余额查询",
+      "balanceDialogDescription": "填写 API Key #{{index}} 对应账号的余额查询配置。留空的字段会继续使用供应商默认配置。",
+      "balanceQueryAll": "查询全部余额",
+      "balanceQueryAllNoConfig": "请先配置至少一个 Key 的余额查询",
+      "balanceQueryFailed": "余额查询失败",
+      "balanceInvalid": "查询失败",
+      "balanceNotQueried": "未查询"
     },
     "duplicateLiveIdsLoadFailed": "读取配置中的供应商标识失败，请先修复配置后再试"
   },

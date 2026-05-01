@@ -695,6 +695,8 @@ export function ClaudeFormFields({
       {/* API Key 输入框（非 OAuth 预设时显示） */}
       {shouldShowApiKey && !usesOAuth && (
         <ApiKeySection
+          appId="claude"
+          providerId={providerId}
           value={apiKey}
           onChange={onApiKeyChange}
           category={category}
@@ -706,6 +708,7 @@ export function ClaudeFormFields({
           onMultiKeyConfigChange={onMultiKeyConfigChange}
           enableMultiKey={category !== "official"}
           showBalanceMetadata={showMultiKeyBalanceMetadata}
+          balanceQueryBaseUrl={baseUrl}
         />
       )}
 

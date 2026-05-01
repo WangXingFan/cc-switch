@@ -140,6 +140,8 @@ export function GeminiFormFields({
       {/* API Key 输入框 */}
       {shouldShowApiKey && !isGoogleOfficial && (
         <ApiKeySection
+          appId="gemini"
+          providerId={providerId}
           value={apiKey}
           onChange={onApiKeyChange}
           category={category}
@@ -151,6 +153,7 @@ export function GeminiFormFields({
           onMultiKeyConfigChange={onMultiKeyConfigChange}
           enableMultiKey={category !== "official"}
           showBalanceMetadata={showMultiKeyBalanceMetadata}
+          balanceQueryBaseUrl={baseUrl}
         />
       )}
 
