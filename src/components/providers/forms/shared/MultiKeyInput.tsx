@@ -524,7 +524,7 @@ export function MultiKeyInput({
           if (!open) setActiveBalanceIndex(null);
         }}
       >
-        <DialogContent className="max-w-xl">
+        <DialogContent className="max-w-xl" zIndex="top">
           <DialogHeader>
             <DialogTitle>{t("provider.multiKey.balanceTitle")}</DialogTitle>
             <DialogDescription>
