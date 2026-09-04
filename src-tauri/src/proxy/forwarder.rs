@@ -3946,6 +3946,7 @@ mod tests {
             non_streaming_timeout,
             streaming_first_byte_timeout,
             max_attempts: 1,
+            key_rotator: Arc::new(KeyRotator::new()),
         }
     }
 
