@@ -1176,7 +1176,6 @@ impl RequestForwarder {
         extensions: &Extensions,
         adapter: &dyn ProviderAdapter,
     ) -> Result<(ProxyResponse, Option<String>, Option<String>), ProxyError> {
-    ) -> Result<(ProxyResponse, Option<String>, Option<String>), ProxyError> {
         let multi_key_config = provider
             .meta
             .as_ref()
