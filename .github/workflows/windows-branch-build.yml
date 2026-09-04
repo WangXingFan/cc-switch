@@ -1,0 +1,138 @@
+name: Windows Branch Build
+
+on:
+  push:
+    branches:
+      - sync/upstream-main-20260904-port-fork
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+concurrency:
+  group: windows-branch-build-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-windows:
+    name: Build Windows Artifact
+    runs-on: windows-2022
+    defaults:
+      run:
+        shell: pwsh
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: "20"
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v5
+        with:
+          version: 10.12.3
+          run_install: false
+
+      - name: Get pnpm store directory
+        id: pnpm-store
+        run: |
+          $path = pnpm store path --silent
+          "path=$path" >> $env:GITHUB_OUTPUT
+
+      - name: Cache pnpm store
+        uses: actions/cache@v5
+        with:
+          path: ${{ steps.pnpm-store.outputs.path }}
+          key: windows-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: |
+            windows-pnpm-store-
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache Cargo registry and build
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: |
+            src-tauri -> target
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Disable updater signing for branch artifact build
+        run: |
+          $configPath = 'src-tauri/tauri.conf.json'
+          $config = Get-Content $configPath -Raw | ConvertFrom-Json -Depth 100
+
+          if ($null -ne $config.bundle) {
+            $config.bundle.createUpdaterArtifacts = $false
+          }
+
+          if ($null -ne $config.plugins -and $null -ne $config.plugins.updater) {
+            $config.plugins.updater.PSObject.Properties.Remove('pubkey')
+          }
+
+          $config | ConvertTo-Json -Depth 100 | Set-Content $configPath -Encoding utf8
+
+      - name: Build Windows app
+        run: |
+          pnpm tauri build 2>&1 | Tee-Object -FilePath tauri-build.log
+          $exitCode = $LASTEXITCODE
+          if ($exitCode -ne 0) {
+            $tail = (Get-Content tauri-build.log -Tail 200) -join "`n"
+            $tail = $tail.Replace('%', '%25').Replace("`r", '%0D').Replace("`n", '%0A')
+            Write-Output "::error title=Build Windows app failed::$tail"
+            exit $exitCode
+          }
+
+      - name: Collect Windows artifacts
+        run: |
+          $version = (Get-Content package.json | ConvertFrom-Json).version
+          New-Item -ItemType Directory -Force -Path release-assets | Out-Null
+
+          $msi = Get-ChildItem -Path 'src-tauri/target/release/bundle' -Recurse -Include *.msi -ErrorAction SilentlyContinue | Select-Object -First 1
+          if ($msi) {
+            $dest = "CC-Switch-$version-Windows.msi"
+            Copy-Item $msi.FullName (Join-Path release-assets $dest)
+          }
+
+          $exeCandidates = @(
+            'src-tauri/target/release/cc-switch.exe',
+            'src-tauri/target/x86_64-pc-windows-msvc/release/cc-switch.exe'
+          )
+          $portableExe = $exeCandidates | Where-Object { Test-Path $_ } | Select-Object -First 1
+
+          if ($portableExe) {
+            $portableDir = 'release-assets/CC-Switch-Portable'
+            New-Item -ItemType Directory -Force -Path $portableDir | Out-Null
+            Copy-Item $portableExe (Join-Path $portableDir 'cc-switch.exe')
+            Set-Content -Path (Join-Path $portableDir 'README.txt') -Value @(
+              'CC Switch portable build',
+              'Run cc-switch.exe directly.'
+            )
+            Compress-Archive -Path "$portableDir\*" -DestinationPath "release-assets/CC-Switch-$version-Windows-Portable.zip" -Force
+          }
+
+          Get-ChildItem release-assets -Recurse | Select-Object FullName, Length
+
+      - name: Upload Windows MSI artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: cc-switch-windows-msi-${{ github.sha }}
+          path: release-assets/*Windows.msi
+          if-no-files-found: error
+          retention-days: 7
+
+      - name: Upload Windows portable artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: cc-switch-windows-portable-${{ github.sha }}
+          path: release-assets/*Windows-Portable.zip
+          if-no-files-found: error
+          retention-days: 7
