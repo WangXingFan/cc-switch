@@ -1,9 +1,47 @@
+import { useCallback, useRef, useState, type KeyboardEvent } from "react";
 import { useTranslation } from "react-i18next";
 import type { SettingsFormState } from "@/hooks/useSettings";
-import { AppWindow, MonitorUp, Power, EyeOff } from "lucide-react";
+import { AppWindow, MonitorUp, Power, EyeOff, Keyboard, X } from "lucide-react";
 import { ToggleRow } from "@/components/ui/toggle-row";
 import { AnimatePresence, motion } from "framer-motion";
 import { isLinux } from "@/lib/platform";
+import { settingsApi } from "@/lib/api";
+import { toast } from "sonner";
+
+function keyEventToShortcut(event: KeyboardEvent<HTMLButtonElement>): string | null {
+  const ignoredKeys = new Set([
+    "Control",
+    "Shift",
+    "Alt",
+    "Meta",
+    "CapsLock",
+    "Tab",
+    "Escape",
+  ]);
+
+  if (ignoredKeys.has(event.key)) {
+    return null;
+  }
+
+  const parts: string[] = [];
+  if (event.ctrlKey || event.metaKey) parts.push("Ctrl");
+  if (event.altKey) parts.push("Alt");
+  if (event.shiftKey) parts.push("Shift");
+
+  if (parts.length === 0) {
+    return null;
+  }
+
+  let key = event.key;
+  if (key === " ") {
+    key = "Space";
+  } else if (key.length === 1) {
+    key = key.toUpperCase();
+  }
+
+  parts.push(key);
+  return parts.join("+");
+}
 
 interface WindowSettingsProps {
   settings: SettingsFormState;
@@ -12,6 +50,58 @@ interface WindowSettingsProps {
 
 export function WindowSettings({ settings, onChange }: WindowSettingsProps) {
   const { t } = useTranslation();
+  const [isRecording, setIsRecording] = useState(false);
+  const [pendingKeys, setPendingKeys] = useState("");
+  const inputRef = useRef<HTMLButtonElement>(null);
+
+  const handleKeyDown = useCallback(
+    (event: KeyboardEvent<HTMLButtonElement>) => {
+      event.preventDefault();
+      event.stopPropagation();
+
+      const shortcut = keyEventToShortcut(event);
+      if (!shortcut) {
+        const modifiers: string[] = [];
+        if (event.ctrlKey || event.metaKey) modifiers.push("Ctrl");
+        if (event.altKey) modifiers.push("Alt");
+        if (event.shiftKey) modifiers.push("Shift");
+        if (modifiers.length > 0) {
+          setPendingKeys(modifiers.join("+") + "+...");
+        }
+        return;
+      }
+
+      setPendingKeys(shortcut);
+      setIsRecording(false);
+
+      void (async () => {
+        try {
+          await settingsApi.registerGlobalShortcut(shortcut);
+          onChange({ globalShortcut: shortcut });
+        } catch (error) {
+          console.error("Failed to set global shortcut:", error);
+          toast.error(t("settings.globalShortcutFailed"));
+          setPendingKeys("");
+        }
+      })();
+    },
+    [onChange, t],
+  );
+
+  const handleClear = useCallback(async () => {
+    try {
+      await settingsApi.unregisterGlobalShortcut();
+      onChange({ globalShortcut: undefined });
+      setPendingKeys("");
+    } catch (error) {
+      console.error("Failed to clear global shortcut:", error);
+      toast.error(t("settings.globalShortcutFailed"));
+    }
+  }, [onChange, t]);
+
+  const displayValue = isRecording
+    ? pendingKeys || t("settings.globalShortcutRecording")
+    : settings.globalShortcut ?? "";
 
   return (
     <section className="space-y-4">
@@ -76,6 +166,57 @@ export function WindowSettings({ settings, onChange }: WindowSettingsProps) {
             onChange({ minimizeToTrayOnClose: value })
           }
         />
+
+        <div className="flex items-start gap-3 py-2">
+          <div className="mt-0.5">
+            <Keyboard className="h-4 w-4 text-yellow-500" />
+          </div>
+          <div className="min-w-0 flex-1">
+            <div className="text-sm font-medium">
+              {t("settings.globalShortcut")}
+            </div>
+            <div className="mt-0.5 text-xs text-muted-foreground">
+              {t("settings.globalShortcutDescription")}
+            </div>
+          </div>
+          <div className="flex shrink-0 items-center gap-1.5">
+            <button
+              ref={inputRef}
+              type="button"
+              className={`h-9 min-w-[180px] rounded-md border px-3 text-left text-sm transition-colors ${
+                isRecording
+                  ? "border-primary bg-primary/5 ring-1 ring-primary/30"
+                  : "border-border-default bg-background hover:border-border-active"
+              }`}
+              onClick={() => {
+                setIsRecording(true);
+                setPendingKeys("");
+                inputRef.current?.focus();
+              }}
+              onKeyDown={isRecording ? handleKeyDown : undefined}
+              onBlur={() => {
+                setIsRecording(false);
+                setPendingKeys("");
+              }}
+            >
+              <span className={displayValue ? "" : "text-muted-foreground"}>
+                {displayValue || t("settings.globalShortcutNone")}
+              </span>
+            </button>
+            {settings.globalShortcut && !isRecording && (
+              <button
+                type="button"
+                className="flex h-9 w-9 items-center justify-center rounded-md border border-border-default transition-colors hover:border-destructive/30 hover:bg-destructive/10"
+                onClick={() => {
+                  void handleClear();
+                }}
+                title={t("settings.globalShortcutClear")}
+              >
+                <X className="h-3.5 w-3.5 text-muted-foreground" />
+              </button>
+            )}
+          </div>
+        </div>
 
         {isLinux() && (
           <ToggleRow
