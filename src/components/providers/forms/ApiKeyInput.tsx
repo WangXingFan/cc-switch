@@ -22,7 +22,7 @@ const ApiKeyInput: React.FC<ApiKeyInputProps> = ({
   id = "apiKey",
 }) => {
   const { t } = useTranslation();
-  const [showKey, setShowKey] = useState(false);
+  const [showKey, setShowKey] = useState(true);
 
   const toggleShowKey = () => {
     setShowKey(!showKey);
