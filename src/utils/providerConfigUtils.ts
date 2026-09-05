@@ -1660,3 +1660,7 @@ export const normalizeMultiKeyConfigForSave = (
         ? Math.max(selectedIndex, 0)
         : config.fixedIndex,
     keyMetadata: hasMetadata
+      ? entries.map((entry) => entry.metadata ?? {})
+      : undefined,
+  };
+};
