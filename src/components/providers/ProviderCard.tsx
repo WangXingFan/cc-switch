@@ -1,4 +1,4 @@
-import { useMemo, useState, useEffect } from "react";
+import { useMemo, useState } from "react";
 import {
   AlertTriangle,
   GripVertical,
@@ -333,12 +333,6 @@ export function ProviderCard({
     usage?.success && usage.data && usage.data.length > 1 && !isTokenPlan;
 
   const [isExpanded, setIsExpanded] = useState(false);
-
-  useEffect(() => {
-    if (hasMultiplePlans) {
-      setIsExpanded(true);
-    }
-  }, [hasMultiplePlans]);
 
   const handleOpenWebsite = () => {
     if (!isClickableUrl) {
