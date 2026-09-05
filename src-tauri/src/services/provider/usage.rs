@@ -350,12 +350,12 @@ fn accounts_from_key_metadata(
     default_base_url: &str,
 ) -> Vec<NewApiAccountConfig> {
     config
-        .key_metadata
-        .as_deref()
-        .unwrap_or(&[])
+        .keys
         .iter()
+        .zip(config.key_metadata.as_deref().unwrap_or(&[]).iter())
+        .filter(|(key, _)| !key.trim().is_empty())
         .enumerate()
-        .filter_map(|(index, metadata)| {
+        .filter_map(|(index, (_, metadata))| {
             let account = metadata.balance_query.as_ref()?;
             let token = account.access_token.trim();
             let uid = account.user_id.trim();

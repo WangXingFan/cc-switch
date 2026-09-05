@@ -63,6 +63,7 @@ import type { UniversalProviderPreset } from "@/config/universalProviderPresets"
 import {
   applyTemplateValues,
   hasApiKeyField,
+  normalizeMultiKeyConfigForSave,
 } from "@/utils/providerConfigUtils";
 import { mergeProviderMeta } from "@/utils/providerMetaUtils";
 import {
@@ -1841,12 +1842,7 @@ function ProviderFormFull({
         ) {
           return undefined;
         }
-        const filteredKeys = multiKeyConfig.keys
-          .map((k) => k.trim())
-          .filter((k) => k !== "");
-        return filteredKeys.length > 1
-          ? { ...multiKeyConfig, keys: filteredKeys }
-          : undefined;
+        return normalizeMultiKeyConfigForSave(multiKeyConfig);
       })(),
     };
 

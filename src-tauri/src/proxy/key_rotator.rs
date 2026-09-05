@@ -46,8 +46,9 @@ impl KeyRotator {
             KeyRotationStrategy::RoundRobin => self.next_round_robin(provider_id, key_count),
             KeyRotationStrategy::Random => self.random_start(key_count),
             KeyRotationStrategy::Fixed => {
-                // 固定模式：使用用户指定的索引，越界则回退到 0
-                config.fixed_index.unwrap_or(0).min(key_count - 1)
+                // Fixed means exactly that key. It must not silently fall back to
+                // another credential after an authentication or rate-limit error.
+                return vec![config.fixed_index.unwrap_or(0).min(key_count - 1)];
             }
         };
 
@@ -196,10 +197,10 @@ mod tests {
         let rotator = KeyRotator::new();
         let config = make_fixed_config(vec!["k1", "k2", "k3"], Some(1));
 
-        // 固定模式：始终从 index 1 开始
+        // 固定模式：只使用 index 1，不对其他 key 故障回退
         let order1 = rotator.select_key_order("p1", &config);
         assert_eq!(order1[0], 1);
-        assert_eq!(order1, vec![1, 2, 0]);
+        assert_eq!(order1, vec![1]);
 
         // 再次调用依然从 index 1 开始（无状态）
         let order2 = rotator.select_key_order("p1", &config);
@@ -213,7 +214,7 @@ mod tests {
 
         // 未设置 fixed_index 时默认使用 0
         let order = rotator.select_key_order("p1", &config);
-        assert_eq!(order[0], 0);
+        assert_eq!(order, vec![0]);
     }
 
     #[test]
@@ -223,6 +224,6 @@ mod tests {
 
         // 越界时钳位到最后一个 key
         let order = rotator.select_key_order("p1", &config);
-        assert_eq!(order[0], 2);
+        assert_eq!(order, vec![2]);
     }
 }

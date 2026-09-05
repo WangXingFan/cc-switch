@@ -1616,3 +1616,47 @@ export const syncKeysToConfig = (
     },
   };
 };
+
+/**
+ * Trim draft-only empty keys before persistence while retaining the metadata
+ * belonging to each remaining key. `keys` and `keyMetadata` are parallel
+ * arrays, so filtering only one of them corrupts the association.
+ */
+export const normalizeMultiKeyConfigForSave = (
+  config: MultiKeyConfig | undefined,
+): MultiKeyConfig | undefined => {
+  if (!config) return undefined;
+
+  const entries = config.keys
+    .map((key, originalIndex) => ({
+      key: key.trim(),
+      metadata: config.keyMetadata?.[originalIndex],
+      originalIndex,
+    }))
+    .filter((entry) => entry.key !== "");
+  const hasMetadata = entries.some((entry) => {
+    const query = entry.metadata?.balanceQuery;
+    return Boolean(
+      query?.name?.trim() ||
+        query?.baseUrl?.trim() ||
+        query?.accessToken?.trim() ||
+        query?.userId?.trim(),
+    );
+  });
+
+  // A single key normally uses the app config directly. Keep the compact
+  // multi-key record only when it owns balance-query metadata for that key.
+  if (entries.length <= 1 && !hasMetadata) return undefined;
+
+  const selectedIndex = entries.findIndex(
+    (entry) => entry.originalIndex === (config.fixedIndex ?? 0),
+  );
+
+  return {
+    ...config,
+    keys: entries.map((entry) => entry.key),
+    fixedIndex:
+      config.strategy === "fixed"
+        ? Math.max(selectedIndex, 0)
+        : config.fixedIndex,
+    keyMetadata: hasMetadata

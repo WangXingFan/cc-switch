@@ -633,15 +633,24 @@ pub async fn register_global_shortcut(
     shortcut: String,
 ) -> Result<bool, String> {
     // 先注销所有旧快捷键
+    let previous_shortcut = crate::settings::get_settings().global_shortcut;
+
     crate::unregister_all_shortcuts(&app);
 
     // 注册新快捷键
-    crate::register_shortcut_inner(&app, &shortcut)?;
+    if let Err(error) = crate::register_shortcut_inner(&app, &shortcut) {
+        restore_global_shortcut(&app, previous_shortcut.as_deref());
+        return Err(error);
+    }
 
     // 保存到 settings
     let mut settings = crate::settings::get_settings();
     settings.global_shortcut = Some(shortcut);
-    crate::settings::update_settings(settings).map_err(|e| e.to_string())?;
+    if let Err(error) = crate::settings::update_settings(settings) {
+        crate::unregister_all_shortcuts(&app);
+        restore_global_shortcut(&app, previous_shortcut.as_deref());
+        return Err(error.to_string());
+    }
 
     Ok(true)
 }
@@ -649,16 +658,28 @@ pub async fn register_global_shortcut(
 /// 注销全局快捷键并清除 settings
 #[tauri::command]
 pub async fn unregister_global_shortcut(app: AppHandle) -> Result<bool, String> {
+    let previous_shortcut = crate::settings::get_settings().global_shortcut;
     crate::unregister_all_shortcuts(&app);
 
     let mut settings = crate::settings::get_settings();
     settings.global_shortcut = None;
-    crate::settings::update_settings(settings).map_err(|e| e.to_string())?;
-
+    if let Err(error) = crate::settings::update_settings(settings) {
+        restore_global_shortcut(&app, previous_shortcut.as_deref());
+        return Err(error.to_string());
+    }
     log::info!("全局快捷键已注销并清除");
     Ok(true)
 }
 
+
+fn restore_global_shortcut(app: &AppHandle, shortcut: Option<&str>) {
+    if let Some(shortcut) = shortcut {
+        if let Err(error) = crate::register_shortcut_inner(app, shortcut) {
+
+            log::error!("恢复原全局快捷键失败: {error}");
+        }
+    }
+}
 /// 获取整流器配置
 #[tauri::command]
 pub async fn get_rectifier_config(

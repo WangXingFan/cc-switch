@@ -441,6 +441,11 @@ fn quota_to_usd(value: Option<f64>) -> Option<f64> {
     value.map(|v| v / NEWAPI_QUOTA_PER_USD)
 }
 
+fn newapi_response_is_success(body: &serde_json::Value) -> bool {
+    body.get("success").and_then(|value| value.as_bool()).unwrap_or(false)
+        || matches!(body.get("code").and_then(|value| value.as_i64()), Some(0 | 200))
+        || body.get("code").and_then(|value| value.as_bool()).unwrap_or(false)
+}
 async fn query_newapi(base_url: &str, api_key: &str) -> Result<UsageResult, String> {
     let client = crate::proxy::http_client::get();
     let url = match newapi_usage_url(base_url) {
@@ -474,7 +479,7 @@ async fn query_newapi(base_url: &str, api_key: &str) -> Result<UsageResult, Stri
         Err(e) => return Ok(make_error(format!("Failed to parse response: {e}"))),
     };
 
-    let ok = body.get("code").and_then(|v| v.as_bool()).unwrap_or(false);
+    let ok = newapi_response_is_success(&body);
     let message = body
         .get("message")
         .and_then(|v| v.as_str())
@@ -564,7 +569,8 @@ pub async fn get_balance(base_url: &str, api_key: &str) -> Result<UsageResult, S
         Some(BalanceProvider::SiliconFlowEn) => query_siliconflow(api_key, false).await,
         Some(BalanceProvider::OpenRouter) => query_openrouter(api_key).await,
         Some(BalanceProvider::NovitaAI) => query_novita(api_key).await,
-        Some(BalanceProvider::NewAPI) | None => query_newapi(base_url, api_key).await,
+        Some(BalanceProvider::NewAPI) => query_newapi(base_url, api_key).await,
+        None => Ok(make_error("Unknown balance provider".to_string())),
     }
 }
 
@@ -592,5 +598,13 @@ mod tests {
     #[test]
     fn quota_to_usd_converts_newapi_quota_units() {
         assert_eq!(quota_to_usd(Some(500_000.0)), Some(1.0));
+    }
+
+    #[test]
+    fn newapi_response_accepts_boolean_and_numeric_success_codes() {
+        assert!(newapi_response_is_success(&serde_json::json!({ "success": true })));
+        assert!(newapi_response_is_success(&serde_json::json!({ "code": true })));
+        assert!(newapi_response_is_success(&serde_json::json!({ "code": 0 })));
+        assert!(!newapi_response_is_success(&serde_json::json!({ "code": 1 })));
     }
 }
