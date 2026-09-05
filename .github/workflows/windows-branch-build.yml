@@ -3,6 +3,7 @@ name: Windows Branch Build
 on:
   push:
     branches:
+      - main
       - sync/upstream-main-20260904-port-fork
   workflow_dispatch:
 
