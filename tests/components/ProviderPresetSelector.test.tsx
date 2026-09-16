@@ -324,6 +324,33 @@ describe("ProviderPresetSelector pure helpers", () => {
 });
 
 describe("ProviderPresetSelector", () => {
+  it("仅有自定义配置时隐藏搜索、排序和空状态", async () => {
+    const user = userEvent.setup();
+    renderSelector({ entries: [] });
+
+    expect(
+      screen.getByRole("button", { name: "providerPreset.custom" }),
+    ).toBeInTheDocument();
+    expect(screen.getAllByRole("button")).toHaveLength(1);
+    expect(
+      screen.queryByRole("textbox", {
+        name: /providerPreset\.(searchInput|searchPlaceholder)|搜索预设|search/i,
+      }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByText(
+        /providerPreset\.(empty|noResults)|没有匹配|无结果|no matching presets/i,
+      ),
+    ).not.toBeInTheDocument();
+
+    await user.keyboard("{Control>}f{/Control}");
+    expect(
+      screen.queryByRole("textbox", {
+        name: /providerPreset\.(searchInput|searchPlaceholder)|搜索预设|search/i,
+      }),
+    ).not.toBeInTheDocument();
+  });
+
   it("默认（original 模式）将官方分类置顶，非赞助商按显示名排序", () => {
     renderSelector();
 

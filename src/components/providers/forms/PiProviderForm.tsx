@@ -758,14 +758,9 @@ export function PiProviderForm({
     onSubmitReadyChange?.(isSubmitReady);
   }, [isSubmitReady, onSubmitReadyChange]);
 
-  const presetEntries = useMemo(
-    () =>
-      piProviderPresets.map((preset, index) => ({
-        id: `pi-${index}`,
-        preset,
-      })),
-    [],
-  );
+  const presetEntries = useMemo<
+    Array<{ id: string; preset: PiProviderPreset }>
+  >(() => [], []);
 
   const selectPreset = (id: string) => {
     setFormError(null);

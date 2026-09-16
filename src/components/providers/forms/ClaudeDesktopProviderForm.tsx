@@ -42,7 +42,6 @@ import type {
 import type { OpenClawSuggestedDefaults } from "@/config/openclawProviderPresets";
 import {
   CLAUDE_DESKTOP_ROLE_ROUTE_IDS,
-  claudeDesktopProviderPresets,
   type ClaudeDesktopProviderPreset,
   type ClaudeDesktopRoleId,
 } from "@/config/claudeDesktopProviderPresets";
@@ -349,14 +348,7 @@ export function ClaudeDesktopProviderForm({
     onSubmittingChange?.(form.formState.isSubmitting || isFetchingModels);
   }, [form.formState.isSubmitting, isFetchingModels, onSubmittingChange]);
 
-  const presetEntries = useMemo<PresetEntry[]>(
-    () =>
-      claudeDesktopProviderPresets.map((preset, index) => ({
-        id: `claude-desktop-${index}`,
-        preset,
-      })),
-    [],
-  );
+  const presetEntries = useMemo<PresetEntry[]>(() => [], []);
 
   const presetCategoryLabels: Record<string, string> = useMemo(
     () => ({
