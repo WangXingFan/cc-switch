@@ -3013,7 +3013,7 @@
     "emptyHint": "點擊下方「新增通用供應商」按鈕建立一個",
     "selectPreset": "選擇預設類型",
     "name": "名稱",
-    "namePlaceholder": "例如：我的 NewAPI",
+    "namePlaceholder": "例如：我的自訂閘道",
     "baseUrl": "API 位址",
     "apiKey": "API Key",
     "websiteUrl": "官網位址",

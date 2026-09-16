@@ -742,86 +742,6 @@ describe("PiProviderForm", () => {
     expect(JSON.parse(onSubmit.mock.calls[0][0].settingsConfig)).toEqual(input);
   });
 
-  it("applies a maintained preset without creating a Pi-owned provider key", async () => {
-    const onSubmit = vi.fn().mockResolvedValue(undefined);
-    render(
-      <PiProviderForm
-        appId="pi"
-        submitLabel="Save preset"
-        onSubmit={onSubmit}
-        onCancel={() => {}}
-      />,
-    );
-
-    fireEvent.click(screen.getByText("Kimi", { selector: "span" }));
-    fireEvent.change(screen.getByLabelText("pi.form.credential"), {
-      target: { value: "literal-key" },
-    });
-    fireEvent.click(screen.getByRole("button", { name: "Save preset" }));
-
-    await waitFor(() => expect(onSubmit).toHaveBeenCalledTimes(1));
-    expect(onSubmit.mock.calls[0][0]).toMatchObject({
-      providerKey: "cc-switch-kimi",
-      name: "Kimi",
-      presetCategory: "cn_official",
-    });
-    expect(JSON.parse(onSubmit.mock.calls[0][0].settingsConfig)).toMatchObject({
-      api: "openai-completions",
-      baseUrl: "https://api.moonshot.cn/v1",
-      apiKey: "literal-key",
-    });
-    expect(
-      screen.queryByText("pi.form.nativeLoginAlternative"),
-    ).not.toBeInTheDocument();
-  });
-
-  it("keeps preset model order without exposing a default-model field", async () => {
-    const onSubmit = vi.fn().mockResolvedValue(undefined);
-    render(
-      <PiProviderForm
-        appId="pi"
-        submitLabel="Save preset"
-        onSubmit={onSubmit}
-        onCancel={() => {}}
-      />,
-    );
-
-    fireEvent.click(screen.getByText("Kimi", { selector: "span" }));
-    fireEvent.change(screen.getByLabelText("pi.form.credential"), {
-      target: { value: "literal-key" },
-    });
-    expect(
-      document.querySelector("#pi-activation-model"),
-    ).not.toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Save preset" }));
-
-    await waitFor(() => expect(onSubmit).toHaveBeenCalledTimes(1));
-    const submitted = onSubmit.mock.calls[0][0];
-    const config = JSON.parse(submitted.settingsConfig);
-    expect(config.models.map((model: { id: string }) => model.id)).toEqual([
-      "kimi-k2.7-code",
-      "kimi-k3",
-    ]);
-    expect(
-      config.models.map((model: { id: string; name?: string }) => ({
-        id: model.id,
-        name: model.name,
-      })),
-    ).toEqual([
-      { id: "kimi-k2.7-code", name: "Kimi K2.7 Code" },
-      { id: "kimi-k3", name: "Kimi K3" },
-    ]);
-    for (const model of config.models) {
-      expect(model).toMatchObject({
-        reasoning: true,
-        input: ["text", "image"],
-      });
-      expect(model.contextWindow).toBeGreaterThan(0);
-      expect(model.maxTokens).toBeGreaterThan(0);
-    }
-    expect(submitted).not.toHaveProperty("piActivateModelId");
-  });
-
   it("requires custom model limits instead of inferring Pi metadata", async () => {
     const user = userEvent.setup();
     const onSubmit = vi.fn().mockResolvedValue(undefined);
@@ -897,28 +817,6 @@ describe("PiProviderForm", () => {
         },
       ],
     });
-  });
-
-  it("renders validation errors in the form and focuses the invalid field", async () => {
-    render(
-      <PiProviderForm
-        appId="pi"
-        submitLabel="Save invalid preset"
-        onSubmit={vi.fn()}
-        onCancel={() => {}}
-      />,
-    );
-
-    fireEvent.click(screen.getByText("Kimi", { selector: "span" }));
-    fireEvent.click(
-      screen.getByRole("button", { name: "Save invalid preset" }),
-    );
-
-    const alert = await screen.findByRole("alert");
-    expect(alert).toHaveTextContent("pi.form.credentialRequired");
-    await waitFor(() =>
-      expect(screen.getByLabelText("pi.form.credential")).toHaveFocus(),
-    );
   });
 
   it("reuses the shared model fetch command and lets the user select a real result", async () => {
@@ -1304,18 +1202,34 @@ describe("PiProviderForm", () => {
     ).not.toBeInTheDocument();
   });
 
-  it("keeps a preset thinking map when the user changes the API", async () => {
+  it("keeps an existing thinking map when the user changes the API", async () => {
     const user = userEvent.setup();
     render(
       <PiProviderForm
         appId="pi"
+        providerId="legacy-kimi"
         submitLabel="Save exact thinking map"
         onSubmit={vi.fn()}
         onCancel={() => {}}
+        initialData={{
+          name: "Legacy Kimi",
+          settingsConfig: {
+            name: "Legacy Kimi",
+            api: "openai-completions",
+            baseUrl: "https://api.moonshot.cn/v1",
+            models: [
+              {
+                ...completeModel("kimi-k2.7-code", "Kimi K2.7 Code"),
+                reasoning: true,
+                input: ["text", "image"],
+                thinkingLevelMap: { off: null },
+              },
+            ],
+          },
+        }}
       />,
     );
 
-    await user.click(screen.getByText("Kimi", { selector: "span" }));
     const configEditor = screen.getByLabelText(
       "provider.configJson",
     ) as HTMLTextAreaElement;
@@ -1417,18 +1331,40 @@ describe("PiProviderForm", () => {
     expect(screen.getByText("pi.form.thinkingLevelsLabel")).toBeVisible();
   });
 
-  it("lets the user edit a preset thinking map without automatic recovery", async () => {
+  it("lets the user edit an existing thinking map without automatic recovery", async () => {
     const user = userEvent.setup();
+    const automaticMap = {
+      minimal: null,
+      low: null,
+      medium: null,
+      high: "high",
+      max: "max",
+    };
     render(
       <PiProviderForm
         appId="pi"
+        providerId="legacy-deepseek"
         submitLabel="Save thinking map"
         onSubmit={vi.fn()}
         onCancel={() => {}}
+        initialData={{
+          name: "Legacy DeepSeek",
+          settingsConfig: {
+            name: "Legacy DeepSeek",
+            api: "openai-completions",
+            baseUrl: "https://api.deepseek.com/v1",
+            models: [
+              {
+                ...completeModel("deepseek-reasoner", "DeepSeek Reasoner"),
+                reasoning: true,
+                thinkingLevelMap: automaticMap,
+              },
+            ],
+          },
+        }}
       />,
     );
 
-    await user.click(screen.getByText("DeepSeek", { selector: "span" }));
     await user.click(
       screen.getAllByRole("button", {
         name: "展开或收起模型详情",
@@ -1438,13 +1374,6 @@ describe("PiProviderForm", () => {
     const configEditor = screen.getByLabelText(
       "provider.configJson",
     ) as HTMLTextAreaElement;
-    const automaticMap = {
-      minimal: null,
-      low: null,
-      medium: null,
-      high: "high",
-      max: "max",
-    };
     expect(JSON.parse(configEditor.value).models[0].thinkingLevelMap).toEqual(
       automaticMap,
     );
@@ -1576,18 +1505,34 @@ describe("PiProviderForm", () => {
     expect(onSubmit).not.toHaveBeenCalled();
   });
 
-  it("preserves preset fields across a temporarily invalid JSON draft", async () => {
+  it("preserves existing fields across a temporarily invalid JSON draft", async () => {
     const user = userEvent.setup();
     render(
       <PiProviderForm
         appId="pi"
+        providerId="legacy-kimi"
         submitLabel="Save repaired JSON"
         onSubmit={vi.fn()}
         onCancel={() => {}}
+        initialData={{
+          name: "Legacy Kimi",
+          settingsConfig: {
+            name: "Legacy Kimi",
+            api: "openai-completions",
+            baseUrl: "https://api.moonshot.cn/v1",
+            models: [
+              {
+                ...completeModel("kimi-k2.7-code", "Kimi K2.7 Code"),
+                reasoning: true,
+                input: ["text", "image"],
+                thinkingLevelMap: { off: null },
+              },
+            ],
+          },
+        }}
       />,
     );
 
-    await user.click(screen.getByText("Kimi", { selector: "span" }));
     const configEditor = screen.getByLabelText(
       "provider.configJson",
     ) as HTMLTextAreaElement;

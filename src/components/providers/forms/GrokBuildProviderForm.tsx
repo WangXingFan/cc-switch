@@ -34,7 +34,6 @@ import { CodexFormFields } from "./CodexFormFields";
 import { ProviderPresetSelector } from "./ProviderPresetSelector";
 import {
   grokBuildOfficialPreset,
-  grokBuildProviderPresets,
   type GrokBuildProviderPreset,
 } from "@/config/grokBuildProviderPresets";
 import {
@@ -60,13 +59,7 @@ type GrokBuildProviderFormProps = Omit<ProviderFormProps, "appId">;
 const grokPresetEntries: Array<{
   id: string;
   preset: GrokBuildProviderPreset;
-}> = [
-  { id: GROKBUILD_OFFICIAL_PROVIDER_ID, preset: grokBuildOfficialPreset },
-  ...grokBuildProviderPresets.map((preset, index) => ({
-    id: `grokbuild-${index}`,
-    preset,
-  })),
-];
+}> = [];
 
 export function GrokBuildProviderForm({
   providerId,

@@ -3061,7 +3061,7 @@
     "emptyHint": "点击下方「添加统一供应商」按钮创建一个",
     "selectPreset": "选择预设类型",
     "name": "名称",
-    "namePlaceholder": "例如：我的 NewAPI",
+    "namePlaceholder": "例如：我的自定义网关",
     "baseUrl": "API 地址",
     "apiKey": "API Key",
     "websiteUrl": "官网地址",

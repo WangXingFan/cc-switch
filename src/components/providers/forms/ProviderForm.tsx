@@ -30,32 +30,16 @@ import type {
   ClaudeApiKeyField,
   MultiKeyConfig,
 } from "@/types";
+import type { ProviderPreset } from "@/config/claudeProviderPresets";
+import type { CodexProviderPreset } from "@/config/codexProviderPresets";
+import type { GeminiProviderPreset } from "@/config/geminiProviderPresets";
+import type { OpenCodeProviderPreset } from "@/config/opencodeProviderPresets";
 import {
-  providerPresets,
-  type ProviderPreset,
-} from "@/config/claudeProviderPresets";
-import {
-  codexProviderPresets,
-  type CodexProviderPreset,
-} from "@/config/codexProviderPresets";
-import {
-  geminiProviderPresets,
-  type GeminiProviderPreset,
-} from "@/config/geminiProviderPresets";
-import {
-  opencodeProviderPresets,
-  type OpenCodeProviderPreset,
-} from "@/config/opencodeProviderPresets";
-import {
-  openclawProviderPresets,
   rebaseOpenClawSuggestedDefaults,
   type OpenClawProviderPreset,
   type OpenClawSuggestedDefaults,
 } from "@/config/openclawProviderPresets";
-import {
-  hermesProviderPresets,
-  type HermesProviderPreset,
-} from "@/config/hermesProviderPresets";
+import type { HermesProviderPreset } from "@/config/hermesProviderPresets";
 import { OpenCodeFormFields } from "./OpenCodeFormFields";
 import { OpenClawFormFields } from "./OpenClawFormFields";
 import { HermesFormFields } from "./HermesFormFields";
@@ -754,40 +738,9 @@ function ProviderFormFull({
     [t],
   );
 
-  const presetEntries = useMemo(() => {
-    if (appId === "codex") {
-      return codexProviderPresets.map<PresetEntry>((preset, index) => ({
-        id: `codex-${index}`,
-        preset,
-      }));
-    } else if (appId === "gemini") {
-      return geminiProviderPresets.map<PresetEntry>((preset, index) => ({
-        id: `gemini-${index}`,
-        preset,
-      }));
-    } else if (appId === "opencode") {
-      return opencodeProviderPresets.map<PresetEntry>((preset, index) => ({
-        id: `opencode-${index}`,
-        preset,
-      }));
-    } else if (appId === "openclaw") {
-      return openclawProviderPresets.map<PresetEntry>((preset, index) => ({
-        id: `openclaw-${index}`,
-        preset,
-      }));
-    } else if (appId === "hermes") {
-      return hermesProviderPresets.map<PresetEntry>((preset, index) => ({
-        id: `hermes-${index}`,
-        preset,
-      }));
-    }
-    return providerPresets
-      .filter((p) => !p.hidden)
-      .map<PresetEntry>((preset, index) => ({
-        id: `claude-${index}`,
-        preset,
-      }));
-  }, [appId]);
+  // New providers are intentionally custom-only. Preset-aware edit paths stay
+  // in place so providers saved by older versions remain editable.
+  const presetEntries = useMemo<PresetEntry[]>(() => [], []);
 
   const selectedPresetEntry = useMemo(
     () =>

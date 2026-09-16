@@ -160,7 +160,7 @@ model_reasoning_effort = "${reasoningEffort}"
 disable_response_storage = true
 
 [model_providers.custom]
-name = "NewAPI"
+name = "Custom Gateway"
 base_url = "${codexBaseUrl}"
 wire_api = "responses"
 requires_openai_auth = true`;
@@ -403,7 +403,7 @@ requires_openai_auth = true`;
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder={t("universalProvider.namePlaceholder", {
-                defaultValue: "例如：我的 NewAPI",
+                defaultValue: "例如：我的自定义网关",
               })}
             />
           </div>

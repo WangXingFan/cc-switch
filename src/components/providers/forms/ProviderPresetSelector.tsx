@@ -195,6 +195,8 @@ export function ProviderPresetSelector({
   // 停在按钮上），setSearchOpen(true) 同值不会重渲染、autoFocus 不重触发，
   // 这里用 rAF 命令式地把焦点移回搜索框（不 select，避免吞掉随后输入的首字符）。
   useEffect(() => {
+    if (presetEntries.length === 0) return;
+
     const handleKeyDown = (event: KeyboardEvent) => {
       if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "f") {
         event.preventDefault();
@@ -206,7 +208,7 @@ export function ProviderPresetSelector({
 
     globalThis.addEventListener("keydown", handleKeyDown, true);
     return () => globalThis.removeEventListener("keydown", handleKeyDown, true);
-  }, []);
+  }, [presetEntries.length]);
 
   const visiblePresetEntries = useMemo(
     () =>
@@ -320,79 +322,81 @@ export function ProviderPresetSelector({
     <div ref={searchContainerRef} className="space-y-3">
       <div className="flex items-center justify-between gap-2">
         <Label>{t("providerPreset.label")}</Label>
-        <div className="flex items-center gap-2">
-          {searchOpen && (
-            <Input
-              ref={searchInputRef}
-              value={searchQuery}
-              onChange={(event) => setSearchQuery(event.target.value)}
-              onKeyDown={(event) => {
-                if (event.key === "Escape") {
-                  setSearchQuery("");
-                  setSearchOpen(false);
-                }
-              }}
-              placeholder={t("providerPreset.searchPlaceholder", {
-                defaultValue: "Search presets...",
-              })}
+        {presetEntries.length > 0 && (
+          <div className="flex items-center gap-2">
+            {searchOpen && (
+              <Input
+                ref={searchInputRef}
+                value={searchQuery}
+                onChange={(event) => setSearchQuery(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === "Escape") {
+                    setSearchQuery("");
+                    setSearchOpen(false);
+                  }
+                }}
+                placeholder={t("providerPreset.searchPlaceholder", {
+                  defaultValue: "Search presets...",
+                })}
+                aria-label={t("providerPreset.searchAriaLabel", {
+                  defaultValue: "Search provider presets",
+                })}
+                className="w-60 h-8"
+                autoFocus
+              />
+            )}
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
               aria-label={t("providerPreset.searchAriaLabel", {
                 defaultValue: "Search provider presets",
               })}
-              className="w-60 h-8"
-              autoFocus
-            />
-          )}
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon"
-            aria-label={t("providerPreset.searchAriaLabel", {
-              defaultValue: "Search provider presets",
-            })}
-            aria-pressed={searchOpen}
-            onClick={() => {
-              setSearchOpen((v) => !v);
-              if (searchOpen) setSearchQuery("");
-            }}
-            title={t("providerPreset.searchTooltip", {
-              defaultValue: "Search presets",
-            })}
-            className={
-              searchOpen || searchQuery.trim()
-                ? "size-8 bg-accent text-foreground"
-                : "size-8"
-            }
-          >
-            <Search className="size-4" />
-          </Button>
+              aria-pressed={searchOpen}
+              onClick={() => {
+                setSearchOpen((v) => !v);
+                if (searchOpen) setSearchQuery("");
+              }}
+              title={t("providerPreset.searchTooltip", {
+                defaultValue: "Search presets",
+              })}
+              className={
+                searchOpen || searchQuery.trim()
+                  ? "size-8 bg-accent text-foreground"
+                  : "size-8"
+              }
+            >
+              <Search className="size-4" />
+            </Button>
 
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon"
-            aria-label={t("providerPreset.sortAriaLabel", {
-              defaultValue: "Toggle preset sorting",
-            })}
-            aria-pressed={sortMode === PresetSortMode.NameAsc}
-            onClick={toggleSortMode}
-            title={
-              sortMode === PresetSortMode.NameAsc
-                ? t("providerPreset.sortOriginalTooltip", {
-                    defaultValue: "Restore original order",
-                  })
-                : t("providerPreset.sortNameAscTooltip", {
-                    defaultValue: "Sort A-Z",
-                  })
-            }
-            className={
-              sortMode === PresetSortMode.NameAsc
-                ? "size-8 bg-accent text-foreground"
-                : "size-8"
-            }
-          >
-            <ArrowUpAZ className="size-4" />
-          </Button>
-        </div>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              aria-label={t("providerPreset.sortAriaLabel", {
+                defaultValue: "Toggle preset sorting",
+              })}
+              aria-pressed={sortMode === PresetSortMode.NameAsc}
+              onClick={toggleSortMode}
+              title={
+                sortMode === PresetSortMode.NameAsc
+                  ? t("providerPreset.sortOriginalTooltip", {
+                      defaultValue: "Restore original order",
+                    })
+                  : t("providerPreset.sortNameAscTooltip", {
+                      defaultValue: "Sort A-Z",
+                    })
+              }
+              className={
+                sortMode === PresetSortMode.NameAsc
+                  ? "size-8 bg-accent text-foreground"
+                  : "size-8"
+              }
+            >
+              <ArrowUpAZ className="size-4" />
+            </Button>
+          </div>
+        )}
       </div>
       <div className="grid grid-cols-[repeat(auto-fill,minmax(150px,1fr))] gap-2">
         <button
@@ -408,7 +412,7 @@ export function ProviderPresetSelector({
           <span className="truncate">{t("providerPreset.custom")}</span>
         </button>
 
-        {visiblePresetEntries.length === 0 && (
+        {presetEntries.length > 0 && visiblePresetEntries.length === 0 && (
           <div className="col-span-full rounded-md border border-dashed border-border-default px-3 py-2 text-xs text-muted-foreground">
             {t("providerPreset.noSearchResults", {
               defaultValue: "No matching presets.",

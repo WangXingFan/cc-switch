@@ -3061,7 +3061,7 @@
     "emptyHint": "下の「統合プロバイダーを追加」ボタンをクリックして作成してください",
     "selectPreset": "プリセットタイプを選択",
     "name": "名前",
-    "namePlaceholder": "例：私の NewAPI",
+    "namePlaceholder": "例：カスタムゲートウェイ",
     "baseUrl": "API URL",
     "apiKey": "API キー",
     "websiteUrl": "ウェブサイト URL",

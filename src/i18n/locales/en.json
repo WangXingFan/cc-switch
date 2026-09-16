@@ -3061,7 +3061,7 @@
     "emptyHint": "Click the \"Add Universal Provider\" button below to create one",
     "selectPreset": "Select Preset Type",
     "name": "Name",
-    "namePlaceholder": "e.g., My NewAPI",
+    "namePlaceholder": "e.g., My Custom Gateway",
     "baseUrl": "API URL",
     "apiKey": "API Key",
     "websiteUrl": "Website URL",
