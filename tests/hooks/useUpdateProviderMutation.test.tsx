@@ -72,6 +72,26 @@ beforeEach(() => {
 });
 
 describe("useUpdateProviderMutation", () => {
+  it("does not wait for background cache refreshes before resolving", async () => {
+    const { wrapper, invalidateSpy } = createWrapper();
+    const provider = createProvider();
+    let finishRefresh: (() => void) | undefined;
+    const pendingRefresh = new Promise<void>((resolve) => {
+      finishRefresh = resolve;
+    });
+    invalidateSpy.mockReturnValue(pendingRefresh);
+    const { result } = renderHook(() => useUpdateProviderMutation("codex"), {
+      wrapper,
+    });
+
+    await act(async () => {
+      await result.current.mutateAsync({ provider });
+    });
+
+    expect(result.current.isSuccess).toBe(true);
+    finishRefresh?.();
+  });
+
   it("invalidates the updated provider usage query", async () => {
     const { wrapper, invalidateSpy } = createWrapper();
     const provider = createProvider({ id: "provider-b" });

@@ -182,6 +182,24 @@ describe("useProviderActions", () => {
     expect(providersApiUpdateTrayMenuMock).toHaveBeenCalledTimes(1);
   });
 
+  it("does not wait for the tray menu refresh after updating", async () => {
+    updateProviderMutateAsync.mockResolvedValueOnce(undefined);
+    providersApiUpdateTrayMenuMock.mockReturnValueOnce(new Promise(() => {}));
+    const { wrapper } = createWrapper();
+    const provider = createProvider();
+
+    const { result } = renderHook(() => useProviderActions("claude"), {
+      wrapper,
+    });
+
+    await act(async () => {
+      await result.current.updateProvider(provider);
+    });
+
+    expect(updateProviderMutateAsync).toHaveBeenCalledTimes(1);
+    expect(providersApiUpdateTrayMenuMock).toHaveBeenCalledTimes(1);
+  });
+
   it("should not request plugin sync when switching non-Claude provider", async () => {
     switchProviderMutateAsync.mockResolvedValueOnce(undefined);
     const { wrapper } = createWrapper();

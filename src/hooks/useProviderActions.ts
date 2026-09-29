@@ -152,15 +152,15 @@ export function useProviderActions(
         originalId,
       });
 
-      // 更新托盘菜单（失败不影响主操作）
-      try {
-        await providersApi.updateTrayMenu();
-      } catch (trayError) {
+      // Rebuilding the native tray walks every visible app and can be slow on
+      // some systems. The provider is already saved, so do not hold the edit
+      // dialog open while this best-effort refresh completes.
+      void providersApi.updateTrayMenu().catch((trayError) => {
         console.error(
           "Failed to update tray menu after updating provider",
           trayError,
         );
-      }
+      });
     },
     [updateProviderMutation],
   );

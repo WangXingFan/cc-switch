@@ -164,6 +164,46 @@ export const useUpdateProviderMutation = (appId: AppId) => {
   const queryClient = useQueryClient();
   const { t } = useTranslation();
 
+  const refreshAfterUpdate = (provider: Provider, originalId?: string) => {
+    const refreshes: Promise<unknown>[] = [
+      queryClient.invalidateQueries({ queryKey: ["providers", appId] }),
+      queryClient.invalidateQueries({
+        queryKey: usageKeys.script(provider.id, appId),
+      }),
+    ];
+
+    if (originalId && originalId !== provider.id) {
+      refreshes.push(
+        queryClient.invalidateQueries({
+          queryKey: usageKeys.script(originalId, appId),
+        }),
+      );
+    }
+    if (appId === "openclaw") {
+      refreshes.push(
+        queryClient.invalidateQueries({
+          queryKey: openclawKeys.health,
+        }),
+      );
+    }
+    if (appId === "hermes") {
+      refreshes.push(invalidateHermesProviderCaches(queryClient));
+    }
+
+    void Promise.allSettled(refreshes).then((results) => {
+      const rejected = results.filter(
+        (result): result is PromiseRejectedResult =>
+          result.status === "rejected",
+      );
+      if (rejected.length > 0) {
+        console.error(
+          "Failed to refresh provider data after updating provider",
+          rejected.map((result) => result.reason),
+        );
+      }
+    });
+  };
+
   return useMutation({
     mutationFn: async ({
       provider,
@@ -175,24 +215,11 @@ export const useUpdateProviderMutation = (appId: AppId) => {
       await providersApi.update(provider, appId, originalId);
       return provider;
     },
-    onSuccess: async (provider, variables) => {
-      await queryClient.invalidateQueries({ queryKey: ["providers", appId] });
-      await queryClient.invalidateQueries({
-        queryKey: usageKeys.script(provider.id, appId),
-      });
-      if (variables.originalId && variables.originalId !== provider.id) {
-        await queryClient.invalidateQueries({
-          queryKey: usageKeys.script(variables.originalId, appId),
-        });
-      }
-      if (appId === "openclaw") {
-        await queryClient.invalidateQueries({
-          queryKey: openclawKeys.health,
-        });
-      }
-      if (appId === "hermes") {
-        await invalidateHermesProviderCaches(queryClient);
-      }
+    onSuccess: (provider, variables) => {
+      // The provider and its live configuration are already durable when the
+      // command returns. Refresh dependent views in the background so slow
+      // refetches do not keep the edit dialog in its saving state.
+      refreshAfterUpdate(provider, variables.originalId);
       toast.success(
         t("notifications.updateSuccess", {
           defaultValue: "供应商更新成功",
@@ -217,9 +244,14 @@ export const useUpdateProviderMutation = (appId: AppId) => {
         }),
       );
     },
-    onSettled: async () => {
+    onSettled: () => {
       if (appId === "pi") {
-        await invalidatePiProviderCaches(queryClient);
+        void invalidatePiProviderCaches(queryClient).catch((error) => {
+          console.error(
+            "Failed to refresh Pi provider data after updating provider",
+            error,
+          );
+        });
       }
     },
   });
