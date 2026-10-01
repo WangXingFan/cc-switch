@@ -516,6 +516,15 @@ pub async fn exit(state: &AppState, app: &AppType) -> Result<(), String> {
     Ok(())
 }
 
+/// 同步项目切换只退出该应用；代理服务由调用方在异步运行时停止。
+pub(crate) fn exit_blocking(state: &AppState, app: &AppType) -> Result<(), String> {
+    if !app.supports_local_proxy() {
+        return Ok(());
+    }
+    let _guard = lock_settled_blocking(state, app).map_err(|e| e.to_string())?;
+    exit_locked(state, app, false)
+}
+
 /// `keep_mode` 为真是分离（退出 CC Switch）：模式和路由不变，只把客户端指回直连。
 fn exit_locked(state: &AppState, app: &AppType, keep_mode: bool) -> Result<(), String> {
     let mode = current::mode_state(app);

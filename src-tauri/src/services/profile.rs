@@ -204,7 +204,11 @@ impl ProfileService {
 
         for app in scope.apps().iter() {
             if let Some(slot) = payload.providers.get_mut(app) {
-                *slot = crate::settings::get_effective_current_provider(&state.db, app)?;
+                *slot = crate::mode::current::provider_for(
+                    &state.db,
+                    app,
+                    crate::mode::current::Purpose::InUse,
+                )?;
             }
             if let Some(slot) = payload.mcp.get_mut(app) {
                 *slot = Some(
@@ -365,7 +369,7 @@ impl ProfileService {
             // 1. 切换项目前无条件关闭当前应用的代理接管。
             // 接管态下 live 文件属于代理；用户希望切换工作目录时总是退出当前
             // 代理环境，再按快照写入真实供应商配置。
-            if let Err(e) = state.proxy_service.disable_takeover_for_app_sync(app) {
+            if let Err(e) = crate::mode::controller::exit_blocking(state, app) {
                 warnings.push(format!(
                     "[{app_str}] auto-disable proxy takeover before profile switch failed: {e}"
                 ));
@@ -379,7 +383,11 @@ impl ProfileService {
                         "[{app_str}] provider '{target_pid}' no longer exists, skipped"
                     ));
                 } else {
-                    let current = crate::settings::get_effective_current_provider(&state.db, app)?;
+                    let current = crate::mode::current::provider_for(
+                        &state.db,
+                        app,
+                        crate::mode::current::Purpose::Direct,
+                    )?;
                     if current.as_deref() != Some(target_pid.as_str()) {
                         match ProviderService::switch(state, app.clone(), target_pid) {
                             Ok(result) => warnings.extend(result.warnings),
@@ -459,7 +467,8 @@ impl ProfileService {
             .set_current_profile_id(scope.as_str(), Some(profile_id))?;
 
         // 当前分组内所有接管已关闭；若其它应用也无接管，可停止代理服务。
-        let should_stop_proxy = !state.db.is_live_takeover_active_sync();
+        let should_stop_proxy =
+            !crate::mode::current::proxy_flags(crate::mode::controller::PROXY_APPS).contains(&true);
 
         Ok((warnings, should_stop_proxy))
     }

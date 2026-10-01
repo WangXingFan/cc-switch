@@ -476,9 +476,19 @@ pub fn handle_profile_tray_event(app: &tauri::AppHandle, event_id: &str) -> bool
         };
         match crate::services::profile::ProfileService::apply(app_state.inner(), &profile_id, scope)
         {
-            Ok(warnings) => {
+            Ok((warnings, should_stop_proxy)) => {
                 for warning in &warnings {
                     log::warn!("[Profile] 应用项目 {profile_id} 警告: {warning}");
+                }
+                if should_stop_proxy {
+                    let proxy_service = app_state.proxy_service.clone();
+                    tauri::async_runtime::block_on(async {
+                        if proxy_service.is_running().await {
+                            if let Err(e) = proxy_service.stop().await {
+                                log::warn!("切换项目后停止代理服务失败: {e}");
+                            }
+                        }
+                    });
                 }
                 crate::commands::emit_profile_apply_events(
                     &app_handle,

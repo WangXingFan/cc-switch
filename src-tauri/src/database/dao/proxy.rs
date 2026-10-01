@@ -856,6 +856,23 @@ impl Database {
 
     // ==================== Sync Methods for Tray Menu ====================
 
+    /// 同步读取代理监听地址，供 Codex 直连配置生成休眠路由表。
+    pub fn get_proxy_listen_sync(&self) -> (String, u16) {
+        let fallback = || {
+            let defaults = crate::proxy::types::ProxyConfig::default();
+            (defaults.listen_address, defaults.listen_port)
+        };
+        let Ok(conn) = self.conn.lock() else {
+            return fallback();
+        };
+        conn.query_row(
+            "SELECT listen_address, listen_port FROM proxy_config WHERE app_type = 'claude'",
+            [],
+            |row| Ok((row.get::<_, String>(0)?, row.get::<_, i32>(1)? as u16)),
+        )
+        .unwrap_or_else(|_| fallback())
+    }
+
     /// 同步获取应用的 proxy 启用状态和自动故障转移状态
     ///
     /// 用于托盘菜单构建等同步场景
