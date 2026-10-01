@@ -20,7 +20,8 @@ describe("Volcengine Doubao preset consistency across apps", () => {
     expect(codexModel?.contextWindow).toBe(EXPECTED_CONTEXT_WINDOW);
 
     const openclawPreset = openclawProviderPresets.find(
-      (item) => item.name === "Volcengine Doubao",
+      // The Codex/Claude port preserves OpenClaw's existing preset name.
+      (item) => item.name === "DouBaoSeed",
     );
     const openclawModel = (openclawPreset?.settingsConfig.models ?? []).find(
       (model) => model.id === DOUBAO_MODEL_ID,

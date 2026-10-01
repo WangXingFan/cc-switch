@@ -303,7 +303,7 @@ function ProviderFormFull({
   onManageUniversalProviders,
   onManageAuthAccounts,
   onSubmittingChange,
-  onEditorBaseChange: _onEditorBaseChange,
+  onEditorBaseChange,
   initialData,
   showButtons = true,
   isProxyTakeover = false,
@@ -902,10 +902,7 @@ function ProviderFormFull({
     initialData: appId === "gemini" ? initialData : undefined,
   });
 
-  const { projectDraft } = useDraftEditorProjection(
-    appId,
-    onEditorBaseChange,
-  );
+  const { projectDraft } = useDraftEditorProjection(appId, onEditorBaseChange);
 
   const applyProjectedEditorSettings = useCallback(
     (settings: Record<string, unknown>) => {

@@ -207,13 +207,7 @@ export function GrokBuildProviderForm({
       setContextWindow(String(parsed.contextWindow));
       form.setValue("settingsConfig", JSON.stringify(projected, null, 2));
     });
-  }, [
-    category,
-    form,
-    onEditorBaseChange,
-    projectDraft,
-    selectedPresetId,
-  ]);
+  }, [category, form, onEditorBaseChange, projectDraft, selectedPresetId]);
 
   useEffect(() => {
     onSubmittingChange?.(isSubmitting);

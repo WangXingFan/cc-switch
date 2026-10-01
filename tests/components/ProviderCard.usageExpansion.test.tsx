@@ -94,10 +94,12 @@ describe("ProviderCard cached usage expansion", () => {
     expect(screen.queryByTitle("展开")).not.toBeInTheDocument();
   });
 
-  it("still expands ordinary multi-plan usage and allows collapsing it", async () => {
+  it("starts ordinary multi-plan usage collapsed and allows expanding and collapsing it", async () => {
     const user = userEvent.setup();
     renderCard();
 
+    expect(screen.queryByText("expanded-plan-details")).not.toBeInTheDocument();
+    await user.click(screen.getByTitle("展开"));
     expect(screen.getByText("expanded-plan-details")).toBeInTheDocument();
     await user.click(screen.getByTitle("收起"));
     expect(screen.queryByText("expanded-plan-details")).not.toBeInTheDocument();

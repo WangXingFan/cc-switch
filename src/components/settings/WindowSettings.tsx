@@ -8,7 +8,9 @@ import { isLinux } from "@/lib/platform";
 import { settingsApi } from "@/lib/api";
 import { toast } from "sonner";
 
-function keyEventToShortcut(event: KeyboardEvent<HTMLButtonElement>): string | null {
+function keyEventToShortcut(
+  event: KeyboardEvent<HTMLButtonElement>,
+): string | null {
   const ignoredKeys = new Set([
     "Control",
     "Shift",
@@ -101,7 +103,7 @@ export function WindowSettings({ settings, onChange }: WindowSettingsProps) {
 
   const displayValue = isRecording
     ? pendingKeys || t("settings.globalShortcutRecording")
-    : settings.globalShortcut ?? "";
+    : (settings.globalShortcut ?? "");
 
   return (
     <section className="space-y-4">

@@ -3,6 +3,7 @@ import { act, renderHook } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { useAddProviderMutation } from "@/lib/query/mutations";
+import type { ProviderEditorSave } from "@/lib/api/providers";
 import type { Provider } from "@/types";
 
 const apiMocks = vi.hoisted(() => ({
@@ -71,6 +72,36 @@ beforeEach(() => {
 });
 
 describe("useAddProviderMutation", () => {
+  it("passes the editor base and conflict policy separately from the new provider", async () => {
+    const { wrapper } = createWrapper();
+    const { result } = renderHook(() => useAddProviderMutation("codex"), {
+      wrapper,
+    });
+    const editorSave: ProviderEditorSave = {
+      base: { auth: {}, config: 'model = "existing"' },
+      draft: { auth: {}, config: 'model = "updated"' },
+      onConflict: "refuse",
+    };
+
+    const provider = await act(async () =>
+      result.current.mutateAsync({
+        name: "Codex provider",
+        settingsConfig: editorSave.draft!,
+        addToLive: true,
+        editorSave,
+      }),
+    );
+
+    expect(apiMocks.add).toHaveBeenCalledWith(
+      provider,
+      "codex",
+      true,
+      editorSave,
+    );
+    expect(provider).not.toHaveProperty("editorSave");
+    expect(provider).not.toHaveProperty("addToLive");
+  });
+
   it("duplicates Claude Desktop official providers with a fresh id", async () => {
     const { wrapper } = createWrapper();
     const { result } = renderHook(
@@ -95,6 +126,7 @@ describe("useAddProviderMutation", () => {
         category: "official",
       }),
       "claude-desktop",
+      undefined,
       undefined,
     );
     expect(duplicatedProvider.id).toBe("generated-uuid");
@@ -178,6 +210,7 @@ describe("useAddProviderMutation", () => {
       }),
       "codex",
       undefined,
+      undefined,
     );
     expect(persistedProvider).toEqual(
       expect.objectContaining({
@@ -227,6 +260,7 @@ describe("useAddProviderMutation", () => {
       }),
       "codex",
       undefined,
+      undefined,
     );
     expect(apiMocks.add).toHaveBeenNthCalledWith(
       2,
@@ -235,6 +269,7 @@ describe("useAddProviderMutation", () => {
         meta: { providerType: "codex_oauth" },
       }),
       "codex",
+      undefined,
       undefined,
     );
     expect(firstProvider.id).toBe("unbound-official-1");
@@ -264,6 +299,7 @@ describe("useAddProviderMutation", () => {
       expect.objectContaining({ id: "pi-provider" }),
       "pi",
       undefined,
+      undefined,
     );
     expect(provider.id).toBe("pi-provider");
   });
@@ -288,6 +324,7 @@ describe("useAddProviderMutation", () => {
     expect(apiMocks.add).toHaveBeenCalledWith(
       expect.objectContaining({ id: "pi-provider" }),
       "pi",
+      undefined,
       undefined,
     );
     expect(toastMocks.error).toHaveBeenCalled();

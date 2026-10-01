@@ -104,19 +104,32 @@ export const updateCommonConfigSnippet = (
   try {
     config = jsonString ? JSON.parse(jsonString) : {};
   } catch {
-    return { updatedConfig: jsonString, error: "配置 JSON 解析失败，无法应用通用配置" };
+    return {
+      updatedConfig: jsonString,
+      error: "配置 JSON 解析失败，无法应用通用配置",
+    };
   }
 
-  if (!snippetString.trim()) return { updatedConfig: JSON.stringify(config, null, 2) };
+  if (!snippetString.trim())
+    return { updatedConfig: JSON.stringify(config, null, 2) };
 
   const snippetError = validateJsonConfig(snippetString, "通用配置片段");
   if (snippetError) {
-    return { updatedConfig: JSON.stringify(config, null, 2), error: snippetError };
+    return {
+      updatedConfig: JSON.stringify(config, null, 2),
+      error: snippetError,
+    };
   }
 
   const snippet = JSON.parse(snippetString) as Record<string, any>;
   if (enabled) {
-    return { updatedConfig: JSON.stringify(deepMerge(deepClone(config), snippet), null, 2) };
+    return {
+      updatedConfig: JSON.stringify(
+        deepMerge(deepClone(config), snippet),
+        null,
+        2,
+      ),
+    };
   }
   const cloned = deepClone(config);
   deepRemove(cloned, snippet);
@@ -359,8 +372,11 @@ export const hasTomlCommonConfigSnippet = (
   if (!snippetString.trim()) return false;
   try {
     const config = parseToml(normalizeTomlText(tomlString || ""));
-    const snippet = sanitizeSnippet(parseToml(normalizeTomlText(snippetString)));
-    if (!isPlainObject(snippet) || Object.keys(snippet).length === 0) return false;
+    const snippet = sanitizeSnippet(
+      parseToml(normalizeTomlText(snippetString)),
+    );
+    if (!isPlainObject(snippet) || Object.keys(snippet).length === 0)
+      return false;
     return isSubset(config, snippet);
   } catch {
     const normalize = (value: string) => value.replace(/\s+/g, " ").trim();
@@ -1468,13 +1484,17 @@ export const removeCodexTopLevelField = (
 // 多 Key 配置工具函数
 // ============================================================================
 
-import type { MultiKeyConfig, KeyRotationStrategy, ProviderMeta } from "@/types";
+import type {
+  MultiKeyConfig,
+  KeyRotationStrategy,
+  ProviderMeta,
+} from "@/types";
 
 /**
  * 从 ProviderMeta 中获取多 Key 配置
  */
 export const getMultiKeyConfig = (
-  meta: ProviderMeta | undefined
+  meta: ProviderMeta | undefined,
 ): MultiKeyConfig | undefined => {
   return meta?.multiKeyConfig;
 };
@@ -1484,7 +1504,7 @@ export const getMultiKeyConfig = (
  */
 export const setMultiKeyConfig = (
   meta: ProviderMeta | undefined,
-  config: MultiKeyConfig | undefined
+  config: MultiKeyConfig | undefined,
 ): ProviderMeta => {
   const baseMeta = meta || {};
 
@@ -1515,7 +1535,7 @@ export const setMultiKeyConfig = (
  */
 export const getEffectiveKeys = (
   multiKeyConfig: MultiKeyConfig | undefined,
-  singleKey: string | undefined
+  singleKey: string | undefined,
 ): string[] => {
   if (multiKeyConfig && multiKeyConfig.keys.length > 0) {
     return multiKeyConfig.keys;
@@ -1532,7 +1552,7 @@ export const getEffectiveKeys = (
  */
 export const syncKeysToConfig = (
   keys: string[],
-  strategy: KeyRotationStrategy = "round_robin"
+  strategy: KeyRotationStrategy = "round_robin",
 ): { firstKey: string; multiKeyConfig: MultiKeyConfig | undefined } => {
   const validKeys = keys.filter((k) => k.trim() !== "");
 

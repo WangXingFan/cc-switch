@@ -3,6 +3,7 @@ import { act, renderHook } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { useUpdateProviderMutation } from "@/lib/query/mutations";
+import type { ProviderEditorSave } from "@/lib/api/providers";
 import { usageKeys } from "@/lib/query/usage";
 import type { Provider } from "@/types";
 
@@ -72,6 +73,34 @@ beforeEach(() => {
 });
 
 describe("useUpdateProviderMutation", () => {
+  it("preserves the editor save payload when updating a renamed provider", async () => {
+    const { wrapper } = createWrapper();
+    const provider = createProvider({ id: "provider-new" });
+    const editorSave: ProviderEditorSave = {
+      base: { auth: {}, config: 'model = "existing"' },
+      draft: { auth: {}, config: 'model = "updated"' },
+      onConflict: "keepMine",
+    };
+    const { result } = renderHook(() => useUpdateProviderMutation("codex"), {
+      wrapper,
+    });
+
+    await act(async () => {
+      await result.current.mutateAsync({
+        provider,
+        originalId: "provider-old",
+        editorSave,
+      });
+    });
+
+    expect(apiMocks.update).toHaveBeenCalledWith(
+      provider,
+      "codex",
+      "provider-old",
+      editorSave,
+    );
+  });
+
   it("invalidates the updated provider usage query", async () => {
     const { wrapper, invalidateSpy } = createWrapper();
     const provider = createProvider({ id: "provider-b" });
@@ -83,7 +112,12 @@ describe("useUpdateProviderMutation", () => {
       await result.current.mutateAsync({ provider });
     });
 
-    expect(apiMocks.update).toHaveBeenCalledWith(provider, "codex", undefined);
+    expect(apiMocks.update).toHaveBeenCalledWith(
+      provider,
+      "codex",
+      undefined,
+      undefined,
+    );
     expect(invalidateSpy).toHaveBeenCalledWith({
       queryKey: ["providers", "codex"],
     });
@@ -113,6 +147,7 @@ describe("useUpdateProviderMutation", () => {
       provider,
       "openclaw",
       "provider-old",
+      undefined,
     );
     expect(invalidateSpy).toHaveBeenCalledWith({
       queryKey: usageKeys.script("provider-new", "openclaw"),

@@ -300,7 +300,9 @@ describe("AboutSection concurrent CLI upgrades", () => {
     });
     const { AboutSection } = await import("@/components/settings/AboutSection");
     const view = render(<AboutSection isPortable={false} />);
-    await waitFor(() => expect(mocks.getToolVersions).toHaveBeenCalledTimes(9));
+    await waitFor(() =>
+      expect(mocks.getToolVersions).toHaveBeenCalledWith(["claude"], {}),
+    );
     view.unmount();
     const remounted = await renderAbout();
     fireEvent.click(updateButton("Claude Code"));

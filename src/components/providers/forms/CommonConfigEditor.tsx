@@ -267,100 +267,106 @@ export function CommonConfigEditor({
             {commonConfigError}
           </p>
         )}
-      <p className="text-xs text-muted-foreground">
-        {t("claudeConfig.keyFieldsHint", {
-          defaultValue:
-            "地址、Key、模型、上下文窗口和兼容开关随供应商切换；其余字段是 Claude Code 全局设置，保存后对所有供应商生效。",
-        })}
-      </p>
-      <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
-        <label className="inline-flex items-center gap-2 text-sm text-muted-foreground cursor-pointer">
-          <input
-            type="checkbox"
-            checked={toggleStates.hideAttribution}
-            onChange={(e) => handleToggle("hideAttribution", e.target.checked)}
-            className="w-4 h-4 text-blue-500 bg-white dark:bg-gray-800 border-border-default rounded focus:ring-blue-500 dark:focus:ring-blue-400 focus:ring-2"
-          />
-          <span>{t("claudeConfig.hideAttribution")}</span>
-        </label>
-        <label className="inline-flex items-center gap-2 text-sm text-muted-foreground cursor-pointer">
-          <input
-            type="checkbox"
-            checked={toggleStates.teammates}
-            onChange={(e) => handleToggle("teammates", e.target.checked)}
-            className="w-4 h-4 text-blue-500 bg-white dark:bg-gray-800 border-border-default rounded focus:ring-blue-500 dark:focus:ring-blue-400 focus:ring-2"
-          />
-          <span>{t("claudeConfig.enableTeammates")}</span>
-        </label>
-        <label className="inline-flex items-center gap-2 text-sm text-muted-foreground cursor-pointer">
-          <input
-            type="checkbox"
-            checked={toggleStates.enableToolSearch}
-            onChange={(e) => handleToggle("enableToolSearch", e.target.checked)}
-            className="w-4 h-4 text-blue-500 bg-white dark:bg-gray-800 border-border-default rounded focus:ring-blue-500 dark:focus:ring-blue-400 focus:ring-2"
-          />
-          <span>{t("claudeConfig.enableToolSearch")}</span>
-        </label>
-        <label className="inline-flex items-center gap-2 text-sm text-muted-foreground cursor-pointer">
-          <input
-            type="checkbox"
-            checked={toggleStates.effortMax}
-            onChange={(e) => handleToggle("effortMax", e.target.checked)}
-            className="w-4 h-4 text-blue-500 bg-white dark:bg-gray-800 border-border-default rounded focus:ring-blue-500 dark:focus:ring-blue-400 focus:ring-2"
-          />
-          <span>{t("claudeConfig.effortMax")}</span>
-        </label>
-        <label className="inline-flex items-center gap-2 text-sm text-muted-foreground cursor-pointer">
-          <input
-            type="checkbox"
-            checked={toggleStates.disableAutoUpgrade}
-            onChange={(e) =>
-              handleToggle("disableAutoUpgrade", e.target.checked)
-            }
-            className="w-4 h-4 text-blue-500 bg-white dark:bg-gray-800 border-border-default rounded focus:ring-blue-500 dark:focus:ring-blue-400 focus:ring-2"
-          />
-          <span>{t("claudeConfig.disableAutoUpgrade")}</span>
-        </label>
-        <label className="inline-flex items-center gap-2 text-sm text-muted-foreground cursor-pointer">
-          <input
-            type="checkbox"
-            checked={toggleStates.disableArtifact}
-            onChange={(e) => handleToggle("disableArtifact", e.target.checked)}
-            className="w-4 h-4 text-blue-500 bg-white dark:bg-gray-800 border-border-default rounded focus:ring-blue-500 dark:focus:ring-blue-400 focus:ring-2"
-          />
-          <span>{t("claudeConfig.disableArtifact")}</span>
-        </label>
-      </div>
-      <JsonEditor
-        value={localValue}
-        onChange={handleLocalChange}
-        ariaLabel={t("provider.configJson")}
-        placeholder={`{
+        <p className="text-xs text-muted-foreground">
+          {t("claudeConfig.keyFieldsHint", {
+            defaultValue:
+              "地址、Key、模型、上下文窗口和兼容开关随供应商切换；其余字段是 Claude Code 全局设置，保存后对所有供应商生效。",
+          })}
+        </p>
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
+          <label className="inline-flex items-center gap-2 text-sm text-muted-foreground cursor-pointer">
+            <input
+              type="checkbox"
+              checked={toggleStates.hideAttribution}
+              onChange={(e) =>
+                handleToggle("hideAttribution", e.target.checked)
+              }
+              className="w-4 h-4 text-blue-500 bg-white dark:bg-gray-800 border-border-default rounded focus:ring-blue-500 dark:focus:ring-blue-400 focus:ring-2"
+            />
+            <span>{t("claudeConfig.hideAttribution")}</span>
+          </label>
+          <label className="inline-flex items-center gap-2 text-sm text-muted-foreground cursor-pointer">
+            <input
+              type="checkbox"
+              checked={toggleStates.teammates}
+              onChange={(e) => handleToggle("teammates", e.target.checked)}
+              className="w-4 h-4 text-blue-500 bg-white dark:bg-gray-800 border-border-default rounded focus:ring-blue-500 dark:focus:ring-blue-400 focus:ring-2"
+            />
+            <span>{t("claudeConfig.enableTeammates")}</span>
+          </label>
+          <label className="inline-flex items-center gap-2 text-sm text-muted-foreground cursor-pointer">
+            <input
+              type="checkbox"
+              checked={toggleStates.enableToolSearch}
+              onChange={(e) =>
+                handleToggle("enableToolSearch", e.target.checked)
+              }
+              className="w-4 h-4 text-blue-500 bg-white dark:bg-gray-800 border-border-default rounded focus:ring-blue-500 dark:focus:ring-blue-400 focus:ring-2"
+            />
+            <span>{t("claudeConfig.enableToolSearch")}</span>
+          </label>
+          <label className="inline-flex items-center gap-2 text-sm text-muted-foreground cursor-pointer">
+            <input
+              type="checkbox"
+              checked={toggleStates.effortMax}
+              onChange={(e) => handleToggle("effortMax", e.target.checked)}
+              className="w-4 h-4 text-blue-500 bg-white dark:bg-gray-800 border-border-default rounded focus:ring-blue-500 dark:focus:ring-blue-400 focus:ring-2"
+            />
+            <span>{t("claudeConfig.effortMax")}</span>
+          </label>
+          <label className="inline-flex items-center gap-2 text-sm text-muted-foreground cursor-pointer">
+            <input
+              type="checkbox"
+              checked={toggleStates.disableAutoUpgrade}
+              onChange={(e) =>
+                handleToggle("disableAutoUpgrade", e.target.checked)
+              }
+              className="w-4 h-4 text-blue-500 bg-white dark:bg-gray-800 border-border-default rounded focus:ring-blue-500 dark:focus:ring-blue-400 focus:ring-2"
+            />
+            <span>{t("claudeConfig.disableAutoUpgrade")}</span>
+          </label>
+          <label className="inline-flex items-center gap-2 text-sm text-muted-foreground cursor-pointer">
+            <input
+              type="checkbox"
+              checked={toggleStates.disableArtifact}
+              onChange={(e) =>
+                handleToggle("disableArtifact", e.target.checked)
+              }
+              className="w-4 h-4 text-blue-500 bg-white dark:bg-gray-800 border-border-default rounded focus:ring-blue-500 dark:focus:ring-blue-400 focus:ring-2"
+            />
+            <span>{t("claudeConfig.disableArtifact")}</span>
+          </label>
+        </div>
+        <JsonEditor
+          value={localValue}
+          onChange={handleLocalChange}
+          ariaLabel={t("provider.configJson")}
+          placeholder={`{
   "env": {
     "ANTHROPIC_BASE_URL": "https://your-api-endpoint.com",
     "ANTHROPIC_AUTH_TOKEN": "your-api-key-here"
   }
 }`}
-        darkMode={isDarkMode}
-        rows={3}
-        showValidation={true}
-        language="json"
-      />
-      <InactiveFieldsPanel
-        fields={pendingInactiveFields}
-        hint={t("claudeConfig.inactiveFieldsHint", {
-          count: pendingInactiveFields.length,
-          defaultValue:
-            "这个供应商还保存着 {{count}} 个不随切换生效的字段。点击可加入上方的全局设置，保存后写入配置文件；供应商里保存的原值不会删除。",
-        })}
-        action={{
-          kind: "add",
-          title: t("claudeConfig.addToGlobalSettings", {
-            defaultValue: "加入全局设置",
-          }),
-          onAdd: handleAddInactiveField,
-        }}
-      />
+          darkMode={isDarkMode}
+          rows={3}
+          showValidation={true}
+          language="json"
+        />
+        <InactiveFieldsPanel
+          fields={pendingInactiveFields}
+          hint={t("claudeConfig.inactiveFieldsHint", {
+            count: pendingInactiveFields.length,
+            defaultValue:
+              "这个供应商还保存着 {{count}} 个不随切换生效的字段。点击可加入上方的全局设置，保存后写入配置文件；供应商里保存的原值不会删除。",
+          })}
+          action={{
+            kind: "add",
+            title: t("claudeConfig.addToGlobalSettings", {
+              defaultValue: "加入全局设置",
+            }),
+            onAdd: handleAddInactiveField,
+          }}
+        />
       </div>
       {onModalClose && onCommonConfigSnippetChange && (
         <FullScreenPanel
@@ -403,7 +409,9 @@ export function CommonConfigEditor({
             {(!commonConfigSnippet || commonConfigSnippet.trim() === "{}") && (
               <div className="flex flex-col items-center justify-center py-6 text-center text-muted-foreground">
                 <Package className="h-8 w-8 mb-2 opacity-40" />
-                <p className="text-sm font-medium">{t("commonConfig.emptyTitle")}</p>
+                <p className="text-sm font-medium">
+                  {t("commonConfig.emptyTitle")}
+                </p>
                 <p className="text-xs mt-1">{t("commonConfig.emptyHint")}</p>
               </div>
             )}
