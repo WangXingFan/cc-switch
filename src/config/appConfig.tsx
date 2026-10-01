@@ -99,6 +99,11 @@ export function isMcpAppId(appId: string): appId is McpAppId {
   return (MCP_APP_IDS as string[]).includes(appId);
 }
 
+/** Apps whose provider editor projects key fields onto the live client file. */
+export function usesEditorView(appId: AppId): boolean {
+  return ["claude", "codex", "gemini", "grokbuild"].includes(appId);
+}
+
 export const APP_ICON_MAP: Record<AppId, AppConfig> = {
   claude: {
     label: "Claude",

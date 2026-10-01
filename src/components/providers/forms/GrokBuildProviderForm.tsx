@@ -29,6 +29,7 @@ import type {
   ProviderMeta,
 } from "@/types";
 import type { ProviderFormProps, ProviderFormValues } from "./ProviderForm";
+import { useDraftEditorProjection } from "./hooks/useDraftEditorProjection";
 import { BasicFormFields } from "./BasicFormFields";
 import { CodexFormFields } from "./CodexFormFields";
 import { ProviderPresetSelector } from "./ProviderPresetSelector";
@@ -74,6 +75,7 @@ export function GrokBuildProviderForm({
   onSubmit,
   onCancel,
   onSubmittingChange,
+  onEditorBaseChange,
   initialData,
   showButtons = true,
 }: GrokBuildProviderFormProps) {
@@ -109,6 +111,10 @@ export function GrokBuildProviderForm({
   );
   const [rawConfig, setRawConfig] = useState(
     initialConfigText ?? buildGrokBuildConfig(initialConfig),
+  );
+  const { projectDraft } = useDraftEditorProjection(
+    "grokbuild",
+    onEditorBaseChange,
   );
   const [apiFormat, setApiFormat] = useState<CodexApiFormat>(
     (initialData?.meta?.apiFormat as CodexApiFormat | undefined) ??
@@ -176,6 +182,38 @@ export function GrokBuildProviderForm({
   });
   const { isSubmitting } = form.formState;
   const websiteUrl = form.watch("websiteUrl") ?? "";
+
+  useEffect(() => {
+    if (!onEditorBaseChange) return;
+    const config = form.getValues("settingsConfig");
+    let settings: Record<string, unknown>;
+    try {
+      settings = JSON.parse(config) as Record<string, unknown>;
+    } catch {
+      settings = { config };
+    }
+    projectDraft(settings, category, (projected) => {
+      const projectedConfig = projected.config;
+      if (typeof projectedConfig !== "string") return;
+      setRawConfig(projectedConfig);
+      const parsed = parseGrokBuildConfig(
+        projectedConfig,
+        form.getValues("name"),
+      );
+      setProfile(parsed.model);
+      setUpstreamModel(parsed.upstreamModel ?? parsed.model);
+      setBaseUrl(parsed.baseUrl);
+      setApiKey(parsed.apiKey);
+      setContextWindow(String(parsed.contextWindow));
+      form.setValue("settingsConfig", JSON.stringify(projected, null, 2));
+    });
+  }, [
+    category,
+    form,
+    onEditorBaseChange,
+    projectDraft,
+    selectedPresetId,
+  ]);
 
   useEffect(() => {
     onSubmittingChange?.(isSubmitting);

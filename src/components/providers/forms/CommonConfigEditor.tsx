@@ -1,6 +1,9 @@
 import { useTranslation } from "react-i18next";
 import { useEffect, useState, useCallback, useMemo } from "react";
+import { FullScreenPanel } from "@/components/common/FullScreenPanel";
 import { Label } from "@/components/ui/label";
+import { Button } from "@/components/ui/button";
+import { Download, Loader2, Package, Save } from "lucide-react";
 import JsonEditor from "@/components/JsonEditor";
 import type { ProviderEditorInactiveField } from "@/lib/api/providers";
 import { InactiveFieldsPanel } from "./InactiveFieldsPanel";
@@ -8,6 +11,16 @@ import { InactiveFieldsPanel } from "./InactiveFieldsPanel";
 interface CommonConfigEditorProps {
   value: string;
   onChange: (value: string) => void;
+  useCommonConfig?: boolean;
+  onCommonConfigToggle?: (checked: boolean) => void;
+  commonConfigSnippet?: string;
+  onCommonConfigSnippetChange?: (value: string) => void;
+  commonConfigError?: string;
+  onEditClick?: () => void;
+  isModalOpen?: boolean;
+  onModalClose?: () => void;
+  onExtract?: () => void;
+  isExtracting?: boolean;
   /** 行里保存着、但不随切换生效的字段；可以一键加进上方 JSON（保存后成为全局设置）。 */
   inactiveFields?: ProviderEditorInactiveField[];
 }
@@ -37,6 +50,16 @@ const setFieldInConfig = (
 export function CommonConfigEditor({
   value,
   onChange,
+  useCommonConfig = false,
+  onCommonConfigToggle,
+  commonConfigSnippet = "",
+  onCommonConfigSnippetChange,
+  commonConfigError = "",
+  onEditClick,
+  isModalOpen = false,
+  onModalClose,
+  onExtract,
+  isExtracting = false,
   inactiveFields = [],
 }: CommonConfigEditorProps) {
   const { t } = useTranslation();
@@ -205,8 +228,45 @@ export function CommonConfigEditor({
   }, [inactiveFields, localValue]);
 
   return (
-    <div className="space-y-2">
-      <Label htmlFor="settingsConfig">{t("provider.configJson")}</Label>
+    <>
+      <div className="space-y-2">
+        <div className="flex items-center justify-between">
+          <Label htmlFor="settingsConfig">{t("provider.configJson")}</Label>
+          {onCommonConfigToggle && onEditClick && (
+            <label className="inline-flex items-center gap-2 text-sm text-muted-foreground cursor-pointer">
+              <input
+                type="checkbox"
+                id="useCommonConfig"
+                checked={useCommonConfig}
+                onChange={(event) => onCommonConfigToggle(event.target.checked)}
+                className="w-4 h-4 text-blue-500 bg-white dark:bg-gray-800 border-border-default rounded focus:ring-blue-500 dark:focus:ring-blue-400 focus:ring-2"
+              />
+              <span>
+                {t("claudeConfig.writeCommonConfig", {
+                  defaultValue: "应用通用配置",
+                })}
+              </span>
+            </label>
+          )}
+        </div>
+        {onEditClick && onModalClose && (
+          <div className="flex items-center justify-end">
+            <button
+              type="button"
+              onClick={onEditClick}
+              className="text-xs text-blue-400 dark:text-blue-500 hover:text-blue-500 dark:hover:text-blue-400 transition-colors"
+            >
+              {t("claudeConfig.editCommonConfig", {
+                defaultValue: "编辑通用配置",
+              })}
+            </button>
+          </div>
+        )}
+        {commonConfigError && !isModalOpen && (
+          <p className="text-xs text-red-500 dark:text-red-400 text-right">
+            {commonConfigError}
+          </p>
+        )}
       <p className="text-xs text-muted-foreground">
         {t("claudeConfig.keyFieldsHint", {
           defaultValue:
@@ -301,6 +361,69 @@ export function CommonConfigEditor({
           onAdd: handleAddInactiveField,
         }}
       />
-    </div>
+      </div>
+      {onModalClose && onCommonConfigSnippetChange && (
+        <FullScreenPanel
+          isOpen={isModalOpen}
+          title={t("claudeConfig.editCommonConfigTitle", {
+            defaultValue: "编辑通用配置片段",
+          })}
+          onClose={onModalClose}
+          footer={
+            <>
+              {onExtract && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={onExtract}
+                  disabled={isExtracting}
+                  className="gap-2"
+                >
+                  {isExtracting ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <Download className="w-4 h-4" />
+                  )}
+                  {t("claudeConfig.extractFromCurrent", {
+                    defaultValue: "从编辑内容提取",
+                  })}
+                </Button>
+              )}
+              <Button type="button" variant="outline" onClick={onModalClose}>
+                {t("common.cancel")}
+              </Button>
+              <Button type="button" onClick={onModalClose} className="gap-2">
+                <Save className="w-4 h-4" />
+                {t("common.save")}
+              </Button>
+            </>
+          }
+        >
+          <div className="space-y-4">
+            {(!commonConfigSnippet || commonConfigSnippet.trim() === "{}") && (
+              <div className="flex flex-col items-center justify-center py-6 text-center text-muted-foreground">
+                <Package className="h-8 w-8 mb-2 opacity-40" />
+                <p className="text-sm font-medium">{t("commonConfig.emptyTitle")}</p>
+                <p className="text-xs mt-1">{t("commonConfig.emptyHint")}</p>
+              </div>
+            )}
+            <JsonEditor
+              value={commonConfigSnippet}
+              onChange={onCommonConfigSnippetChange}
+              ariaLabel={t("claudeConfig.editCommonConfigTitle")}
+              darkMode={isDarkMode}
+              rows={16}
+              showValidation={true}
+              language="json"
+            />
+            {commonConfigError && (
+              <p className="text-sm text-red-500 dark:text-red-400">
+                {commonConfigError}
+              </p>
+            )}
+          </div>
+        </FullScreenPanel>
+      )}
+    </>
   );
 }

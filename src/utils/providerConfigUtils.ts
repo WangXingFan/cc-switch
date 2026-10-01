@@ -2,12 +2,79 @@
 
 import type { TemplateValueConfig } from "../config/claudeProviderPresets";
 import type { CodexApiFormat } from "@/types";
+import { deepClone } from "@/utils/deepClone";
 import { normalizeTomlText } from "@/utils/textNormalization";
 import { parse as parseToml } from "smol-toml";
 
 const isPlainObject = (value: unknown): value is Record<string, any> => {
   return Object.prototype.toString.call(value) === "[object Object]";
 };
+
+const FORBIDDEN_MERGE_KEYS = new Set(["__proto__", "constructor", "prototype"]);
+
+const sanitizeSnippet = (value: any): any => {
+  if (Array.isArray(value)) return value.map(sanitizeSnippet);
+  if (!isPlainObject(value)) return value;
+
+  const cleaned: Record<string, any> = {};
+  for (const [key, child] of Object.entries(value)) {
+    if (FORBIDDEN_MERGE_KEYS.has(key)) continue;
+    cleaned[key] = sanitizeSnippet(child);
+  }
+  return cleaned;
+};
+
+const deepMerge = (
+  target: Record<string, any>,
+  source: Record<string, any>,
+): Record<string, any> => {
+  Object.entries(source).forEach(([key, value]) => {
+    if (FORBIDDEN_MERGE_KEYS.has(key)) return;
+    if (isPlainObject(value)) {
+      if (!isPlainObject(target[key])) target[key] = {};
+      deepMerge(target[key], value);
+    } else {
+      target[key] = value;
+    }
+  });
+  return target;
+};
+
+const isSubset = (target: any, source: any): boolean => {
+  if (isPlainObject(source)) {
+    if (!isPlainObject(target)) return false;
+    return Object.entries(source).every(([key, value]) => {
+      if (FORBIDDEN_MERGE_KEYS.has(key)) return false;
+      if (!Object.prototype.hasOwnProperty.call(target, key)) return false;
+      return isSubset(target[key], value);
+    });
+  }
+  if (Array.isArray(source)) {
+    if (!Array.isArray(target) || target.length !== source.length) return false;
+    return source.every((item, index) => isSubset(target[index], item));
+  }
+  return target === source;
+};
+
+const deepRemove = (
+  target: Record<string, any>,
+  source: Record<string, any>,
+): void => {
+  Object.entries(source).forEach(([key, value]) => {
+    if (FORBIDDEN_MERGE_KEYS.has(key) || !(key in target)) return;
+    if (isPlainObject(value) && isPlainObject(target[key])) {
+      deepRemove(target[key], value);
+      if (Object.keys(target[key]).length === 0) delete target[key];
+    } else if (isSubset(target[key], value)) {
+      delete target[key];
+    }
+  });
+};
+
+export interface UpdateCommonConfigResult {
+  updatedConfig: string;
+  error?: string;
+}
 
 // 验证JSON配置格式
 export const validateJsonConfig = (
@@ -25,6 +92,50 @@ export const validateJsonConfig = (
     return "";
   } catch {
     return `${fieldName}JSON格式错误，请检查语法`;
+  }
+};
+
+export const updateCommonConfigSnippet = (
+  jsonString: string,
+  snippetString: string,
+  enabled: boolean,
+): UpdateCommonConfigResult => {
+  let config: Record<string, any>;
+  try {
+    config = jsonString ? JSON.parse(jsonString) : {};
+  } catch {
+    return { updatedConfig: jsonString, error: "配置 JSON 解析失败，无法应用通用配置" };
+  }
+
+  if (!snippetString.trim()) return { updatedConfig: JSON.stringify(config, null, 2) };
+
+  const snippetError = validateJsonConfig(snippetString, "通用配置片段");
+  if (snippetError) {
+    return { updatedConfig: JSON.stringify(config, null, 2), error: snippetError };
+  }
+
+  const snippet = JSON.parse(snippetString) as Record<string, any>;
+  if (enabled) {
+    return { updatedConfig: JSON.stringify(deepMerge(deepClone(config), snippet), null, 2) };
+  }
+  const cloned = deepClone(config);
+  deepRemove(cloned, snippet);
+  return { updatedConfig: JSON.stringify(cloned, null, 2) };
+};
+
+export const hasCommonConfigSnippet = (
+  jsonString: string,
+  snippetString: string,
+): boolean => {
+  try {
+    if (!snippetString.trim()) return false;
+    const config = jsonString ? JSON.parse(jsonString) : {};
+    const parsed = JSON.parse(snippetString);
+    if (!isPlainObject(parsed)) return false;
+    const snippet = sanitizeSnippet(parsed);
+    return Object.keys(snippet).length > 0 && isSubset(config, snippet);
+  } catch {
+    return false;
   }
 };
 
@@ -238,6 +349,22 @@ export const setApiKeyInConfig = (
     return JSON.stringify(config, null, 2);
   } catch (err) {
     return jsonString;
+  }
+};
+
+export const hasTomlCommonConfigSnippet = (
+  tomlString: string,
+  snippetString: string,
+): boolean => {
+  if (!snippetString.trim()) return false;
+  try {
+    const config = parseToml(normalizeTomlText(tomlString || ""));
+    const snippet = sanitizeSnippet(parseToml(normalizeTomlText(snippetString)));
+    if (!isPlainObject(snippet) || Object.keys(snippet).length === 0) return false;
+    return isSubset(config, snippet);
+  } catch {
+    const normalize = (value: string) => value.replace(/\s+/g, " ").trim();
+    return normalize(tomlString).includes(normalize(snippetString));
   }
 };
 

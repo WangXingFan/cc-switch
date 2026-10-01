@@ -17,6 +17,7 @@ import {
   settingsApi,
   type AppId,
   type ManagedAuthProvider,
+  type ProviderEditorInactiveField,
 } from "@/lib/api";
 import { useDarkMode } from "@/hooks/useDarkMode";
 import type {
@@ -118,6 +119,8 @@ import {
   useXaiOauth,
 } from "./hooks";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
+import type { EditorBaseChange } from "./hooks/useDraftEditorProjection";
+import { useDraftEditorProjection } from "./hooks/useDraftEditorProjection";
 import { useSettingsQuery } from "@/lib/query";
 import {
   CLAUDE_DEFAULT_CONFIG,
@@ -260,6 +263,7 @@ export interface ProviderFormProps {
   onManageAuthAccounts?: (target: ManagedAuthProvider) => void;
   onSubmittingChange?: (isSubmitting: boolean) => void;
   onSubmitReadyChange?: (isReady: boolean) => void;
+  onEditorBaseChange?: EditorBaseChange;
   initialData?: {
     name?: string;
     websiteUrl?: string;
@@ -272,6 +276,7 @@ export interface ProviderFormProps {
   };
   showButtons?: boolean;
   isProxyTakeover?: boolean;
+  inactiveFields?: ProviderEditorInactiveField[];
 }
 
 export function ProviderForm(props: ProviderFormProps) {
@@ -298,9 +303,11 @@ function ProviderFormFull({
   onManageUniversalProviders,
   onManageAuthAccounts,
   onSubmittingChange,
+  onEditorBaseChange: _onEditorBaseChange,
   initialData,
   showButtons = true,
   isProxyTakeover = false,
+  inactiveFields = [],
 }: ProviderFormProps) {
   if (appId === "claude-desktop") {
     throw new Error("ProviderFormFull should not receive claude-desktop");
@@ -894,6 +901,70 @@ function ProviderFormFull({
   } = useGeminiConfigState({
     initialData: appId === "gemini" ? initialData : undefined,
   });
+
+  const { projectDraft } = useDraftEditorProjection(
+    appId,
+    onEditorBaseChange,
+  );
+
+  const applyProjectedEditorSettings = useCallback(
+    (settings: Record<string, unknown>) => {
+      form.setValue("settingsConfig", JSON.stringify(settings, null, 2));
+      if (appId === "codex") {
+        const auth = settings.auth;
+        const config = settings.config;
+        if (
+          auth &&
+          typeof auth === "object" &&
+          !Array.isArray(auth) &&
+          typeof config === "string"
+        ) {
+          resetCodexConfig(auth as Record<string, unknown>, config);
+        }
+      } else if (appId === "gemini") {
+        const env = settings.env;
+        const config = settings.config;
+        if (
+          env &&
+          typeof env === "object" &&
+          !Array.isArray(env) &&
+          config &&
+          typeof config === "object" &&
+          !Array.isArray(config)
+        ) {
+          resetGeminiConfig(
+            env as Record<string, unknown>,
+            config as Record<string, unknown>,
+          );
+        }
+      }
+    },
+    [appId, form, resetCodexConfig, resetGeminiConfig],
+  );
+
+  useEffect(() => {
+    if (!onEditorBaseChange || !["claude", "codex", "gemini"].includes(appId)) {
+      return;
+    }
+    let settings: Record<string, unknown>;
+    try {
+      settings = JSON.parse(form.getValues("settingsConfig")) as Record<
+        string,
+        unknown
+      >;
+    } catch {
+      return;
+    }
+    projectDraft(settings, category, applyProjectedEditorSettings);
+  }, [
+    appId,
+    applyProjectedEditorSettings,
+    category,
+    form,
+    onEditorBaseChange,
+    projectDraft,
+    selectedPresetId,
+  ]);
 
   const updateGeminiEnvField = useCallback(
     (
@@ -2803,6 +2874,7 @@ function ProviderFormFull({
                 onModalClose={() => setIsCommonConfigModalOpen(false)}
                 onExtract={handleClaudeExtract}
                 isExtracting={isClaudeExtracting}
+                inactiveFields={inactiveFields}
               />
               {settingsConfigErrorField}
             </>
