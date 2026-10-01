@@ -8,6 +8,7 @@ use regex::Regex;
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
+use std::sync::Arc;
 use tauri::AppHandle;
 use tauri::State;
 use tauri_plugin_opener::OpenerExt;
@@ -177,6 +178,59 @@ pub async fn get_tool_versions(
     Ok(results)
 }
 
+// 不同工具仍可能共用 pnpm/npm 的全局目录。先保守地串行化所有安装写入，
+// 并在排队前锁定工具，防止页面重挂或另一 IPC 调用重复提交同一工具。
+struct ToolLifecycleCoordinator {
+    tools: HashMap<&'static str, Arc<tokio::sync::Mutex<()>>>,
+    execution: Arc<tokio::sync::Mutex<()>>,
+}
+
+impl Default for ToolLifecycleCoordinator {
+    fn default() -> Self {
+        Self {
+            tools: VALID_TOOLS
+                .iter()
+                .map(|&tool| (tool, Arc::new(tokio::sync::Mutex::new(()))))
+                .collect(),
+            execution: Arc::new(tokio::sync::Mutex::new(())),
+        }
+    }
+}
+
+impl ToolLifecycleCoordinator {
+    async fn run<F>(&self, tools: Vec<&'static str>, operation: F) -> Result<(), String>
+    where
+        F: FnOnce(&[&str]) -> Result<(), String> + Send + 'static,
+    {
+        let tool_guards = tools
+            .iter()
+            .map(|tool| {
+                self.tools
+                    .get(tool)
+                    .ok_or_else(|| format!("Unsupported tool action target: {tool}"))?
+                    .clone()
+                    .try_lock_owned()
+                    // 稳定错误码供前端区分后台任务仍在进行与真正的执行失败。
+                    .map_err(|_| "TOOL_ACTION_IN_PROGRESS".to_string())
+            })
+            .collect::<Result<Vec<_>, _>>()?;
+        let execution_guard = self.execution.clone().lock_owned().await;
+
+        // 必须把锁移进 blocking 任务：即使等待它的 IPC future 被取消，
+        // 子进程仍会继续运行，直到它真正退出前都不能允许下一次写入。
+        tokio::task::spawn_blocking(move || {
+            let _tool_guards = tool_guards;
+            let _execution_guard = execution_guard;
+            operation(&tools)
+        })
+        .await
+        .map_err(|e| format!("tool lifecycle task join error: {e}"))?
+    }
+}
+
+static TOOL_LIFECYCLE: Lazy<ToolLifecycleCoordinator> =
+    Lazy::new(ToolLifecycleCoordinator::default);
+
 #[tauri::command]
 pub async fn run_tool_lifecycle_action(
     tools: Vec<String>,
@@ -194,15 +248,14 @@ pub async fn run_tool_lifecycle_action(
         ToolLifecycleAction::Update => "tool_update",
     };
 
-    // build 阶段含锚定探测（对每个工具跑 `--version` 定位命令行实际命中那处），
-    // 与执行一并放进 blocking 线程，避免阻塞 async runtime。
-    tokio::task::spawn_blocking(move || {
-        let command_line =
-            build_tool_lifecycle_command(&requested, action, wsl_shell_by_tool.as_ref())?;
-        run_tool_lifecycle_silently(&command_line, label)
-    })
-    .await
-    .map_err(|e| format!("tool lifecycle task join error: {e}"))?
+    // 排队结束后再探测安装目标，与执行一起持锁，避免读到另一升级的中间状态。
+    TOOL_LIFECYCLE
+        .run(requested, move |tools| {
+            let command_line =
+                build_tool_lifecycle_command(tools, action, wsl_shell_by_tool.as_ref())?;
+            run_tool_lifecycle_silently(&command_line, label)
+        })
+        .await
 }
 
 /// 静默执行工具安装/更新脚本：直接捕获子进程输出并阻塞到命令真正结束，
@@ -234,8 +287,12 @@ fn run_tool_lifecycle_silently(command_line: &str, label: &str) -> Result<(), St
     use std::os::windows::process::CommandExt;
     use std::process::Command;
 
-    let bat_file =
-        std::env::temp_dir().join(format!("cc_switch_{}_{}.bat", label, std::process::id()));
+    // 每次调用使用独立目录，避免同进程并发升级时覆盖或删除另一工具的脚本。
+    let script_dir = tempfile::Builder::new()
+        .prefix("cc_switch_lifecycle_")
+        .tempdir()
+        .map_err(|e| format!("创建批处理目录失败: {e}"))?;
+    let bat_file = script_dir.path().join(format!("{label}.bat"));
     std::fs::write(&bat_file, command_line).map_err(|e| format!("写入批处理文件失败: {e}"))?;
 
     let output = Command::new("cmd")
@@ -243,7 +300,6 @@ fn run_tool_lifecycle_silently(command_line: &str, label: &str) -> Result<(), St
         .arg(&bat_file)
         .creation_flags(CREATE_NO_WINDOW)
         .output();
-    let _ = std::fs::remove_file(&bat_file);
 
     finish_lifecycle_output(&output.map_err(|e| format!("启动安装进程失败: {e}"))?)
 }
@@ -449,6 +505,14 @@ const OPENCODE_INSTALL_UNIX: &str =
     "bash -c 'tmp=$(mktemp) && curl -fsSL https://opencode.ai/install -o $tmp && bash $tmp; status=$?; rm -f $tmp; exit $status'";
 const GROK_INSTALL_UNIX: &str =
     "bash -c 'tmp=$(mktemp) && curl -fsSL https://x.ai/cli/install.sh -o $tmp && bash $tmp; status=$?; rm -f $tmp; exit $status'";
+/// Codex 官方独立安装器（POSIX sh 脚本）。独立安装版的 `codex update` 内部跑的正是
+/// `curl ... | sh` 且没开 pipefail——实测断网时 curl 失败、sh 读到空脚本 exit 0，
+/// `codex update` 仍打印 "Update ran successfully" 并 exit 0。所以不走 `codex update`，
+/// 由这里下载到临时文件再执行，curl 失败会如实变成整条命令失败。
+/// 只用于锚定升级（Windows 用 `CODEX_INSTALL_WINDOWS_SCRIPT`；WSL 不锚定），故按平台 gate。
+#[cfg(not(target_os = "windows"))]
+const CODEX_INSTALL_UNIX: &str =
+    "bash -c 'tmp=$(mktemp) && curl -fsSL https://chatgpt.com/codex/install.sh -o $tmp && sh $tmp; status=$?; rm -f $tmp; exit $status'";
 
 /// Hermes 官方安装器会自带/选择合适的 Python 运行时。不要再用
 /// `python3 -m pip ... || python -m pip ...`:Hermes PyPI 包要求 Python >=3.11,
@@ -464,6 +528,8 @@ const HERMES_INSTALL_WINDOWS_SCRIPT: &str =
     "irm https://raw.githubusercontent.com/NousResearch/hermes-agent/main/scripts/install.ps1 | iex";
 #[cfg(target_os = "windows")]
 const GROK_INSTALL_WINDOWS_SCRIPT: &str = "irm https://x.ai/cli/install.ps1 | iex";
+#[cfg(target_os = "windows")]
+const CODEX_INSTALL_WINDOWS_SCRIPT: &str = "irm https://chatgpt.com/codex/install.ps1 | iex";
 
 #[cfg(target_os = "windows")]
 fn powershell_encoded_command(script: &str) -> String {
@@ -489,6 +555,89 @@ fn grok_install_windows_command() -> String {
     format!(
         "powershell -NoProfile -ExecutionPolicy Bypass -EncodedCommand {}",
         powershell_encoded_command(GROK_INSTALL_WINDOWS_SCRIPT)
+    )
+}
+
+/// Codex 官方独立安装器（`install.sh` / `install.ps1`）装出的一处安装。
+///
+/// 布局（2026-09 实测 install.sh、读 install.ps1）：发布包在
+/// `<CODEX_HOME>/packages/standalone/releases/<ver>-<target>/`，`current` 指向当前版本；
+/// PATH 上的入口放在 `CODEX_INSTALL_DIR`（POSIX 默认 `~/.local/bin` 下的软链，Windows 默认
+/// `%LOCALAPPDATA%\Programs\OpenAI\Codex\bin` 这个 junction），真身都解析到发布包里。
+/// 它既不归 npm 管，也不在 `prefers_official_update` 里，此前锚定落空、退回裸
+/// `npm i -g` 另装一份 npm 版（#7650）。
+#[derive(Debug, PartialEq, Eq)]
+struct CodexStandaloneInstall {
+    /// 入口所在目录，重跑 installer 时作为 `CODEX_INSTALL_DIR` 写回同一处。
+    install_dir: String,
+    /// 从真身路径截出的 `CODEX_HOME`；GUI 进程拿不到用户 shell 里设的 `CODEX_HOME`，
+    /// 不显式传会装进默认的 `~/.codex`，入口指向的那份原地不动。
+    codex_home: Option<String>,
+}
+
+/// 纯字符串判定、不碰 fs，POSIX / Windows 路径都能在任一平台单测。
+fn codex_standalone_install(bin_path: &str, real_target: &str) -> Option<CodexStandaloneInstall> {
+    let install_dir = parent_dir(bin_path);
+    if install_dir.is_empty() {
+        return None;
+    }
+    let normalized_real = real_target.replace('\\', "/").to_ascii_lowercase();
+    if let Some(idx) = normalized_real.find("/packages/standalone/") {
+        // `replace` 与 `to_ascii_lowercase` 都不改字节长度，下标可直接用于原串。
+        // Windows 的 real 是 canonicalize 出的 `\\?\` verbatim 路径，交给 installer 前还原。
+        let home = &real_target[..idx];
+        let home = match home.strip_prefix(r"\\?\UNC\") {
+            Some(unc) => format!(r"\\{unc}"),
+            None => home.strip_prefix(r"\\?\").unwrap_or(home).to_string(),
+        };
+        if !home.is_empty() {
+            return Some(CodexStandaloneInstall {
+                install_dir,
+                codex_home: Some(home),
+            });
+        }
+    }
+    // canonicalize 失败时 real 就是入口本身；Windows 默认入口目录仍能认出来，
+    // 只是拿不到 CODEX_HOME，交给 installer 用默认值。
+    let normalized_bin = bin_path.replace('\\', "/").to_ascii_lowercase();
+    normalized_bin
+        .contains("/programs/openai/codex/bin/")
+        .then_some(CodexStandaloneInstall {
+            install_dir,
+            codex_home: None,
+        })
+}
+
+/// 重跑官方 installer 升级独立安装那一处。显式传 `CODEX_INSTALL_DIR` / `CODEX_HOME`
+/// 写回探测到的位置（实测自定义目录时会原地升级、不在默认目录多装一份）；
+/// `CODEX_NON_INTERACTIVE=1` 与 `codex update` 自己重跑 installer 时的做法一致。
+#[cfg(not(target_os = "windows"))]
+fn codex_installer_update_command(install: &CodexStandaloneInstall) -> String {
+    let mut env = format!(
+        "CODEX_NON_INTERACTIVE=1 CODEX_INSTALL_DIR={}",
+        shell_single_quote(&install.install_dir)
+    );
+    if let Some(home) = &install.codex_home {
+        env.push_str(&format!(" CODEX_HOME={}", shell_single_quote(home)));
+    }
+    format!("{env} {CODEX_INSTALL_UNIX}")
+}
+
+#[cfg(target_os = "windows")]
+fn codex_installer_update_command(install: &CodexStandaloneInstall) -> String {
+    // PowerShell 单引号字面量里 `'` 写作 `''`；整段经 EncodedCommand 传入，不经 cmd 解析。
+    let quote = |value: &str| value.replace('\'', "''");
+    let mut script = format!(
+        "$env:CODEX_NON_INTERACTIVE = '1'; $env:CODEX_INSTALL_DIR = '{}'; ",
+        quote(&install.install_dir)
+    );
+    if let Some(home) = &install.codex_home {
+        script.push_str(&format!("$env:CODEX_HOME = '{}'; ", quote(home)));
+    }
+    script.push_str(CODEX_INSTALL_WINDOWS_SCRIPT);
+    format!(
+        "powershell -NoProfile -ExecutionPolicy Bypass -EncodedCommand {}",
+        powershell_encoded_command(&script)
     )
 }
 
@@ -658,8 +807,12 @@ fn build_tool_action_line(
         let command = match action {
             ToolLifecycleAction::Update => {
                 let installs = enumerate_tool_installations(tool);
-                installs_anchored_command(tool, &installs)
-                    .unwrap_or_else(|| static_fallback_command(tool))
+                match resolve_update_command(tool, &installs) {
+                    UpdateCommand::Anchored(command) | UpdateCommand::Static(command) => command,
+                    UpdateCommand::Unmanaged => {
+                        return Err(unmanaged_update_error(tool, &installs));
+                    }
+                }
             }
             ToolLifecycleAction::Install => {
                 static_fallback_command_for(tool, ToolLifecycleAction::Install)
@@ -685,8 +838,12 @@ fn build_tool_action_line(
         let command = match action {
             ToolLifecycleAction::Update => {
                 let installs = enumerate_tool_installations(tool);
-                installs_anchored_command(tool, &installs)
-                    .unwrap_or_else(|| static_fallback_command(tool))
+                match resolve_update_command(tool, &installs) {
+                    UpdateCommand::Anchored(command) | UpdateCommand::Static(command) => command,
+                    UpdateCommand::Unmanaged => {
+                        return Err(unmanaged_update_error(tool, &installs));
+                    }
+                }
             }
             ToolLifecycleAction::Install => install_command_for(tool),
         };
@@ -945,15 +1102,37 @@ fn pick_latest_version(
     Some(best)
 }
 
+/// npm 包 dist-tags 专用端点的 URL。
+///
+/// 该端点的响应体就是 dist-tags 对象本身(几十到几千字节);而 `/{package}` 返回的是
+/// 含每个历史版本元数据的完整 packument,codex / opencode / openclaw 这类高频发版的包
+/// 已有十几到二十几 MB,一次刷新要下几十 MB(#7339)。scoped 包名的 `/` 按 registry
+/// 约定转义成 `%2f`。
+fn npm_dist_tags_url(package: &str) -> String {
+    format!(
+        "https://registry.npmjs.org/-/package/{}/dist-tags",
+        package.replace('/', "%2f")
+    )
+}
+
 /// 拉取 npm 包的完整 dist-tags(单次请求即含 latest/next/beta/...)。
+///
+/// 与 GitHub / PyPI 两条来源一样套 `LATEST_PROBE_TIMEOUT`:取不到就返回 None,由调用方
+/// 显示「未知」,而不是沿用全局客户端的 600s 总超时让卡片一直「加载中」。包不存在时
+/// 端点返回 404 与一个 JSON 字符串体,解析成 Map 失败,同样落到 None。
 async fn fetch_npm_dist_tags(
     client: &reqwest::Client,
     package: &str,
 ) -> Option<serde_json::Map<String, serde_json::Value>> {
-    let url = format!("https://registry.npmjs.org/{package}");
-    let resp = client.get(&url).send().await.ok()?;
-    let json = resp.json::<serde_json::Value>().await.ok()?;
-    json.get("dist-tags")?.as_object().cloned()
+    let resp = client
+        .get(npm_dist_tags_url(package))
+        .timeout(LATEST_PROBE_TIMEOUT)
+        .send()
+        .await
+        .ok()?;
+    resp.json::<serde_json::Map<String, serde_json::Value>>()
+        .await
+        .ok()
 }
 
 /// 查询某 npm 工具要展示的"最新版本":取 `latest`,并在本地版本领先时按工具的
@@ -1066,6 +1245,32 @@ async fn fetch_pypi_latest_version(client: &reqwest::Client, package: &str) -> O
 /// 预编译的版本号正则表达式
 static VERSION_RE: Lazy<Regex> =
     Lazy::new(|| Regex::new(r"\d+\.\d+\.\d+(-[\w.]+)?").expect("Invalid version regex"));
+
+/// WSL 版本探测载荷先打印的哨兵。用户 shell 的启动文件（Ubuntu 的 update-motd、
+/// `/etc/bash.bashrc` 的 sudo 提示、nvm 的 `Using Node vX.Y.Z` 等）输出都在它前面，
+/// 解析时只看它之后的内容（#7347）。
+#[cfg_attr(not(windows), allow(dead_code))]
+const VERSION_PROBE_SENTINEL: &str = "__CCSWITCH_VERSION__";
+
+/// 版本探测交给用户 shell 执行的命令：先打哨兵，再跑 `--version`。
+/// 不含单引号，可以直接嵌进外层 `'...'`。
+#[cfg_attr(not(windows), allow(dead_code))]
+fn version_probe_payload(tool: &str) -> String {
+    format!("echo {VERSION_PROBE_SENTINEL}; {tool} --version")
+}
+
+/// 取哨兵**最后一次**出现之后的输出。
+///
+/// 取最后一次：兜底链 `-lic || -lc || -c` 失败重试时会多次打印哨兵。
+/// 按子串而非整行查找：OSC 序列可能没有换行、直接粘在哨兵前面。
+/// 找不到哨兵（shell 在执行载荷之前就失败）时原样返回，保持原有行为。
+#[cfg_attr(not(windows), allow(dead_code))]
+fn after_version_sentinel(output: &str) -> &str {
+    match output.rfind(VERSION_PROBE_SENTINEL) {
+        Some(i) => output[i + VERSION_PROBE_SENTINEL.len()..].trim(),
+        None => output,
+    }
+}
 
 /// 从版本输出中提取纯版本号
 fn extract_version(raw: &str) -> String {
@@ -1322,17 +1527,18 @@ fn try_get_version_wsl(
             default_flag_for_shell(shell)
         };
 
-        (shell.to_string(), flag, format!("{tool} --version"))
+        (shell.to_string(), flag, version_probe_payload(tool))
     } else {
+        let payload = version_probe_payload(tool);
         let cmd = if let Some(flag) = force_shell_flag {
             if !is_valid_shell_flag(flag) {
                 return ShellProbe::NotFound(format!("[WSL:{distro}] invalid shell flag: {flag}"));
             }
-            format!("\"${{SHELL:-sh}}\" {flag} '{tool} --version'")
+            format!("\"${{SHELL:-sh}}\" {flag} '{payload}'")
         } else {
             // 兜底：自动尝试 -lic, -lc, -c
             format!(
-                "\"${{SHELL:-sh}}\" -lic '{tool} --version' 2>/dev/null || \"${{SHELL:-sh}}\" -lc '{tool} --version' 2>/dev/null || \"${{SHELL:-sh}}\" -c '{tool} --version'"
+                "\"${{SHELL:-sh}}\" -lic '{payload}' 2>/dev/null || \"${{SHELL:-sh}}\" -lc '{payload}' 2>/dev/null || \"${{SHELL:-sh}}\" -c '{payload}'"
             )
         };
 
@@ -1348,15 +1554,25 @@ fn try_get_version_wsl(
         Ok(out) => {
             let stdout = decode_command_output(&out.stdout).trim().to_string();
             let stderr = decode_command_output(&out.stderr).trim().to_string();
+            // 启动文件的输出都在哨兵之前，只看它之后（#7347）
+            let payload_out = after_version_sentinel(&stdout).to_string();
             if out.status.success() {
-                let raw = if stdout.is_empty() { &stderr } else { &stdout };
+                let raw = if payload_out.is_empty() {
+                    &stderr
+                } else {
+                    &payload_out
+                };
                 if raw.is_empty() {
                     ShellProbe::NotFound(format!("[WSL:{distro}] {NOT_INSTALLED}"))
                 } else {
                     ShellProbe::Found(extract_version(raw))
                 }
             } else {
-                let err = if stderr.is_empty() { stdout } else { stderr };
+                let err = if stderr.is_empty() {
+                    payload_out
+                } else {
+                    stderr
+                };
                 // wsl.exe 透传的退出码不总可靠，故同时用 exit 127 与 "command not found"
                 // 文本兜底判别"没装"；其余非零退出视作"装了但 --version 报错"。
                 let not_found = err.is_empty()
@@ -2145,7 +2361,7 @@ pub struct ToolInstallation {
 }
 
 /// 由可执行文件路径前缀推断安装来源。纯字符串匹配、无副作用。
-/// 顺序敏感：Homebrew 的 Cellar 真身要先于通用规则命中。
+/// 顺序敏感：Homebrew 的 Cellar / Caskroom 真身要先于通用规则命中。
 fn infer_install_source(path: &Path) -> &'static str {
     let s = path
         .to_string_lossy()
@@ -2153,7 +2369,7 @@ fn infer_install_source(path: &Path) -> &'static str {
         .to_ascii_lowercase();
     if s.contains("/.nvm/") {
         "nvm"
-    } else if s.contains("/homebrew/") || s.contains("/cellar/") {
+    } else if s.contains("/homebrew/") || s.contains("/cellar/") || s.contains("/caskroom/") {
         "homebrew"
     // `.volta` 是 macOS/Linux 默认安装(`~/.volta/bin`),`/volta/` 兜底覆盖
     // Windows 的 `%LOCALAPPDATA%\Volta\bin` / `%VOLTA_HOME%\bin`(无前导点)。
@@ -2178,6 +2394,23 @@ fn infer_install_source(path: &Path) -> &'static str {
         "pip"
     } else {
         "system"
+    }
+}
+
+/// 安装来源：Homebrew 看 canonicalize 真身，node 管理器仍看 launcher。
+///
+/// Intel Cask 入口是 `/usr/local/bin/codex`，不含 `/homebrew/` / `/caskroom/`，
+/// 真身才在 `/usr/local/Caskroom/...`。只看 launcher 会把徽章标成 `system`。
+/// nvm/volta/fnm 的分类在 shim 路径上，必须继续用未解析的入口。
+fn infer_install_source_for_install(launcher: &Path, real: &Path) -> &'static str {
+    let real_s = real
+        .to_string_lossy()
+        .replace('\\', "/")
+        .to_ascii_lowercase();
+    if real_s.contains("/cellar/") || real_s.contains("/caskroom/") {
+        "homebrew"
+    } else {
+        infer_install_source(launcher)
     }
 }
 
@@ -2478,7 +2711,7 @@ fn enumerate_tool_installations(tool: &str) -> Vec<ToolInstallation> {
 
             let is_path_default = path_default.as_ref() == Some(&real);
             let path_str = tool_path.display().to_string();
-            let source = infer_install_source(&tool_path);
+            let source = infer_install_source_for_install(&tool_path, &real);
 
             installs.push(ToolInstallation {
                 path: path_str,
@@ -2537,13 +2770,37 @@ fn parent_dir(p: &str) -> String {
 /// npm 全局包落在 `/opt/homebrew/lib/node_modules`（不含 Cellar）。两者升级命令不同。
 #[cfg(not(target_os = "windows"))]
 fn brew_formula_from_path(real: &str) -> Option<String> {
+    brew_token_from_path(real, "Cellar")
+}
+
+/// 从 canonicalize 后的真身路径提取 Homebrew cask token：
+/// `/opt/homebrew/Caskroom/codex/0.146.0/bin/codex` → `Some("codex")`。
+/// 非 Caskroom 路径返回 None。Cask 是预编译二进制，不走 node；若误判成 Homebrew
+/// npm 全局包，会用 sibling `npm i -g` 覆盖 `/opt/homebrew/bin/<tool>` 并触发 EEXIST。
+#[cfg(not(target_os = "windows"))]
+fn brew_cask_from_path(real: &str) -> Option<String> {
+    brew_token_from_path(real, "Caskroom")
+}
+
+/// Homebrew 安装目录形如 `<prefix>/{Cellar,Caskroom}/<token>/<version>/...`。
+/// 取出 `marker` 后的第一段作为 formula 名或 cask token；大小写不敏感，兼容
+/// `/usr/local/Caskroom`（Intel）与 `/opt/homebrew/Caskroom`（Apple Silicon）。
+#[cfg(not(target_os = "windows"))]
+fn brew_token_from_path(real: &str, marker: &str) -> Option<String> {
     let mut segs = real.split('/');
     while let Some(seg) = segs.next() {
-        if seg.eq_ignore_ascii_case("Cellar") {
+        if seg.eq_ignore_ascii_case(marker) {
             return segs.next().filter(|s| !s.is_empty()).map(|s| s.to_string());
         }
     }
     None
+}
+
+/// Cellar formula 或 Caskroom cask 都由 Homebrew 拥有，升级必须走 brew，
+/// 不能落到 sibling npm。任一命中即视为 brew-managed。
+#[cfg(not(target_os = "windows"))]
+fn is_brew_managed_path(real: &str) -> bool {
+    brew_formula_from_path(real).is_some() || brew_cask_from_path(real).is_some()
 }
 
 /// xAI's native installer uses `~/.grok/bin` for its launchers and
@@ -2818,7 +3075,7 @@ fn prefers_official_update(tool: &str, shell: LifecycleCommandShell) -> bool {
 /// **仅对会锚定到 sibling npm 的 node 管理器来源（nvm/fnm/mise/homebrew npm）生效**：
 /// `runnable=false` 是宽信号（权限 / node 版本 / 任意 `--version` 失败皆可触发），非 npm
 /// 全局安装各有自己的二进制分发与修复方式，无脑套 npm uninstall+install 会出错——Homebrew
-/// formula（real 在 `Cellar/`）本应 `brew upgrade codex`，npm 够不到它反而旁路装第二份 npm
+/// formula / cask（real 在 `Cellar/` 或 `Caskroom/`）本应 `brew upgrade`，npm 够不到它反而旁路装第二份 npm
 /// 全局 codex；Volta/Bun 本应 `volta install`/`bun add`，且 `~/.bun/bin` 下没有 npm、
 /// `sibling_bin` 会拼出不存在的路径；system/未知来源无可靠 sibling npm。这些来源一律返回
 /// None，让上游继续走 source-specific 的 `anchored_command_from_paths`。白名单与
@@ -2829,8 +3086,10 @@ fn prefers_official_update(tool: &str, shell: LifecycleCommandShell) -> bool {
 /// 对各类损坏都是合理且不会更糟的修复。
 #[cfg(not(target_os = "windows"))]
 fn codex_repair_command(bin_path: &str, real: &str) -> Option<String> {
-    // brew formula（real 在 Cellar）→ 不归 npm 管，交回 anchored 走 brew upgrade。
-    if brew_formula_from_path(real).is_some() {
+    // brew formula / cask（real 在 Cellar 或 Caskroom）→ 不归 npm 管，交回 anchored 走 brew upgrade。
+    // 官方独立安装同理：`CODEX_INSTALL_DIR` 可以指到 Homebrew / nvm 的 bin 目录，入口来源
+    // 会被判成 homebrew / nvm，但真身在 standalone 发布包里，交回 anchored 重跑 installer。
+    if is_brew_managed_path(real) || codex_standalone_install(bin_path, real).is_some() {
         return None;
     }
     // 只认会落到 sibling npm 的 node 管理器来源；volta/bun/system/未知交回 anchored。
@@ -2860,6 +3119,15 @@ fn package_manager_anchored_command_from_paths(
     bin_path: &str,
     real_target: &str,
 ) -> Option<String> {
+    // Cask 必须先于 formula：两者互斥（真身不会同时落在 Caskroom 和 Cellar），
+    // 但先拦 cask 能避免未来路径里同时出现这两个段时误走 formula。
+    if let Some(cask) = brew_cask_from_path(real_target) {
+        let brew = sibling_bin(bin_path, "brew")?;
+        return Some(format!(
+            "{} upgrade --cask {cask}",
+            quote_path_if_spaced(&brew)
+        ));
+    }
     if let Some(formula) = brew_formula_from_path(real_target) {
         let brew = sibling_bin(bin_path, "brew")?;
         return Some(format!("{} upgrade {formula}", quote_path_if_spaced(&brew)));
@@ -2908,8 +3176,11 @@ fn package_manager_anchored_command_from_paths(
 /// ② Claude / Grok 原生安装器 → `<bin_path 绝对> update`；
 ///    bin_path 指向 launcher,launcher 内部 dispatch update 子命令。它不归 npm 管,
 ///    且在 PATH 里比 nvm/homebrew 更靠前,用 npm 升级会装到别处且被原生那份遮蔽。
-/// ③ Homebrew formula（真身在 `Cellar/<formula>/`）→ `<bin_path 同目录>/brew upgrade <formula>`;
-///    formula 由 Homebrew 拥有,避免 self-update 尝试改动包管理器管理的安装。
+///    Codex 独立安装器同理:`codex update` 断网时假成功(见 `CODEX_INSTALL_UNIX`),
+///    改为带 `CODEX_INSTALL_DIR` / `CODEX_HOME` 重跑官方 installer。
+/// ③ Homebrew formula / cask（真身在 `Cellar/<formula>/` 或 `Caskroom/<token>/`）
+///    → `<bin_path 同目录>/brew upgrade [--cask] <name>`；由 Homebrew 拥有,避免
+///    self-update 或 sibling npm 改动包管理器管理的安装。
 /// ④ 其余支持官方自升级的工具 → `<bin_path 绝对> update/upgrade || <原锚定包管理器命令>`；
 ///    Codex 的 self-update 只在部分 release 可用,所以保留 npm/brew/bun/volta fallback。
 /// ⑤ 不支持官方自升级的 npm 全局包(例如 Gemini CLI，以及非 native 的 Grok Build) → 锚定到
@@ -2932,8 +3203,13 @@ fn anchored_command_from_paths(tool: &str, bin_path: &str, real_target: &str) ->
             anchored_official_update_command(tool, bin_path)?,
         ));
     }
+    if tool == "codex" {
+        if let Some(install) = codex_standalone_install(bin_path, real_target) {
+            return Some(codex_installer_update_command(&install));
+        }
+    }
     let package_command = package_manager_anchored_command_from_paths(tool, bin_path, real_target);
-    if brew_formula_from_path(real_target).is_some() {
+    if is_brew_managed_path(real_target) {
         return package_command;
     }
     if prefers_official_update(tool, LifecycleCommandShell::Posix) {
@@ -2997,6 +3273,7 @@ fn package_manager_anchored_command_from_paths(tool: &str, bin_path: &str) -> Op
 ///
 /// 判定顺序(命中即返回):
 /// ① hermes / Grok native → `<bin_path> update`;CLI 自己处理安装环境。
+///    Codex 独立安装 → 带 `CODEX_INSTALL_DIR` / `CODEX_HOME` 重跑官方 PowerShell installer。
 /// ② 支持官方自升级且 Windows 可安全静默执行的工具 → `<bin_path> update/upgrade || call <包管理器 fallback>`。
 /// ③ 其余 npm 工具 → sibling `npm.cmd`/`.exe` i -g <pkg>@latest。
 ///
@@ -3012,6 +3289,11 @@ fn anchored_command_from_paths(tool: &str, bin_path: &str, real_target: &str) ->
         return Some(grok_native_update_command(
             anchored_official_update_command(tool, bin_path)?,
         ));
+    }
+    if tool == "codex" {
+        if let Some(install) = codex_standalone_install(bin_path, real_target) {
+            return Some(codex_installer_update_command(&install));
+        }
     }
     let package_command = package_manager_anchored_command_from_paths(tool, bin_path);
     if prefers_official_update(tool, LifecycleCommandShell::WindowsBatch) {
@@ -3552,6 +3834,77 @@ fn static_fallback_command(tool: &str) -> String {
     static_fallback_command_for(tool, ToolLifecycleAction::Update)
 }
 
+/// 升级命令的解析结果。plan（前端确认 / 展示）与 execute（真正执行）共用
+/// `resolve_update_command`，保证两边判定一致。
+#[derive(Debug, PartialEq, Eq)]
+enum UpdateCommand {
+    /// 锚定到命令行实际命中的那处。
+    Anchored(String),
+    /// 定位不到默认那处，或那处认不出渠道但可能归 npm 管（asdf/nodenv shim 等脚本）
+    /// → 静态命令，保持旧行为。
+    Static(String),
+    /// 默认那处是原生可执行文件且不在 `node_modules` 里：不归 npm 管，也认不出是哪个
+    /// 安装器装的（winget、Scoop、Nix、手动下载的二进制……）。退回裸 `npm i -g` 只会
+    /// 另装一份 npm 版——要么被原生那份遮蔽、版本号不动，要么反过来顶替它（#7650），
+    /// 所以不执行，由前端提示用户用原来的安装方式升级。
+    Unmanaged,
+}
+
+fn resolve_update_command(tool: &str, installs: &[ToolInstallation]) -> UpdateCommand {
+    if let Some(command) = installs_anchored_command(tool, installs) {
+        return UpdateCommand::Anchored(command);
+    }
+    if default_install(installs).is_some_and(is_unmanaged_native_install) {
+        return UpdateCommand::Unmanaged;
+    }
+    UpdateCommand::Static(static_fallback_command(tool))
+}
+
+/// 只认「原生可执行文件 + 真身不在 `node_modules` 里」。npm 全局包的真身都在
+/// `node_modules/<pkg>/` 下（多为 JS 入口，个别包把原生二进制放在包内）；asdf / nodenv
+/// 的 shim、Windows npm 的 `.cmd` 是文本脚本，都不算——它们背后可能正是 npm 全局包，
+/// 拒绝会误伤，保持旧的静态命令。
+fn is_unmanaged_native_install(inst: &ToolInstallation) -> bool {
+    let real = inst
+        .real
+        .to_string_lossy()
+        .replace('\\', "/")
+        .to_ascii_lowercase();
+    !real.contains("/node_modules/") && is_native_executable(&inst.real)
+}
+
+/// 按文件头识别原生可执行文件：ELF、Mach-O（单架构 / universal）、Windows PE。
+fn is_native_executable(path: &Path) -> bool {
+    use std::io::Read;
+
+    let mut magic = [0u8; 4];
+    let read = std::fs::File::open(path).and_then(|mut file| file.read_exact(&mut magic));
+    if read.is_err() {
+        return false;
+    }
+    matches!(
+        magic,
+        [0x7f, b'E', b'L', b'F']
+            | [0xcf, 0xfa, 0xed, 0xfe]
+            | [0xce, 0xfa, 0xed, 0xfe]
+            | [0xfe, 0xed, 0xfa, 0xcf]
+            | [0xfe, 0xed, 0xfa, 0xce]
+            | [0xca, 0xfe, 0xba, 0xbe]
+    ) || magic.starts_with(b"MZ")
+}
+
+/// 执行路径的兜底报错。正常流程里前端已按 probe 的 `unmanaged` 跳过该工具并给出
+/// 本地化提示；只有 probe 失败、前端直接执行时才会走到这里。
+fn unmanaged_update_error(tool: &str, installs: &[ToolInstallation]) -> String {
+    let path = default_install(installs)
+        .map(|inst| inst.path.as_str())
+        .unwrap_or_default();
+    format!(
+        "{} at {path} was not installed by npm or a recognized installer; update it the way it was installed",
+        tool_display_name(tool)
+    )
+}
+
 /// 新装(install)的命令:对有官方 installer 的工具走「上游推荐 || npm 兜底」短路链,
 /// 其余工具透传到 install 静态命令。update fallback 会在平台可安全静默执行时
 /// 优先跑官方 CLI 自升级,但 install 端不能先跑 `tool update`,
@@ -3611,22 +3964,20 @@ fn install_command_for(tool: &str) -> String {
 ///   ——后者读 `tool_action_shell_command`,Windows target 给 hermes 返回 PowerShell
 ///   installer,跨 wsl.exe 后不适用;`build_tool_action_line` 的 WSL 分支也用同一 wrapper,
 ///   保证 plan 展示给前端的命令与实际执行落 .bat 的命令一致。
-/// - 其他平台与 Windows 原生工具走 `installs_anchored_command`:命中 → 锚定;
+/// - 其他平台与 Windows 原生工具走 `resolve_update_command`:命中 → 锚定;
 ///   None(无默认 / sibling 不存在等)→ 静态兜底、`anchored=false`,
-///   前端据此给"默认入口无法确定"诚实文案。
-fn plan_command_for(tool: &str, installs: &[ToolInstallation]) -> (String, bool, bool) {
+///   前端据此给"默认入口无法确定"诚实文案;默认那处是认不出渠道的原生可执行文件
+///   → `Unmanaged`,前端跳过并提示用原安装方式升级。
+fn plan_command_for(tool: &str, installs: &[ToolInstallation]) -> (UpdateCommand, bool) {
     #[cfg(target_os = "windows")]
     {
         if wsl_distro_for_tool(tool).is_some() {
             let cmd = wsl_tool_action_shell_command(tool, ToolLifecycleAction::Update)
                 .unwrap_or_default();
-            return (cmd, false, false);
+            return (UpdateCommand::Static(cmd), false);
         }
     }
-    match installs_anchored_command(tool, installs) {
-        Some(command) => (command, installs.len() >= 2, true),
-        None => (static_fallback_command(tool), installs.len() >= 2, false),
-    }
+    (resolve_update_command(tool, installs), installs.len() >= 2)
 }
 
 /// 多处安装是否构成"真冲突"：≥2 处，且(版本分歧 或 有的能跑有的跑不起来)。
@@ -3659,6 +4010,9 @@ pub struct ToolInstallationReport {
     /// 是否成功锚定到某处具体安装。false = 退到裸 fallback 命令（无法确定命令行实际
     /// 命中哪处，或该处无同级 npm）；前端据此给出"默认入口无法确定"的诚实文案。
     anchored: bool,
+    /// 默认那处是认不出安装渠道的原生可执行文件（见 `UpdateCommand::Unmanaged`）：
+    /// 不会执行升级，此时 `command` 为空；前端跳过该工具并提示用原安装方式升级。
+    unmanaged: bool,
 }
 
 /// 探测各工具的安装分布：枚举所有安装、标记冲突、生成锚定升级命令。只读、无副作用。
@@ -3677,7 +4031,12 @@ pub async fn probe_tool_installations(
             .into_iter()
             .map(|tool| {
                 let installs = enumerate_tool_installations(tool);
-                let (command, needs_confirmation, anchored) = plan_command_for(tool, &installs);
+                let (update, needs_confirmation) = plan_command_for(tool, &installs);
+                let (command, anchored, unmanaged) = match update {
+                    UpdateCommand::Anchored(command) => (command, true, false),
+                    UpdateCommand::Static(command) => (command, false, false),
+                    UpdateCommand::Unmanaged => (String::new(), false, true),
+                };
                 let is_conflict = is_conflicting(&installs);
                 ToolInstallationReport {
                     tool: tool.to_string(),
@@ -3686,6 +4045,7 @@ pub async fn probe_tool_installations(
                     needs_confirmation,
                     command,
                     anchored,
+                    unmanaged,
                 }
             })
             .collect()
@@ -4743,6 +5103,162 @@ mod tests {
     use super::*;
     use std::path::{Path, PathBuf};
 
+    #[tokio::test]
+    async fn lifecycle_coordinator_serializes_writes_and_rejects_duplicate_tools() {
+        let coordinator = Arc::new(ToolLifecycleCoordinator::default());
+        let output_dir = tempfile::tempdir().unwrap();
+        let output = output_dir.path().join("installed.txt");
+        let (started_tx, started_rx) = tokio::sync::oneshot::channel();
+        let (finish_tx, finish_rx) = std::sync::mpsc::channel();
+        let first = {
+            let coordinator = coordinator.clone();
+            let output = output.clone();
+            tokio::spawn(async move {
+                coordinator
+                    .run(vec!["codex"], move |_| {
+                        started_tx.send(()).unwrap();
+                        finish_rx.recv().unwrap();
+                        std::fs::write(output, "codex").unwrap();
+                        Ok(())
+                    })
+                    .await
+            })
+        };
+        started_rx.await.unwrap();
+
+        // 独立调用者（例如重挂后的页面）不能重复启动正在执行的工具。
+        assert_eq!(
+            coordinator
+                .run(vec!["codex"], |_| panic!("duplicate must not execute"))
+                .await
+                .unwrap_err(),
+            "TOOL_ACTION_IN_PROGRESS"
+        );
+        // 批次部分取锁失败时，已取得的其他工具锁也必须释放。
+        assert!(coordinator
+            .run(vec!["claude", "codex"], |_| panic!(
+                "batch must not execute"
+            ))
+            .await
+            .is_err());
+
+        let second_output = output.clone();
+        let second = coordinator.run(vec!["claude"], move |_| {
+            assert_eq!(std::fs::read_to_string(&second_output).unwrap(), "codex");
+            std::fs::write(second_output, "codex,claude").unwrap();
+            Ok(())
+        });
+        tokio::pin!(second);
+        assert!(futures::poll!(second.as_mut()).is_pending());
+        assert!(!output.exists(), "first write has not finished yet");
+        assert_eq!(
+            coordinator
+                .run(vec!["claude"], |_| panic!(
+                    "queued duplicate must not execute"
+                ))
+                .await
+                .unwrap_err(),
+            "TOOL_ACTION_IN_PROGRESS"
+        );
+
+        finish_tx.send(()).unwrap();
+        first.await.unwrap().unwrap();
+        second.await.unwrap();
+        assert_eq!(std::fs::read_to_string(output).unwrap(), "codex,claude");
+    }
+
+    #[tokio::test]
+    async fn lifecycle_coordinator_keeps_running_locks_when_caller_is_cancelled() {
+        let coordinator = Arc::new(ToolLifecycleCoordinator::default());
+        let (started_tx, started_rx) = tokio::sync::oneshot::channel();
+        let (finish_tx, finish_rx) = std::sync::mpsc::channel();
+        let first = {
+            let coordinator = coordinator.clone();
+            tokio::spawn(async move {
+                coordinator
+                    .run(vec!["codex"], move |_| {
+                        started_tx.send(()).unwrap();
+                        finish_rx.recv().unwrap();
+                        Ok(())
+                    })
+                    .await
+            })
+        };
+        started_rx.await.unwrap();
+        first.abort();
+        assert!(first.await.unwrap_err().is_cancelled());
+        assert!(coordinator
+            .run(vec!["codex"], |_| panic!(
+                "running duplicate must not execute"
+            ))
+            .await
+            .is_err());
+
+        {
+            let cancelled = coordinator.run(vec!["claude"], |_| {
+                panic!("cancelled queued operation must not execute")
+            });
+            tokio::pin!(cancelled);
+            assert!(futures::poll!(cancelled.as_mut()).is_pending());
+        }
+        // 尚未开始的排队请求取消后可以重试，但仍须等待正在运行的子任务退出。
+        let retry = coordinator.run(vec!["claude"], |_| Ok(()));
+        tokio::pin!(retry);
+        assert!(futures::poll!(retry.as_mut()).is_pending());
+        finish_tx.send(()).unwrap();
+        retry.await.unwrap();
+        coordinator.run(vec!["codex"], |_| Ok(())).await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn lifecycle_coordinator_releases_locks_after_error_or_panic() {
+        let coordinator = ToolLifecycleCoordinator::default();
+        assert_eq!(
+            coordinator
+                .run(vec!["claude"], |_| Err("installer failed".to_string()))
+                .await,
+            Err("installer failed".to_string())
+        );
+        coordinator.run(vec!["claude"], |_| Ok(())).await.unwrap();
+        assert!(coordinator
+            .run(vec!["claude"], |_| panic!("installer panicked"))
+            .await
+            .unwrap_err()
+            .contains("tool lifecycle task join error"));
+        coordinator.run(vec!["claude"], |_| Ok(())).await.unwrap();
+    }
+
+    #[cfg(target_os = "windows")]
+    #[test]
+    fn concurrent_lifecycle_runs_use_independent_scripts() {
+        let output_dir = tempfile::tempdir().unwrap();
+        let outputs = [
+            output_dir.path().join("first.txt"),
+            output_dir.path().join("second.txt"),
+        ];
+        let barrier = std::sync::Barrier::new(2);
+        std::thread::scope(|scope| {
+            for output in &outputs {
+                let barrier = &barrier;
+                scope.spawn(move || {
+                    let command = format!("@echo off\r\n>\"{}\" echo %~f0\r\n", output.display());
+                    barrier.wait();
+                    run_tool_lifecycle_silently(&command, "tool_update").unwrap();
+                });
+            }
+        });
+        let script_paths =
+            outputs.map(|output| PathBuf::from(std::fs::read_to_string(output).unwrap().trim()));
+        assert_ne!(script_paths[0], script_paths[1]);
+        for script_path in script_paths {
+            assert!(!script_path.exists(), "temporary script must be cleaned up");
+            assert!(
+                !script_path.parent().unwrap().exists(),
+                "temporary directory must be cleaned up"
+            );
+        }
+    }
+
     /// 探测 helper 正常路径：spawn（含 pre_exec setsid）能启动、输出能捕获。
     /// `/bin/echo --version` 在 macOS/Linux 均即刻成功退出。
     #[cfg(not(target_os = "windows"))]
@@ -4936,6 +5452,36 @@ mod tests {
             executable_zsh.to_string_lossy()
         )));
         assert!(!valid_user_shell_path("/usr/bin/powershell"));
+    }
+
+    #[test]
+    fn version_probe_sentinel_drops_shell_startup_output() {
+        assert_eq!(
+            version_probe_payload("claude"),
+            "echo __CCSWITCH_VERSION__; claude --version"
+        );
+
+        // Ubuntu 的 update-motd 在当天第一个交互式 login shell 里打印 MOTD，
+        // 整段取第一个版本号会拿到 24.04.4（#7347）
+        let motd = "Welcome to Ubuntu 24.04.4 LTS (GNU/Linux 6.6.87.2-microsoft-standard-WSL2 x86_64)\n\n * Documentation:  https://help.ubuntu.com\n__CCSWITCH_VERSION__\n2.1.270 (Claude Code)";
+        assert_eq!(after_version_sentinel(motd), "2.1.270 (Claude Code)");
+
+        // 兜底链 `-lic || -lc || -c` 会多次打印哨兵：取最后一次之后
+        let chained = "__CCSWITCH_VERSION__\nbash: warning\n__CCSWITCH_VERSION__\n1.2.3";
+        assert_eq!(after_version_sentinel(chained), "1.2.3");
+
+        // OSC 序列没有换行、直接粘在哨兵前面（地址取自 RFC 5737 文档保留段）
+        let glued = "\x1b]1337;RemoteHost=user@198.51.100.23\x07__CCSWITCH_VERSION__\n0.154.0";
+        assert_eq!(after_version_sentinel(glued), "0.154.0");
+
+        // 版本打在 stderr 的工具：哨兵之后为空，调用方回退到 stderr
+        assert_eq!(after_version_sentinel("__CCSWITCH_VERSION__\n"), "");
+
+        // 没有哨兵（shell 在执行载荷前就失败）：原样返回，行为不变
+        assert_eq!(
+            after_version_sentinel("sh: 1: bad: not found"),
+            "sh: 1: bad: not found"
+        );
     }
 
     #[test]
@@ -5166,6 +5712,20 @@ mod tests {
         );
     }
 
+    #[test]
+    fn test_npm_dist_tags_url() {
+        // 普通包名直接拼进路径
+        assert_eq!(
+            npm_dist_tags_url("openclaw"),
+            "https://registry.npmjs.org/-/package/openclaw/dist-tags"
+        );
+        // scoped 包名的 `/` 按 registry 约定转义成 %2f
+        assert_eq!(
+            npm_dist_tags_url("@openai/codex"),
+            "https://registry.npmjs.org/-/package/@openai%2fcodex/dist-tags"
+        );
+    }
+
     /// `parent_dir` 是锚定层"由 bin 路径推导同目录绝对路径"的基石,跨平台共用——
     /// 这里固化 `\`/`/`/混合分隔符/根边界四种情况,避免未来重构悄悄改语义。
     mod parent_dir_cases {
@@ -5209,6 +5769,191 @@ mod tests {
             // 上的 `\codex` 也成立(实际不会出现,但语义对齐)。
             assert_eq!(parent_dir("/codex"), "");
             assert_eq!(parent_dir("\\codex"), "");
+        }
+    }
+
+    /// Codex 官方独立安装器的识别是纯字符串判定,POSIX / Windows 布局都在这里固化。
+    mod codex_standalone_detection {
+        use super::super::*;
+
+        #[test]
+        fn posix_default_layout() {
+            assert_eq!(
+                codex_standalone_install(
+                    "/Users/me/.local/bin/codex",
+                    "/Users/me/.codex/packages/standalone/releases/0.157.0-aarch64-apple-darwin/bin/codex",
+                ),
+                Some(CodexStandaloneInstall {
+                    install_dir: "/Users/me/.local/bin".to_string(),
+                    codex_home: Some("/Users/me/.codex".to_string()),
+                })
+            );
+        }
+
+        #[test]
+        fn windows_verbatim_real_is_restored() {
+            // canonicalize 出的 `\\?\` 前缀要剥掉再交给 installer;大小写保持原样。
+            assert_eq!(
+                codex_standalone_install(
+                    r"C:\Users\Me\AppData\Local\Programs\OpenAI\Codex\bin\codex.exe",
+                    r"\\?\C:\Users\Me\.Codex\Packages\Standalone\releases\0.157.0-x86_64-pc-windows-msvc\bin\codex.exe",
+                ),
+                Some(CodexStandaloneInstall {
+                    install_dir: r"C:\Users\Me\AppData\Local\Programs\OpenAI\Codex\bin".to_string(),
+                    codex_home: Some(r"C:\Users\Me\.Codex".to_string()),
+                })
+            );
+            assert_eq!(
+                codex_standalone_install(
+                    r"\\server\share\bin\codex.exe",
+                    r"\\?\UNC\server\share\cx\packages\standalone\current\bin\codex.exe",
+                )
+                .and_then(|install| install.codex_home),
+                Some(r"\\server\share\cx".to_string())
+            );
+        }
+
+        #[test]
+        fn windows_default_entry_without_resolved_real() {
+            // canonicalize 失败时 real 就是入口本身:仍按默认入口目录认出,只是不传 CODEX_HOME。
+            let bin = r"C:\Users\me\AppData\Local\Programs\OpenAI\Codex\bin\codex.exe";
+            assert_eq!(
+                codex_standalone_install(bin, bin),
+                Some(CodexStandaloneInstall {
+                    install_dir: r"C:\Users\me\AppData\Local\Programs\OpenAI\Codex\bin".to_string(),
+                    codex_home: None,
+                })
+            );
+        }
+
+        #[test]
+        fn other_install_channels_are_not_standalone() {
+            for (bin, real) in [
+                (
+                    "/Users/me/.nvm/versions/node/v22.19.0/bin/codex",
+                    "/Users/me/.nvm/versions/node/v22.19.0/lib/node_modules/@openai/codex/bin/codex.js",
+                ),
+                (
+                    "/opt/homebrew/bin/codex",
+                    "/opt/homebrew/Caskroom/codex/0.157.0/bin/codex",
+                ),
+                // app-server 守护进程的发布包不是 PATH 上的 CLI。
+                (
+                    "/Users/me/.local/bin/codex",
+                    "/Users/me/.codex/packages/app-server-daemon/current/bin/codex",
+                ),
+                (r"C:\Users\me\AppData\Roaming\npm\codex.cmd", r"C:\Users\me\AppData\Roaming\npm\codex.cmd"),
+            ] {
+                assert_eq!(codex_standalone_install(bin, real), None, "{bin}");
+            }
+        }
+    }
+
+    /// 锚定落空后的兜底:认不出渠道的原生可执行文件不再退回裸 `npm i -g`(#7650),
+    /// 脚本 shim / node_modules 里的入口 / 定位不到默认那处仍保持旧的静态命令。
+    mod unmanaged_native_update {
+        use super::super::*;
+
+        const MACH_O_64: [u8; 4] = [0xcf, 0xfa, 0xed, 0xfe];
+
+        /// 在 tempdir 的 `rel` 位置写入 `bytes`,返回指向它的安装记录。TempDir 须保活。
+        fn installed(
+            dir: &tempfile::TempDir,
+            rel: &str,
+            bytes: &[u8],
+            is_default: bool,
+        ) -> ToolInstallation {
+            let path = dir.path().join(rel);
+            std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+            std::fs::write(&path, bytes).unwrap();
+            ToolInstallation {
+                path: path.to_string_lossy().to_string(),
+                version: Some("1.0.0".to_string()),
+                runnable: true,
+                error: None,
+                source: infer_install_source(&path).to_string(),
+                is_path_default: is_default,
+                real: path,
+            }
+        }
+
+        #[test]
+        fn native_binary_outside_node_modules_is_unmanaged() {
+            let dir = tempfile::tempdir().unwrap();
+            let gemini = installed(&dir, "nix-profile/bin/gemini", &MACH_O_64, true);
+            assert_eq!(
+                resolve_update_command("gemini", &[gemini]),
+                UpdateCommand::Unmanaged
+            );
+            let pi = installed(&dir, "bin/pi", b"\x7fELF\x02\x01\x01", true);
+            assert_eq!(
+                resolve_update_command("pi", &[pi]),
+                UpdateCommand::Unmanaged
+            );
+        }
+
+        #[test]
+        fn script_shim_keeps_static_npm_command() {
+            // asdf / nodenv 的 shim 是脚本,背后可能正是 npm 全局包,不能拒绝。
+            let dir = tempfile::tempdir().unwrap();
+            let shim = installed(
+                &dir,
+                ".asdf/shims/gemini",
+                b"#!/usr/bin/env bash\nexec asdf exec gemini \"$@\"\n",
+                true,
+            );
+            assert_eq!(
+                resolve_update_command("gemini", &[shim]),
+                UpdateCommand::Static(static_fallback_command("gemini"))
+            );
+        }
+
+        #[test]
+        fn native_binary_inside_node_modules_keeps_static_npm_command() {
+            // 有的 npm 包把原生二进制放在包内,真身仍在 node_modules 下,归 npm 管。
+            let dir = tempfile::tempdir().unwrap();
+            let bundled = installed(
+                &dir,
+                "prefix/lib/node_modules/@google/gemini-cli/bin/gemini",
+                &MACH_O_64,
+                true,
+            );
+            assert_eq!(
+                resolve_update_command("gemini", &[bundled]),
+                UpdateCommand::Static(static_fallback_command("gemini"))
+            );
+        }
+
+        #[test]
+        fn unknown_default_keeps_static_command() {
+            // 多处安装又定位不到默认那处:不知道命令行用的是哪份,维持旧行为(前端会弹确认)。
+            let dir = tempfile::tempdir().unwrap();
+            let a = installed(&dir, "a/bin/gemini", &MACH_O_64, false);
+            let b = installed(&dir, "b/bin/gemini", &MACH_O_64, false);
+            assert_eq!(
+                resolve_update_command("gemini", &[a, b]),
+                UpdateCommand::Static(static_fallback_command("gemini"))
+            );
+        }
+
+        #[test]
+        fn native_executable_magic() {
+            let dir = tempfile::tempdir().unwrap();
+            let cases: [(&str, &[u8], bool); 7] = [
+                ("elf", b"\x7fELF\x02", true),
+                ("macho", &MACH_O_64, true),
+                ("fat", &[0xca, 0xfe, 0xba, 0xbe], true),
+                ("pe.exe", b"MZ\x90\x00", true),
+                ("script", b"#!/bin/sh\n", false),
+                ("cmd-shim.cmd", b"@ECHO off\r\n", false),
+                ("short", b"MZ", false),
+            ];
+            for (name, bytes, expected) in cases {
+                let path = dir.path().join(name);
+                std::fs::write(&path, bytes).unwrap();
+                assert_eq!(is_native_executable(&path), expected, "{name}");
+            }
+            assert!(!is_native_executable(&dir.path().join("missing")));
         }
     }
 
@@ -5380,6 +6125,24 @@ mod tests {
                     .map(|(_, encoded)| encoded),
                 Some(expected_encoded.as_str())
             );
+        }
+
+        #[test]
+        fn codex_standalone_windows_reruns_installer_in_place() {
+            // #7650:独立安装的 codex.exe 旁边没有 npm.cmd,此前退回 `call npm i -g`
+            // 另装一份 npm 版。
+            let bin = r"C:\Users\o'brien\AppData\Local\Programs\OpenAI\Codex\bin\codex.exe";
+            let real = r"\\?\C:\Users\o'brien\.codex\packages\standalone\releases\0.157.0-x86_64-pc-windows-msvc\bin\codex.exe";
+            let cmd = anchored_command_from_paths("codex", bin, real).unwrap();
+            let expected = powershell_encoded_command(
+                "$env:CODEX_NON_INTERACTIVE = '1'; $env:CODEX_INSTALL_DIR = 'C:\\Users\\o''brien\\AppData\\Local\\Programs\\OpenAI\\Codex\\bin'; $env:CODEX_HOME = 'C:\\Users\\o''brien\\.codex'; irm https://chatgpt.com/codex/install.ps1 | iex",
+            );
+            assert_eq!(
+                cmd.split_once("-EncodedCommand ")
+                    .map(|(_, encoded)| encoded),
+                Some(expected.as_str())
+            );
+            assert!(!cmd.contains("npm"), "npm must not be used: {cmd}");
         }
 
         #[test]
@@ -5734,6 +6497,46 @@ mod tests {
         use std::path::Path;
 
         #[test]
+        fn macos_homebrew_caskroom_is_homebrew() {
+            assert_eq!(
+                infer_install_source(Path::new("/opt/homebrew/Caskroom/codex/0.146.0/bin/codex")),
+                "homebrew"
+            );
+            // Intel prefix 不含 `/homebrew/`，必须靠 `/caskroom/` 本身命中。
+            assert_eq!(
+                infer_install_source(Path::new("/usr/local/Caskroom/codex/0.146.0/bin/codex")),
+                "homebrew"
+            );
+        }
+
+        #[test]
+        fn intel_cask_launcher_uses_resolved_target() {
+            // 标准 Intel cask：PATH 入口是 `/usr/local/bin/codex`，真身才在 Caskroom。
+            // 只看 launcher 会落到 `system`，徽章和冲突诊断都会错。
+            assert_eq!(
+                infer_install_source(Path::new("/usr/local/bin/codex")),
+                "system"
+            );
+            assert_eq!(
+                infer_install_source_for_install(
+                    Path::new("/usr/local/bin/codex"),
+                    Path::new("/usr/local/Caskroom/codex/0.146.0/bin/codex"),
+                ),
+                "homebrew"
+            );
+            // nvm shim 仍按 launcher 分类，不能被真身路径抢走。
+            assert_eq!(
+                infer_install_source_for_install(
+                    Path::new("/Users/me/.nvm/versions/node/v22.0.0/bin/codex"),
+                    Path::new(
+                        "/Users/me/.nvm/versions/node/v22.0.0/lib/node_modules/@openai/codex/bin/codex.js"
+                    ),
+                ),
+                "nvm"
+            );
+        }
+
+        #[test]
         fn macos_volta_with_dot_prefix() {
             assert_eq!(
                 infer_install_source(Path::new("/Users/me/.volta/bin/codex")),
@@ -5897,6 +6700,37 @@ mod tests {
                 "/opt/homebrew/Cellar/codex/1.2.3/bin/codex",
             );
             assert_eq!(cmd.as_deref(), Some("/opt/homebrew/bin/brew upgrade codex"));
+        }
+
+        #[test]
+        fn codex_homebrew_cask_uses_brew_upgrade_cask() {
+            // `/opt/homebrew/bin/codex` → Caskroom/codex/...:是 brew cask 而非 npm 全局包。
+            // 若误走 sibling `npm i -g @openai/codex`，npm bin-links 会因
+            // `/opt/homebrew/bin/codex` 不属于它而 EEXIST（#6562）。
+            let cmd = anchored_command_from_paths(
+                "codex",
+                "/opt/homebrew/bin/codex",
+                "/opt/homebrew/Caskroom/codex/0.146.0/bin/codex",
+            );
+            assert_eq!(
+                cmd.as_deref(),
+                Some("/opt/homebrew/bin/brew upgrade --cask codex")
+            );
+        }
+
+        #[test]
+        fn intel_homebrew_cask_without_homebrew_prefix_still_uses_brew() {
+            // Intel 默认 prefix 是 `/usr/local`，Caskroom 路径不含 `/homebrew/`。
+            // 真身解析必须靠 `Caskroom` 段本身，不能依赖 prefix 子串。
+            let cmd = anchored_command_from_paths(
+                "codex",
+                "/usr/local/bin/codex",
+                "/usr/local/Caskroom/codex/0.146.0/bin/codex",
+            );
+            assert_eq!(
+                cmd.as_deref(),
+                Some("/usr/local/bin/brew upgrade --cask codex")
+            );
         }
 
         #[test]
@@ -6186,6 +7020,19 @@ mod tests {
         }
 
         #[test]
+        fn brew_cask_path_with_space_is_quoted() {
+            let cmd = anchored_command_from_paths(
+                "codex",
+                "/opt/my brew/bin/codex",
+                "/opt/my brew/Caskroom/codex/0.146.0/bin/codex",
+            );
+            assert_eq!(
+                cmd.as_deref(),
+                Some("'/opt/my brew/bin/brew' upgrade --cask codex")
+            );
+        }
+
+        #[test]
         fn brew_formula_extraction() {
             assert_eq!(
                 brew_formula_from_path("/opt/homebrew/Cellar/gemini-cli/0.13.0/bin/gemini")
@@ -6199,6 +7046,33 @@ mod tests {
             );
             assert_eq!(
                 brew_formula_from_path("/Users/me/.nvm/versions/node/v22/lib/node_modules/x"),
+                None
+            );
+            // Caskroom 不是 formula。
+            assert_eq!(
+                brew_formula_from_path("/opt/homebrew/Caskroom/codex/0.146.0/bin/codex"),
+                None
+            );
+        }
+
+        #[test]
+        fn brew_cask_extraction() {
+            assert_eq!(
+                brew_cask_from_path("/opt/homebrew/Caskroom/codex/0.146.0/bin/codex").as_deref(),
+                Some("codex")
+            );
+            // Intel prefix 不含 /homebrew/，仍能抽出 token。
+            assert_eq!(
+                brew_cask_from_path("/usr/local/Caskroom/codex/0.146.0/bin/codex").as_deref(),
+                Some("codex")
+            );
+            // formula / npm 全局包都不是 cask。
+            assert_eq!(
+                brew_cask_from_path("/opt/homebrew/Cellar/codex/1.2.3/bin/codex"),
+                None
+            );
+            assert_eq!(
+                brew_cask_from_path("/opt/homebrew/lib/node_modules/@openai/codex/bin/codex.js"),
                 None
             );
         }
@@ -6297,6 +7171,26 @@ mod tests {
         }
 
         #[test]
+        fn codex_broken_homebrew_cask_uses_brew_not_npm_repair() {
+            // brew cask 装的坏 codex（real 在 Caskroom）：与 formula 同理，必须回落到
+            // `brew upgrade --cask`。误走 npm uninstall+install 会撞 EEXIST，或旁路
+            // 装第二份 npm 全局包争抢同一个 `/opt/homebrew/bin/codex`。
+            let broken = ToolInstallation {
+                path: "/opt/homebrew/bin/codex".to_string(),
+                version: None,
+                runnable: false,
+                error: None,
+                source: "homebrew".to_string(),
+                is_path_default: true,
+                real: std::path::PathBuf::from("/opt/homebrew/Caskroom/codex/0.146.0/bin/codex"),
+            };
+            assert_eq!(
+                installs_anchored_command("codex", &[broken]).as_deref(),
+                Some("/opt/homebrew/bin/brew upgrade --cask codex")
+            );
+        }
+
+        #[test]
         fn codex_broken_volta_uses_volta_install_not_npm_repair() {
             // volta 装的坏 codex：回落到 `volta install`，不走 npm 重装。
             let mut broken = inst("/Users/me/.volta/bin/codex", true);
@@ -6319,6 +7213,107 @@ mod tests {
                 Some("/Users/me/.bun/bin/bun add -g @openai/codex@latest")
             );
             assert!(!cmd.unwrap().contains("npm"));
+        }
+
+        #[test]
+        fn codex_standalone_reruns_official_installer_in_place() {
+            // #7650:官方独立安装器装的 codex 此前被判 system 来源、锚定落空,退回裸
+            // `npm i -g` 另装一份 npm 版。现在带 CODEX_INSTALL_DIR / CODEX_HOME 重跑官方
+            // installer;不用 `codex update`——它断网时 exit 0 假成功。
+            let cmd = anchored_command_from_paths(
+                "codex",
+                "/Users/me/.local/bin/codex",
+                "/Users/me/.codex/packages/standalone/releases/0.157.0-aarch64-apple-darwin/bin/codex",
+            )
+            .unwrap();
+            assert_eq!(
+                cmd,
+                format!(
+                    "CODEX_NON_INTERACTIVE=1 CODEX_INSTALL_DIR='/Users/me/.local/bin' CODEX_HOME='/Users/me/.codex' {CODEX_INSTALL_UNIX}"
+                )
+            );
+            assert!(!cmd.contains("npm"), "npm must not be used: {cmd}");
+            assert!(
+                !cmd.contains("codex update"),
+                "codex update fakes success: {cmd}"
+            );
+        }
+
+        #[test]
+        fn codex_standalone_custom_dirs_are_written_back() {
+            // 自定义 CODEX_INSTALL_DIR / CODEX_HOME 装的一处:不显式传回去,installer 会装进
+            // 默认的 ~/.local/bin 与 ~/.codex,命令行实际在用的那份原地不动。
+            let cmd = anchored_command_from_paths(
+                "codex",
+                "/opt/tools/codex bin/codex",
+                "/data/codex-home/packages/standalone/releases/0.157.0-x86_64-unknown-linux-musl/bin/codex",
+            );
+            assert_eq!(
+                cmd,
+                Some(format!(
+                    "CODEX_NON_INTERACTIVE=1 CODEX_INSTALL_DIR='/opt/tools/codex bin' CODEX_HOME='/data/codex-home' {CODEX_INSTALL_UNIX}"
+                ))
+            );
+        }
+
+        #[test]
+        fn codex_broken_standalone_reinstalls_via_installer_not_npm_repair() {
+            // 跑不起来的独立安装版:npm 自愈门控只放行 nvm/fnm/mise/homebrew,这里交回锚定,
+            // 由官方 installer 重装同一处。
+            let broken = ToolInstallation {
+                path: "/Users/me/.local/bin/codex".to_string(),
+                version: None,
+                runnable: false,
+                error: None,
+                source: "system".to_string(),
+                is_path_default: true,
+                real: std::path::PathBuf::from(
+                    "/Users/me/.codex/packages/standalone/releases/0.157.0-aarch64-apple-darwin/bin/codex",
+                ),
+            };
+            let cmd = installs_anchored_command("codex", &[broken]).unwrap();
+            assert!(cmd.ends_with(CODEX_INSTALL_UNIX), "{cmd}");
+            assert!(!cmd.contains("npm"), "{cmd}");
+        }
+
+        #[test]
+        fn codex_broken_standalone_in_node_manager_dir_skips_npm_repair() {
+            // CODEX_INSTALL_DIR 指到 Homebrew / nvm 的 bin 目录时,入口路径会被判成
+            // homebrew / nvm 来源;npm 自愈门控只看入口来源的话会抢先返回 npm 重装,
+            // 把独立安装版换成 npm 版。真身仍在 standalone 发布包里,必须交回 installer。
+            for bin in [
+                "/opt/homebrew/bin/codex",
+                "/Users/me/.nvm/versions/node/v22.19.0/bin/codex",
+            ] {
+                let broken = ToolInstallation {
+                    path: bin.to_string(),
+                    version: None,
+                    runnable: false,
+                    error: None,
+                    source: infer_install_source(Path::new(bin)).to_string(),
+                    is_path_default: true,
+                    real: std::path::PathBuf::from(
+                        "/Users/me/.codex/packages/standalone/releases/0.157.0-aarch64-apple-darwin/bin/codex",
+                    ),
+                };
+                let cmd = installs_anchored_command("codex", &[broken]).unwrap();
+                assert!(cmd.ends_with(CODEX_INSTALL_UNIX), "{bin}: {cmd}");
+                assert!(!cmd.contains("npm"), "{bin}: {cmd}");
+            }
+        }
+
+        #[test]
+        fn claude_homebrew_cask_uses_brew_not_self_update_or_npm() {
+            // cask 归 brew 管:与 formula 一样不先跑 `claude update`,也不挂 npm fallback。
+            let cmd = anchored_command_from_paths(
+                "claude",
+                "/opt/homebrew/bin/claude",
+                "/opt/homebrew/Caskroom/claude-code/2.1.274/claude",
+            )
+            .unwrap();
+            assert_eq!(cmd, "/opt/homebrew/bin/brew upgrade --cask claude-code");
+            assert!(!cmd.contains("claude update"));
+            assert!(!cmd.contains("npm"));
         }
 
         #[test]

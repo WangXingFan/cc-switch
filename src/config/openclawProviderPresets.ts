@@ -3694,7 +3694,7 @@ export const openclawProviderPresets: OpenClawProviderPreset[] = [
     websiteUrl: "https://aicodewith.ai",
     apiKeyUrl: "https://aicodewith.ai/login?tab=register",
     settingsConfig: {
-      baseUrl: "https://api.aicodewith.ai/chatgpt/v1",
+      baseUrl: "https://api.aicodewith.ai/v1",
       apiKey: "",
       api: "openai-responses",
       models: [

@@ -5,6 +5,13 @@ All notable changes to CC Switch will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.20.6] - 2026-10-01
+
+This release ports the upstream Codex and Claude configuration-switching,
+proxy, model compatibility, and usage fixes while retaining the fork's
+multi-key rotation, per-key balance metadata, cost multipliers, global
+shortcuts, and Codex official-auth preservation features.
+
 ## [3.20.1] - 2026-08-28
 
 This release is dominated by two Codex storylines. The first is an urgent compatibility break: Codex CLI 0.149 stopped letting custom providers inherit ambient credentials from `auth.json`, turning third-party switches made in the old default mode into 401 errors (#6744). Rather than patching around it, cc-switch now switches Codex providers config-only — the key travels in the provider's own `config.toml` table, `auth.json` returns to being purely the official ChatGPT login file — and a whole family of legacy config shapes 0.149 refuses to load is repaired on every switch, with a new preflight refusing unloadable shapes instead of reporting a "successful" switch Codex cannot start from. The second is account safety: two members of the same ChatGPT Team workspace no longer overwrite each other in the Auth Center (#6780, fixes #2245) — existing managed accounts need one re-login (see upgrade notes). Around them: provider edits now always reach the live config file (#6779), the Codex edit dialog no longer shows another provider's key (#6534), restores no longer wipe hand-written prompt files (#6810), the usage dashboard gains an auto/manual session-scan toggle plus an incremental byte-cursor scanner (a 12 MB active session file: 6.04 s → 9.3 ms) behind this release's schema migration (v17 → v18), and Otty joins the macOS terminal picker (#6620).
