@@ -82,8 +82,8 @@ use tauri::image::Image;
 use tauri::tray::{TrayIconBuilder, TrayIconEvent};
 use tauri::RunEvent;
 use tauri::{Emitter, Manager};
-use tauri_plugin_window_state::{AppHandleExt, StateFlags};
 use tauri_plugin_global_shortcut::GlobalShortcutExt;
+use tauri_plugin_window_state::{AppHandleExt, StateFlags};
 
 /// 切换主窗口显示/隐藏。
 pub fn toggle_main_window(app: &tauri::AppHandle) {

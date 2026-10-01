@@ -50,13 +50,7 @@ pub async fn add_provider(
         let state = app_handle
             .try_state::<AppState>()
             .ok_or_else(|| "应用状态不可用".to_string())?;
-        ProviderService::add_from_editor(
-            state.inner(),
-            app_type,
-            provider,
-            add_to_live,
-            editorSave,
-        )
+        ProviderService::add_from_editor(state.inner(), app_type, provider, add_to_live, editorSave)
             .map_err(|e| e.to_string())
     })
     .await
@@ -83,7 +77,7 @@ pub async fn update_provider(
             provider,
             editorSave,
         )
-            .map_err(|e| e.to_string())
+        .map_err(|e| e.to_string())
     })
     .await
     .map_err(|e| format!("供应商更新任务执行失败: {e}"))?

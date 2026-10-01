@@ -246,12 +246,8 @@ pub async fn test_usage_script(
     let (api_key, base_url) = resolve_script_credentials(&app_type, provider, api_key, base_url);
 
     if template_type == Some(TEMPLATE_TYPE_NEWAPI) {
-        let accounts = effective_newapi_accounts(
-            new_api_accounts,
-            &base_url,
-            access_token,
-            user_id,
-        );
+        let accounts =
+            effective_newapi_accounts(new_api_accounts, &base_url, access_token, user_id);
         if !accounts.is_empty() {
             return query_newapi_accounts(&accounts, &base_url, timeout).await;
         }
@@ -426,7 +422,10 @@ async fn query_newapi_account(
     let client = crate::proxy::http_client::get();
     let resp = client
         .get(url)
-        .header("Authorization", format!("Bearer {}", account.access_token.trim()))
+        .header(
+            "Authorization",
+            format!("Bearer {}", account.access_token.trim()),
+        )
         .header("New-Api-User", account.user_id.trim())
         .header("Accept", "application/json")
         .timeout(Duration::from_secs(timeout.clamp(2, 30)))
@@ -441,7 +440,9 @@ async fn query_newapi_account(
     let status = resp.status();
     let text = match resp.text().await {
         Ok(text) => text,
-        Err(err) => return invalid_newapi_account(label, format!("Failed to read response: {err}")),
+        Err(err) => {
+            return invalid_newapi_account(label, format!("Failed to read response: {err}"))
+        }
     };
 
     if !status.is_success() {
@@ -450,7 +451,9 @@ async fn query_newapi_account(
 
     let body: Value = match serde_json::from_str(&text) {
         Ok(body) => body,
-        Err(err) => return invalid_newapi_account(label, format!("Failed to parse response: {err}")),
+        Err(err) => {
+            return invalid_newapi_account(label, format!("Failed to parse response: {err}"))
+        }
     };
 
     let ok = response_is_success(&body);
@@ -566,7 +569,9 @@ fn response_is_success(body: &Value) -> bool {
         }
     }
 
-    body.get("data").map(|data| data.is_object()).unwrap_or(false)
+    body.get("data")
+        .map(|data| data.is_object())
+        .unwrap_or(false)
 }
 
 fn preview_text(text: &str) -> String {

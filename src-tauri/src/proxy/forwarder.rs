@@ -1298,15 +1298,7 @@ impl RequestForwarder {
             }
             None => {
                 self.forward_single_with_key(
-                    app_type,
-                    method,
-                    provider,
-                    endpoint,
-                    body,
-                    headers,
-                    extensions,
-                    adapter,
-                    None,
+                    app_type, method, provider, endpoint, body, headers, extensions, adapter, None,
                 )
                 .await
             }

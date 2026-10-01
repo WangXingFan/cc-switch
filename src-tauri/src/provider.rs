@@ -27,17 +27,29 @@ pub struct MultiKeyConfig {
     #[serde(default)]
     pub strategy: KeyRotationStrategy,
     /// 固定模式下使用的 Key 索引（仅 Fixed 策略有效）
-    #[serde(default, rename = "fixedIndex", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        default,
+        rename = "fixedIndex",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub fixed_index: Option<usize>,
     /// 与每个 Key 对齐的附加元数据
-    #[serde(default, rename = "keyMetadata", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        default,
+        rename = "keyMetadata",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub key_metadata: Option<Vec<MultiKeyMetadata>>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct MultiKeyMetadata {
     /// 当前 Key 对应的账号余额查询凭证
-    #[serde(default, rename = "balanceQuery", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        default,
+        rename = "balanceQuery",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub balance_query: Option<NewApiAccountConfig>,
 }
 

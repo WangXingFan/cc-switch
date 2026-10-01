@@ -429,8 +429,7 @@ fn newapi_usage_url(base_url: &str) -> Result<String, String> {
         return Err("Base URL is empty".to_string());
     }
 
-    let mut url =
-        Url::parse(trimmed).map_err(|e| format!("Invalid base URL: {e}"))?;
+    let mut url = Url::parse(trimmed).map_err(|e| format!("Invalid base URL: {e}"))?;
     url.set_path("/api/usage/token");
     url.set_query(None);
     url.set_fragment(None);
@@ -442,9 +441,17 @@ fn quota_to_usd(value: Option<f64>) -> Option<f64> {
 }
 
 fn newapi_response_is_success(body: &serde_json::Value) -> bool {
-    body.get("success").and_then(|value| value.as_bool()).unwrap_or(false)
-        || matches!(body.get("code").and_then(|value| value.as_i64()), Some(0 | 200))
-        || body.get("code").and_then(|value| value.as_bool()).unwrap_or(false)
+    body.get("success")
+        .and_then(|value| value.as_bool())
+        .unwrap_or(false)
+        || matches!(
+            body.get("code").and_then(|value| value.as_i64()),
+            Some(0 | 200)
+        )
+        || body
+            .get("code")
+            .and_then(|value| value.as_bool())
+            .unwrap_or(false)
 }
 async fn query_newapi(base_url: &str, api_key: &str) -> Result<UsageResult, String> {
     let client = crate::proxy::http_client::get();
@@ -589,8 +596,7 @@ mod tests {
     #[test]
     fn newapi_usage_url_uses_origin_for_full_endpoint_url() {
         assert_eq!(
-            newapi_usage_url("https://newapi.example.com/v1/chat/completions?x=1")
-                .unwrap(),
+            newapi_usage_url("https://newapi.example.com/v1/chat/completions?x=1").unwrap(),
             "https://newapi.example.com/api/usage/token"
         );
     }
@@ -602,9 +608,17 @@ mod tests {
 
     #[test]
     fn newapi_response_accepts_boolean_and_numeric_success_codes() {
-        assert!(newapi_response_is_success(&serde_json::json!({ "success": true })));
-        assert!(newapi_response_is_success(&serde_json::json!({ "code": true })));
-        assert!(newapi_response_is_success(&serde_json::json!({ "code": 0 })));
-        assert!(!newapi_response_is_success(&serde_json::json!({ "code": 1 })));
+        assert!(newapi_response_is_success(
+            &serde_json::json!({ "success": true })
+        ));
+        assert!(newapi_response_is_success(
+            &serde_json::json!({ "code": true })
+        ));
+        assert!(newapi_response_is_success(
+            &serde_json::json!({ "code": 0 })
+        ));
+        assert!(!newapi_response_is_success(
+            &serde_json::json!({ "code": 1 })
+        ));
     }
 }

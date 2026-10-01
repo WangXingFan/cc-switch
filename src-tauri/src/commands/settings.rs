@@ -628,10 +628,7 @@ pub async fn get_auto_launch_status() -> Result<bool, String> {
 
 /// 注册全局快捷键（注销旧的、注册新的、保存到 settings）
 #[tauri::command]
-pub async fn register_global_shortcut(
-    app: AppHandle,
-    shortcut: String,
-) -> Result<bool, String> {
+pub async fn register_global_shortcut(app: AppHandle, shortcut: String) -> Result<bool, String> {
     // 先注销所有旧快捷键
     let previous_shortcut = crate::settings::get_settings().global_shortcut;
 
@@ -671,11 +668,9 @@ pub async fn unregister_global_shortcut(app: AppHandle) -> Result<bool, String> 
     Ok(true)
 }
 
-
 fn restore_global_shortcut(app: &AppHandle, shortcut: Option<&str>) {
     if let Some(shortcut) = shortcut {
         if let Err(error) = crate::register_shortcut_inner(app, shortcut) {
-
             log::error!("恢复原全局快捷键失败: {error}");
         }
     }
