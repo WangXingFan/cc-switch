@@ -140,11 +140,6 @@ const CODEX_CASES: GoldenCase[] = [
   { preset: "E-FlowCode", fillApiKey: true },
 ];
 
-const API_KEY_INPUT_ID: Record<GoldenAppId, string> = {
-  claude: "apiKey",
-  codex: "codexApiKey",
-};
-
 function presetNameAt(appId: GoldenAppId, index: number): string | undefined {
   // 与 ProviderForm 的 presetEntries 生成方式一致：Claude 先滤掉 hidden 再编号
   return appId === "claude"
@@ -236,7 +231,10 @@ async function submitPresetRow(appId: GoldenAppId, testCase: GoldenCase) {
     fillInputById(container, `template-${key}`, value);
   }
   if (testCase.fillApiKey) {
-    fillInputById(container, API_KEY_INPUT_ID[appId], TEST_API_KEY);
+    // The fork uses MultiKeyInput even for a single API key.
+    const input = screen.getByPlaceholderText("输入 API Key，将自动填充到配置");
+    expect(input).toBeEnabled();
+    fireEvent.change(input, { target: { value: TEST_API_KEY } });
   }
 
   fireEvent.click(screen.getByRole("button", { name: SUBMIT_LABEL }));

@@ -76,7 +76,6 @@ describe("JieKou AI provider presets", () => {
         },
       ],
       endpointCandidates: [anthropicBaseUrl],
-      modelsUrl: `${openAiBaseUrl}/models`,
     });
   });
 

@@ -81,7 +81,6 @@ describe("PPIO provider presets", () => {
         },
       ],
       endpointCandidates: [ppioAnthropicEndpoint],
-      modelsUrl: ppioModelsEndpoint,
     });
   });
 
