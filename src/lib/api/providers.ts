@@ -40,6 +40,24 @@ export interface ClaudeDesktopStatus {
   gatewayTokenConfigured: boolean;
 }
 
+export type EditorConflictPolicy = "refuse" | "keepMine" | "keepTheirs";
+
+export interface ProviderEditorSave {
+  base: Record<string, unknown>;
+  draft?: Record<string, unknown>;
+  onConflict?: EditorConflictPolicy;
+}
+
+export interface ProviderEditorInactiveField {
+  path: string[];
+  value: unknown;
+}
+
+export interface ProviderEditorView {
+  settings: Record<string, unknown>;
+  inactive: ProviderEditorInactiveField[];
+}
+
 export interface ClaudeDesktopDefaultRoute {
   routeId: string;
   envKey: string;
@@ -59,19 +77,41 @@ export const providersApi = {
     provider: Provider,
     appId: AppId,
     addToLive?: boolean,
+    editorSave?: ProviderEditorSave,
   ): Promise<boolean> {
-    return await invoke("add_provider", { provider, app: appId, addToLive });
+    return await invoke("add_provider", {
+      provider,
+      app: appId,
+      addToLive,
+      ...(editorSave ? { editorSave } : {}),
+    });
   },
 
   async update(
     provider: Provider,
     appId: AppId,
     originalId?: string,
+    editorSave?: ProviderEditorSave,
   ): Promise<boolean> {
     return await invoke("update_provider", {
       provider,
       app: appId,
       originalId,
+      ...(editorSave ? { editorSave } : {}),
+    });
+  },
+
+  async getEditorView(
+    appId: AppId,
+    settingsConfig: Record<string, unknown>,
+    category?: string,
+    providerId?: string,
+  ): Promise<ProviderEditorView> {
+    return await invoke("get_provider_editor_view", {
+      app: appId,
+      settingsConfig,
+      ...(category ? { category } : {}),
+      ...(providerId ? { providerId } : {}),
     });
   },
 
