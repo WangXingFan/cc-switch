@@ -411,7 +411,9 @@ command = "say"
 
     let config_text = std::fs::read_to_string(get_codex_config_path()).expect("read config.toml");
     let live_config: toml_edit::DocumentMut = config_text.parse().expect("parse live config");
-    let live_mcp = live_config["mcp_servers"].as_table().expect("live MCP table");
+    let live_mcp = live_config["mcp_servers"]
+        .as_table()
+        .expect("live MCP table");
     assert_eq!(
         live_mcp["legacy"]["command"].as_str(),
         Some("echo"),
