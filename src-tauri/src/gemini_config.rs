@@ -291,6 +291,7 @@ pub fn validate_gemini_settings(settings: &Value) -> Result<(), AppError> {
 ///
 /// 此函数在切换供应商时使用，确保配置包含所有必需的字段。
 /// 对于需要 API Key 的供应商（如 PackyCode），会验证 GEMINI_API_KEY 字段。
+/// Vertex AI 可以使用 Google Cloud 凭据，不要求 GEMINI_API_KEY。
 pub fn validate_gemini_settings_strict(settings: &Value) -> Result<(), AppError> {
     // 先做基础格式验证（包含 env/config 类型）
     validate_gemini_settings(settings)?;
@@ -302,7 +303,15 @@ pub fn validate_gemini_settings_strict(settings: &Value) -> Result<(), AppError>
         return Ok(());
     }
 
-    // 如果 env 不为空，检查必需字段 GEMINI_API_KEY
+    // Vertex AI 可通过 Google Cloud 凭据认证，由 Gemini CLI 校验实际凭据。
+    if env_map
+        .get("GOOGLE_GENAI_USE_VERTEXAI")
+        .is_some_and(|value| value.eq_ignore_ascii_case("true"))
+    {
+        return Ok(());
+    }
+
+    // 其他非空配置仍要求 GEMINI_API_KEY。
     if !env_map.contains_key("GEMINI_API_KEY") {
         return Err(AppError::localized(
             "gemini.validation.missing_api_key",
@@ -561,6 +570,35 @@ KEY_WITH-DASH=value";
 
         assert!(validate_gemini_settings(&settings).is_ok());
         assert!(validate_gemini_settings_strict(&settings).is_ok());
+    }
+
+    #[test]
+    fn test_validate_vertex_without_gemini_api_key() {
+        let settings = serde_json::json!({
+            "env": {
+                "GOOGLE_GENAI_USE_VERTEXAI": "true",
+                "GOOGLE_CLOUD_PROJECT": "test-project"
+            }
+        });
+
+        assert!(validate_gemini_settings_strict(&settings).is_ok());
+    }
+
+    #[test]
+    fn test_validate_disabled_vertex_still_requires_api_key() {
+        for vertex_flag in ["false", "0", "", "invalid"] {
+            let settings = serde_json::json!({
+                "env": {
+                    "GOOGLE_GENAI_USE_VERTEXAI": vertex_flag,
+                    "GOOGLE_CLOUD_PROJECT": "test-project"
+                }
+            });
+
+            assert!(
+                validate_gemini_settings_strict(&settings).is_err(),
+                "Vertex flag {vertex_flag:?} must not bypass API key validation"
+            );
+        }
     }
 
     #[test]

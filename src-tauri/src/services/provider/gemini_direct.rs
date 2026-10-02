@@ -40,8 +40,8 @@ pub(crate) fn is_official(provider: &Provider) -> bool {
     provider.category.as_deref() == Some("official") || is_google_official_gemini(provider)
 }
 
-/// 供应商的关键字段。第三方卡要带 `GEMINI_API_KEY`（环境变量全空的是走 Google 登录的
-/// 卡，不要求），写之前校验，校验不过什么都不写。
+/// 供应商的关键字段。API Key 卡要带 `GEMINI_API_KEY`；Google 登录和 Vertex AI
+/// 使用各自的凭据，不要求该字段。写之前校验，校验不过什么都不写。
 pub(crate) fn projection(provider: &Provider) -> Result<GeminiProjection, AppError> {
     validate_gemini_settings(&provider.settings_config)?;
     let official = is_official(provider);
