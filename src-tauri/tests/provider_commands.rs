@@ -338,7 +338,7 @@ command = "echo"
                 "Legacy".to_string(),
                 json!({
                     "auth": {"OPENAI_API_KEY": "stale"},
-                    "config": "stale-config"
+                    "config": "model = \"old-model\"\n"
                 }),
                 None,
             ),
@@ -350,7 +350,14 @@ command = "echo"
                 "Latest".to_string(),
                 json!({
                     "auth": {"OPENAI_API_KEY": "fresh-key"},
-                    "config": r#"[mcp_servers.latest]
+                    "config": r#"model_provider = "latest"
+
+[model_providers.latest]
+name = "Latest"
+base_url = "https://latest.example/v1"
+wire_api = "responses"
+
+[mcp_servers.latest]
 type = "stdio"
 command = "say"
 "#
@@ -403,13 +410,26 @@ command = "say"
     );
 
     let config_text = std::fs::read_to_string(get_codex_config_path()).expect("read config.toml");
-    assert!(
-        config_text.contains("mcp_servers.echo-server"),
-        "config.toml should contain synced MCP servers"
+    let live_config: toml_edit::DocumentMut = config_text.parse().expect("parse live config");
+    let live_mcp = live_config["mcp_servers"].as_table().expect("live MCP table");
+    assert_eq!(
+        live_mcp["legacy"]["command"].as_str(),
+        Some("echo"),
+        "switching preserves the user's existing MCP server"
     );
     assert!(
-        config_text.contains("experimental_bearer_token"),
-        "config.toml should carry the selected provider API key as bearer token"
+        !live_mcp.contains_key("echo-server"),
+        "provider switching does not inject MCP servers from the database"
+    );
+    assert_eq!(
+        live_config["model_providers"]["custom"]["experimental_bearer_token"].as_str(),
+        Some("fresh-key"),
+        "the selected provider API key belongs in the custom route"
+    );
+    assert_eq!(live_config["model_provider"].as_str(), Some("custom"));
+    assert_eq!(
+        live_config["model_providers"]["custom"]["base_url"].as_str(),
+        Some("https://latest.example/v1")
     );
 
     let current_id = app_state
@@ -433,11 +453,10 @@ command = "say"
         .get("config")
         .and_then(|v| v.as_str())
         .unwrap_or_default();
-    // 供应商配置应该包含在 live 文件中
-    // 注意：live 文件还会包含 MCP 同步后的内容
+    // MCP 留在 live，不从供应商快照重新写入。
     assert!(
-        config_text.contains("mcp_servers.latest"),
-        "live file should contain provider's original config"
+        !live_mcp.contains_key("latest"),
+        "provider snapshots must not overwrite live MCP settings"
     );
     assert!(
         new_config_text.contains("mcp_servers.latest"),
@@ -447,17 +466,14 @@ command = "say"
     let legacy = providers
         .get("old-provider")
         .expect("legacy provider still exists");
-    let legacy_auth_value = legacy
-        .settings_config
-        .get("auth")
-        .and_then(|v| v.get("OPENAI_API_KEY"))
-        .and_then(|v| v.as_str())
-        .unwrap_or("");
-    // 回填机制：切换前会将 live 配置回填到当前供应商
-    // 这保护了用户在 live 文件中的手动修改
+    // 原生登录留在设备上，不回填到供应商快照。
     assert_eq!(
-        legacy_auth_value, "legacy-key",
-        "previous provider should be backfilled with live auth"
+        legacy.settings_config,
+        json!({
+            "auth": {"OPENAI_API_KEY": "stale"},
+            "config": "model = \"old-model\"\n"
+        }),
+        "switching must preserve the previous provider snapshot"
     );
 }
 
@@ -575,11 +591,15 @@ fn switch_provider_updates_claude_live_and_state() {
     let legacy_provider = providers
         .get("old-provider")
         .expect("legacy provider still exists");
-    // 回填机制：切换前会将 live 配置回填到当前供应商
-    // 这保护了用户在 live 文件中的手动修改
+    // 切换只替换关键字段，用户的工作区留在 live，上一家不回填。
     assert_eq!(
-        legacy_provider.settings_config, legacy_live,
-        "previous provider should be backfilled with live config"
+        legacy_provider.settings_config,
+        json!({ "env": { "ANTHROPIC_API_KEY": "stale-key" } }),
+        "switching must preserve the previous provider snapshot"
+    );
+    assert_eq!(
+        live_after["workspace"], legacy_live["workspace"],
+        "switching must preserve the user's live workspace"
     );
 
     let new_provider = providers.get("new-provider").expect("new provider exists");
