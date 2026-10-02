@@ -1305,6 +1305,8 @@ impl RequestForwarder {
         }
     }
 
+    // Keep the same request arguments as `forward`, plus the key for this attempt.
+    #[allow(clippy::too_many_arguments)]
     async fn forward_single_with_key(
         &self,
         app_type: &AppType,
