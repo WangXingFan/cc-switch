@@ -680,8 +680,11 @@ fn profile_switch_auto_disables_takeover_before_apply() {
     // 初始状态：custom1 + 代理接管
     ProviderService::switch(&state, AppType::Claude, "custom1").expect("switch to custom1");
     let rt = tokio::runtime::Runtime::new().expect("create tokio runtime");
-    rt.block_on(cc_switch_lib::mode::controller::enter(&state, &AppType::Claude))
-        .expect("enable claude takeover");
+    rt.block_on(cc_switch_lib::mode::controller::enter(
+        &state,
+        &AppType::Claude,
+    ))
+    .expect("enable claude takeover");
 
     let (proxy_enabled_before, _) = state.db.get_proxy_flags_sync("claude");
     assert!(
