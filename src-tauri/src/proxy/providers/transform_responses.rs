@@ -4855,6 +4855,7 @@ mod tests {
         let input = json!({
             "model": "gpt-5.4",
             "max_tokens": 1024,
+            "thinking": {"type": "adaptive"},
             "output_config": {"effort": "max"},
             "messages": [{"role": "user", "content": "Hello"}]
         });
@@ -4877,6 +4878,7 @@ mod tests {
             let input = json!({
                 "model": model,
                 "max_tokens": 1024,
+                "thinking": {"type": "adaptive"},
                 "output_config": {"effort": "max"},
                 "messages": [{"role": "user", "content": "Hello"}]
             });
@@ -4893,6 +4895,7 @@ mod tests {
         let input = json!({
             "model": "gpt-5.4",
             "max_tokens": 1024,
+            "thinking": {"type": "adaptive"},
             "output_config": {"effort": "xhigh"},
             "messages": [{"role": "user", "content": "Hello"}]
         });
@@ -4908,12 +4911,27 @@ mod tests {
         let input = json!({
             "model": "grok-4.6-build",
             "max_tokens": 1024,
+            "thinking": {"type": "adaptive"},
             "output_config": {"effort": "xhigh"},
             "messages": [{"role": "user", "content": "Hello"}]
         });
 
         let result = anthropic_to_responses(input, None, false, false).unwrap();
         assert_eq!(result["reasoning"]["effort"], "xhigh");
+    }
+
+    #[test]
+    fn test_responses_thinking_off_clamps_effort_to_low() {
+        // Thinking turned off in Claude Code: no `thinking`, effort still "high".
+        let input = json!({
+            "model": "gpt-5.4",
+            "max_tokens": 1024,
+            "output_config": {"effort": "high"},
+            "messages": [{"role": "user", "content": "Hello"}]
+        });
+
+        let result = anthropic_to_responses(input, None, false, false).unwrap();
+        assert_eq!(result["reasoning"]["effort"], "low");
     }
 
     #[test]
