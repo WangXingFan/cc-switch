@@ -1,0 +1,13 @@
+<Wix xmlns="http://schemas.microsoft.com/wix/2006/wi"
+     xmlns:util="http://schemas.microsoft.com/wix/UtilExtension">
+    <Fragment>
+        <Property Id="AUTOLAUNCHAPP" Secure="yes" />
+
+        <!-- The updater has already completed exit cleanup. Close any leftover
+             instance before replacing files; manual installs only request exit. -->
+        <util:CloseApplication Id="TerminateAppForUpdate" Target="cc-switch.exe"
+                               CloseMessage="no" TerminateProcess="0" RebootPrompt="no">AUTOLAUNCHAPP</util:CloseApplication>
+        <util:CloseApplication Id="CloseAppForInstall" Target="cc-switch.exe"
+                               CloseMessage="yes" RebootPrompt="no">NOT AUTOLAUNCHAPP</util:CloseApplication>
+    </Fragment>
+</Wix>

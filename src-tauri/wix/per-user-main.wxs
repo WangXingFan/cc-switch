@@ -11,8 +11,7 @@
     <?error Unsupported value of sys.BUILDARCH=$(sys.BUILDARCH)?>
 <?endif?>
 
-<Wix xmlns="http://schemas.microsoft.com/wix/2006/wi"
-     xmlns:util="http://schemas.microsoft.com/wix/UtilExtension">
+<Wix xmlns="http://schemas.microsoft.com/wix/2006/wi">
     <Product
             Id="*"
             Name="{{product_name}}"
@@ -39,16 +38,11 @@
         <Property Id="REBOOT" Value="ReallySuppress" />
 
         <!-- Auto launch app after installation, useful for passive mode which usually used in updates -->
-        <Property Id="AUTOLAUNCHAPP" Secure="yes" />
+        <!-- Reference also links the close-application fragment. Tauri CLI 2.8
+             loads WiX compiler extensions for fragments, but not this template. -->
+        <PropertyRef Id="AUTOLAUNCHAPP" />
         <!-- Property to forward cli args to the launched app to not lose those of the pre-update instance -->
         <Property Id="LAUNCHAPPARGS" Secure="yes" />
-
-        <!-- The updater has already completed exit cleanup. Close any leftover
-             instance before replacing files; manual installs only request exit. -->
-        <util:CloseApplication Id="TerminateAppForUpdate" Target="cc-switch.exe"
-                               CloseMessage="no" TerminateProcess="0" RebootPrompt="no">AUTOLAUNCHAPP</util:CloseApplication>
-        <util:CloseApplication Id="CloseAppForInstall" Target="cc-switch.exe"
-                               CloseMessage="yes" RebootPrompt="no">NOT AUTOLAUNCHAPP</util:CloseApplication>
 
         {{#if allow_downgrades}}
             <MajorUpgrade Schedule="afterInstallInitialize" AllowDowngrades="yes" />
