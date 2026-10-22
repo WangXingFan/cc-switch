@@ -120,6 +120,7 @@ jobs:
 
           $msi = Get-ChildItem -Path 'src-tauri/target/release/bundle' -Recurse -Include *.msi -ErrorAction SilentlyContinue | Select-Object -First 1
           if ($msi) {
+            & ./.github/scripts/check-msi-restart-policy.ps1 -MsiPath $msi.FullName
             $dest = "CC-Switch-$version-Windows.msi"
             Copy-Item $msi.FullName (Join-Path release-assets $dest)
           }
