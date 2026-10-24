@@ -111,7 +111,15 @@ function renderForm(
     );
   }
 
-  return render(<Harness />);
+  const result = render(<Harness />);
+  if (app === "claude") {
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: "providerForm.advancedOptionsToggle",
+      }),
+    );
+  }
+  return result;
 }
 
 function getFetchButton() {
