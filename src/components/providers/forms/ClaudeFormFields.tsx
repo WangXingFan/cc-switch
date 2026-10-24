@@ -48,6 +48,7 @@ import {
 } from "@/lib/api/model-fetch";
 import { CustomUserAgentField } from "./CustomUserAgentField";
 import { LocalProxyRequestOverridesField } from "./LocalProxyRequestOverridesField";
+import { getModelFetchApiKey } from "@/utils/modelFetchKey";
 import type {
   ProviderCategory,
   ClaudeApiFormat,
@@ -280,6 +281,7 @@ export function ClaudeFormFields({
   // 通用模型获取（非 Copilot 供应商）
   const [fetchedModels, setFetchedModels] = useState<FetchedModel[]>([]);
   const [isFetchingModels, setIsFetchingModels] = useState(false);
+  const modelFetchApiKey = getModelFetchApiKey(apiKey, multiKeyConfig);
 
   const showModelFetchResult = useCallback(
     (count: number) => {
@@ -293,9 +295,9 @@ export function ClaudeFormFields({
   );
 
   const handleFetchModels = useCallback(() => {
-    if (!baseUrl || !apiKey) {
+    if (!baseUrl || !modelFetchApiKey) {
       showFetchModelsError(null, t, {
-        hasApiKey: !!apiKey,
+        hasApiKey: !!modelFetchApiKey,
         hasBaseUrl: !!baseUrl,
       });
       return;
@@ -309,7 +311,13 @@ export function ClaudeFormFields({
     const modelsUrl = matchedPreset?.modelsUrl;
 
     setIsFetchingModels(true);
-    fetchModelsForConfig(baseUrl, apiKey, isFullUrl, modelsUrl, customUserAgent)
+    fetchModelsForConfig(
+      baseUrl,
+      modelFetchApiKey,
+      isFullUrl,
+      modelsUrl,
+      customUserAgent,
+    )
       .then((models) => {
         setFetchedModels(models);
         showModelFetchResult(models.length);
@@ -319,7 +327,14 @@ export function ClaudeFormFields({
         showFetchModelsError(err, t);
       })
       .finally(() => setIsFetchingModels(false));
-  }, [baseUrl, apiKey, isFullUrl, customUserAgent, showModelFetchResult, t]);
+  }, [
+    baseUrl,
+    modelFetchApiKey,
+    isFullUrl,
+    customUserAgent,
+    showModelFetchResult,
+    t,
+  ]);
 
   const handleFetchCopilotModels = useCallback(() => {
     if (!isCopilotAuthenticated) {
