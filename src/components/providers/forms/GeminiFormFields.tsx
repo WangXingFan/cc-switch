@@ -12,6 +12,7 @@ import {
   type FetchedModel,
 } from "@/lib/api/model-fetch";
 import type { MultiKeyConfig, ProviderCategory } from "@/types";
+import { getModelFetchApiKey } from "@/utils/modelFetchKey";
 
 interface EndpointCandidate {
   url: string;
@@ -81,17 +82,18 @@ export function GeminiFormFields({
 
   const [fetchedModels, setFetchedModels] = useState<FetchedModel[]>([]);
   const [isFetchingModels, setIsFetchingModels] = useState(false);
+  const modelFetchApiKey = getModelFetchApiKey(apiKey, multiKeyConfig);
 
   const handleFetchModels = useCallback(() => {
-    if (!baseUrl || !apiKey) {
+    if (!baseUrl || !modelFetchApiKey) {
       showFetchModelsError(null, t, {
-        hasApiKey: !!apiKey,
+        hasApiKey: !!modelFetchApiKey,
         hasBaseUrl: !!baseUrl,
       });
       return;
     }
     setIsFetchingModels(true);
-    fetchModelsForConfig(baseUrl, apiKey)
+    fetchModelsForConfig(baseUrl, modelFetchApiKey)
       .then((models) => {
         setFetchedModels(models);
         if (models.length === 0) {
@@ -107,7 +109,7 @@ export function GeminiFormFields({
         showFetchModelsError(err, t);
       })
       .finally(() => setIsFetchingModels(false));
-  }, [baseUrl, apiKey, t]);
+  }, [baseUrl, modelFetchApiKey, t]);
 
   // 检测是否为 Google 官方（使用 OAuth）
   const isGoogleOfficial =

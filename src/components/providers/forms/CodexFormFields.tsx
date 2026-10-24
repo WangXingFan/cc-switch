@@ -53,6 +53,7 @@ import {
 import { CustomUserAgentField } from "./CustomUserAgentField";
 import { LocalProxyRequestOverridesField } from "./LocalProxyRequestOverridesField";
 import { cn } from "@/lib/utils";
+import { getModelFetchApiKey } from "@/utils/modelFetchKey";
 import type {
   ClaudeApiKeyField,
   CodexApiFormat,
@@ -436,6 +437,7 @@ export function CodexFormFields({
 
   const [fetchedModels, setFetchedModels] = useState<FetchedModel[]>([]);
   const [isFetchingModels, setIsFetchingModels] = useState(false);
+  const modelFetchApiKey = getModelFetchApiKey(codexApiKey, multiKeyConfig);
   // 拉取请求序号：请求身份（Base URL / 完整地址开关 / API Key / 自定义 UA）
   // 一变即自增，清空旧列表并作废在途响应——/models 结果可能按 Key 的模型
   // 授权返回，换号后残留旧列表会误导选择
@@ -447,7 +449,7 @@ export function CodexFormFields({
   }, [
     codexBaseUrl,
     isFullUrl,
-    codexApiKey,
+    modelFetchApiKey,
     customUserAgent,
     isXaiOauthPreset,
     isXaiOauthAuthenticated,
@@ -591,9 +593,9 @@ export function CodexFormFields({
       return;
     }
 
-    if (!codexBaseUrl || !codexApiKey) {
+    if (!codexBaseUrl || !modelFetchApiKey) {
       showFetchModelsError(null, t, {
-        hasApiKey: !!codexApiKey,
+        hasApiKey: !!modelFetchApiKey,
         hasBaseUrl: !!codexBaseUrl,
       });
       return;
@@ -602,7 +604,7 @@ export function CodexFormFields({
     setIsFetchingModels(true);
     fetchModelsForConfig(
       codexBaseUrl,
-      codexApiKey,
+      modelFetchApiKey,
       isFullUrl,
       undefined,
       customUserAgent,
@@ -626,7 +628,7 @@ export function CodexFormFields({
       .finally(() => setIsFetchingModels(false));
   }, [
     codexBaseUrl,
-    codexApiKey,
+    modelFetchApiKey,
     isFullUrl,
     customUserAgent,
     isXaiOauthPreset,
