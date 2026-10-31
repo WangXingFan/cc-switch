@@ -832,6 +832,7 @@ fn insert_session_log_entry_on_conn(
         output_tokens: msg.output_tokens,
         cache_read_tokens: msg.cache_read_tokens,
         cache_creation_tokens: msg.cache_creation_tokens,
+        cache_creation_1h_tokens: msg.cache_creation_1h_tokens,
         model: Some(msg.model.clone()),
         message_id: None,
     };

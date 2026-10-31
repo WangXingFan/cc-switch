@@ -69,6 +69,8 @@
     "effortMax": "Max Effort Thinking",
     "disableAutoUpgrade": "Disable Auto-Upgrade",
     "disableArtifact": "Disable Artifact Tool",
+    "disableAutoModeServer": "Disable Auto Mode Server Checks",
+    "disableAutoModeServerHint": "Enable when your gateway does not support auto mode's server-side checks. Claude Code sends its own classifier requests, billed as before, and stops showing the eligibility notice. Leave off for endpoints that support server-side checks.",
     "keyFieldsHint": "Endpoint, key, models, context window and compatibility switches follow the provider; everything else is a global Claude Code setting and applies to every provider once saved.",
     "inactiveFieldsHint": "This provider still stores {{count}} field(s) that do not take effect when switching. Click one to add it to the global settings above; it is written to the config file on save, and the value stored in the provider is kept.",
     "addToGlobalSettings": "Add to global settings"
