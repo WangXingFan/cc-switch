@@ -2882,34 +2882,14 @@ impl RequestForwarder {
         };
         let model_id = model_id.to_string();
 
-        let Some(app_handle) = &self.app_handle else {
+        let Some(record) = self.copilot_model_record(provider, &model_id).await else {
             return;
         };
-        let copilot_state = app_handle.state::<CopilotAuthState>();
-        let copilot_auth = copilot_state.0.read().await;
-        let account_id = provider
-            .meta
-            .as_ref()
-            .and_then(|m| m.managed_account_id_for("github_copilot"));
-
-        let models_result = match account_id.as_deref() {
-            Some(id) => copilot_auth.fetch_models_for_account(id).await,
-            None => copilot_auth.fetch_models().await,
-        };
-
-        let models = match models_result {
-            Ok(m) => m,
-            Err(err) => {
-                log::debug!("[Copilot] live model list unavailable, skip resolution: {err}");
-                return;
-            }
-        };
-
-        if let Some(resolved) =
-            super::providers::copilot_model_map::resolve_against_models(&model_id, &models)
-        {
-            log::info!("[Copilot] live-model resolve: {model_id} → {resolved}");
-            body["model"] = serde_json::Value::String(resolved);
+        // Resolve the ID from the same records used for protocol selection,
+        // including models hidden from the UI picker.
+        if !record.id.eq_ignore_ascii_case(&model_id) {
+            log::info!("[Copilot] live-model resolve: {model_id} → {}", record.id);
+            body["model"] = serde_json::Value::String(record.id);
         }
     }
 

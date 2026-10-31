@@ -460,6 +460,109 @@ mod tests {
         body: Value,
     }
 
+    #[tokio::test]
+    async fn claude_chat_bridge_keeps_key_rotation_and_respects_thinking_off() {
+        use crate::provider::{KeyRotationStrategy, MultiKeyConfig};
+
+        let captured = Arc::new(Mutex::new(Vec::new()));
+        let capture = captured.clone();
+        let mock_app = Router::new().route(
+            "/v1/chat/completions",
+            post(move |request: axum::extract::Request| {
+                let capture = capture.clone();
+                async move {
+                    let (parts, body) = request.into_parts();
+                    let bytes = axum::body::to_bytes(body, 1024 * 1024).await.unwrap();
+                    capture.lock().await.push((
+                        parts.headers,
+                        serde_json::from_slice::<Value>(&bytes).unwrap(),
+                    ));
+                    axum::Json(json!({
+                        "id": "chatcmpl-compat",
+                        "object": "chat.completion",
+                        "created": 1,
+                        "model": "gpt-5.4",
+                        "choices": [{"index": 0, "finish_reason": "stop",
+                            "message": {"role": "assistant", "content": "ok"}}],
+                        "usage": {"prompt_tokens": 10, "completion_tokens": 2, "total_tokens": 12}
+                    }))
+                }
+            }),
+        );
+        let listener = tokio::net::TcpListener::bind(("127.0.0.1", 0))
+            .await
+            .unwrap();
+        let address = listener.local_addr().unwrap();
+        let mock = tokio::spawn(async move { axum::serve(listener, mock_app).await.unwrap() });
+        let db = Arc::new(Database::memory().unwrap());
+        let mut provider = Provider::with_id(
+            "compat-keys".to_string(),
+            "Compat keys".to_string(),
+            json!({"env": {
+                "ANTHROPIC_BASE_URL": format!("http://{address}/v1"),
+                "ANTHROPIC_API_KEY": "stale-config-key",
+                "ANTHROPIC_DEFAULT_SONNET_MODEL": "gpt-5.4"
+            }}),
+            None,
+        );
+        provider.meta = Some(ProviderMeta {
+            api_format: Some("openai_chat".to_string()),
+            multi_key_config: Some(MultiKeyConfig {
+                keys: vec!["rotation-key-one".to_string(), "rotation-key-two".to_string()],
+                strategy: KeyRotationStrategy::RoundRobin,
+                ..Default::default()
+            }),
+            ..Default::default()
+        });
+        db.save_provider("claude", &provider).unwrap();
+        db.set_current_provider("claude", &provider.id).unwrap();
+        let proxy = ProxyServer::new(
+            ProxyConfig {
+                listen_port: 0,
+                non_streaming_timeout: 10,
+                ..Default::default()
+            },
+            db,
+            None,
+        );
+        let info = proxy.start().await.unwrap();
+        let client = reqwest::Client::builder()
+            .no_proxy()
+            .timeout(std::time::Duration::from_secs(10))
+            .build()
+            .unwrap();
+        for _ in 0..2 {
+            let response = client
+                .post(format!("http://127.0.0.1:{}/v1/messages", info.port))
+                .header("x-api-key", "client-placeholder")
+                .json(&json!({
+                    "model": "claude-sonnet-4-6", "max_tokens": 128, "stream": false,
+                    "thinking": {"type": "disabled"}, "output_config": {"effort": "high"},
+                    "messages": [{"role": "user", "content": "hello"}]
+                }))
+                .send()
+                .await
+                .unwrap();
+            assert_eq!(response.status(), StatusCode::OK);
+            let body: Value = response.json().await.unwrap();
+            assert_eq!(body["content"][0]["text"], "ok");
+        }
+        let requests = captured.lock().await;
+        assert_eq!(requests.len(), 2);
+        for ((headers, body), key) in requests
+            .iter()
+            .zip(["rotation-key-one", "rotation-key-two"])
+        {
+            assert_eq!(headers[header::AUTHORIZATION], format!("Bearer {key}"));
+            assert!(!headers.contains_key("x-api-key"));
+            assert_eq!(body["model"], "gpt-5.4");
+            assert_eq!(body["reasoning_effort"], "low");
+        }
+        drop(requests);
+        proxy.stop().await.unwrap();
+        mock.abort();
+    }
+
     /// Regression for #3787: a provider accidentally pointing at the proxy must
     /// fail before it creates another request, even with a dynamically bound port.
     #[tokio::test]
