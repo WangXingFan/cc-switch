@@ -198,6 +198,9 @@ pub struct CopilotModel {
     pub vendor: String,
     /// 是否在模型选择器中显示
     pub model_picker_enabled: bool,
+    /// Copilot 为这个模型声明支持的上游端点；旧响应缺省时继续使用 Chat 桥接。
+    #[serde(default)]
+    pub supported_endpoints: Vec<String>,
 }
 
 /// Copilot Models API 响应
@@ -213,6 +216,8 @@ struct CopilotModelsResponseItem {
     name: String,
     vendor: String,
     model_picker_enabled: bool,
+    #[serde(default)]
+    supported_endpoints: Vec<String>,
 }
 
 /// Copilot 认证错误
@@ -798,6 +803,18 @@ impl CopilotAuthManager {
         &self,
         account_id: &str,
     ) -> Result<Vec<CopilotModel>, CopilotAuthError> {
+        Ok(self
+            .fetch_all_models_for_account(account_id)
+            .await?
+            .into_iter()
+            .filter(|model| model.model_picker_enabled)
+            .collect())
+    }
+
+    async fn fetch_all_models_for_account(
+        &self,
+        account_id: &str,
+    ) -> Result<Vec<CopilotModel>, CopilotAuthError> {
         self.ensure_migration_complete().await?;
 
         {
@@ -859,12 +876,12 @@ impl CopilotAuthManager {
         let models: Vec<CopilotModel> = models_response
             .data
             .into_iter()
-            .filter(|m| m.model_picker_enabled)
             .map(|m| CopilotModel {
                 id: m.id,
                 name: m.name,
                 vendor: m.vendor,
                 model_picker_enabled: m.model_picker_enabled,
+                supported_endpoints: m.supported_endpoints,
             })
             .collect();
 
@@ -883,6 +900,26 @@ impl CopilotAuthManager {
             .into_iter()
             .find(|model| model.id == model_id)
             .map(|model| model.vendor))
+    }
+
+    /// Vendor and upstream endpoints Copilot advertises for the resolved model.
+    pub async fn get_model_record_for_account(
+        &self,
+        account_id: &str,
+        model_id: &str,
+    ) -> Result<Option<CopilotModel>, CopilotAuthError> {
+        let models = self.fetch_all_models_for_account(account_id).await?;
+        Ok(super::copilot_model_map::resolve_model_record(model_id, &models).cloned())
+    }
+
+    pub async fn get_model_record(
+        &self,
+        model_id: &str,
+    ) -> Result<Option<CopilotModel>, CopilotAuthError> {
+        match self.resolve_default_account_id().await {
+            Some(id) => self.get_model_record_for_account(&id, model_id).await,
+            None => Err(CopilotAuthError::GitHubTokenInvalid),
+        }
     }
 
     /// 获取 Copilot 可用模型列表（向后兼容：使用第一个账号）
@@ -1518,6 +1555,21 @@ mod tests {
     use tempfile::tempdir;
 
     #[test]
+    fn model_endpoints_decode_and_default_for_older_responses() {
+        let response: CopilotModelsResponse = serde_json::from_value(serde_json::json!({
+            "data": [
+                {"id": "claude-sonnet-4.6", "name": "Claude", "vendor": "Anthropic",
+                 "model_picker_enabled": true, "supported_endpoints": ["/v1/messages"]},
+                {"id": "legacy", "name": "Legacy", "vendor": "Anthropic",
+                 "model_picker_enabled": true}
+            ]
+        }))
+        .unwrap();
+        assert_eq!(response.data[0].supported_endpoints, ["/v1/messages"]);
+        assert!(response.data[1].supported_endpoints.is_empty());
+    }
+
+    #[test]
     fn test_copilot_token_expiry() {
         let now = chrono::Utc::now().timestamp();
 
@@ -1731,12 +1783,14 @@ mod tests {
                         name: "GPT-5.4".to_string(),
                         vendor: "OpenAI".to_string(),
                         model_picker_enabled: true,
+                        supported_endpoints: vec!["/responses".to_string()],
                     },
                     CopilotModel {
                         id: "claude-sonnet-4".to_string(),
                         name: "Claude Sonnet 4".to_string(),
                         vendor: "Anthropic".to_string(),
                         model_picker_enabled: true,
+                        supported_endpoints: vec!["/v1/messages".to_string()],
                     },
                 ],
             );
@@ -1750,6 +1804,37 @@ mod tests {
 
         let default_vendor = manager.get_model_vendor("claude-sonnet-4").await.unwrap();
         assert_eq!(default_vendor.as_deref(), Some("Anthropic"));
+
+        let record = manager
+            .get_model_record("claude-sonnet-4")
+            .await
+            .unwrap()
+            .unwrap();
+        assert_eq!(record.supported_endpoints, ["/v1/messages"]);
+
+        // Hidden models remain available to protocol lookup without appearing
+        // in the UI's model picker.
+        manager
+            .copilot_models
+            .write()
+            .await
+            .get_mut("12345")
+            .unwrap()
+            .push(CopilotModel {
+                id: "claude-opus-4.6".to_string(),
+                name: "Hidden Opus".to_string(),
+                vendor: "Anthropic".to_string(),
+                model_picker_enabled: false,
+                supported_endpoints: vec!["/v1/messages".to_string()],
+            });
+        assert_eq!(manager.fetch_models().await.unwrap().len(), 2);
+        let hidden = manager
+            .get_model_record_for_account("12345", "claude-opus-4-6")
+            .await
+            .unwrap()
+            .unwrap();
+        assert_eq!(hidden.id, "claude-opus-4.6");
+        assert_eq!(hidden.supported_endpoints, ["/v1/messages"]);
     }
 
     #[tokio::test]

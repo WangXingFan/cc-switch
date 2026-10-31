@@ -596,11 +596,9 @@ impl RequestForwarder {
                     });
                 }
                 Err(e) => {
-                    // 检测是否需要触发整流器（仅 Claude/ClaudeAuth 供应商）
-                    let provider_type = ProviderType::from_app_type_and_config(app_type, provider);
-                    let is_anthropic_provider = matches!(
-                        provider_type,
-                        Some(ProviderType::Claude | ProviderType::ClaudeAuth)
+                    // Copilot 的原生 Messages 端点同样需要 thinking 签名和预算整流。
+                    let is_anthropic_provider = uses_anthropic_rectifiers(
+                        ProviderType::from_app_type_and_config(app_type, provider),
                     );
                     let mut signature_rectifier_non_retryable_client_error = false;
 
@@ -1470,12 +1468,6 @@ impl RequestForwarder {
                 mapped_body = super::copilot_optimizer::merge_tool_results(mapped_body);
             }
 
-            // 3.5. 主动剥离 thinking block — Copilot 走 OpenAI 兼容端点不识别该块
-            //      避免上游拒绝后由 rectifier 反应式重试（首次请求已消耗 quota）
-            if self.copilot_optimizer_config.strip_thinking {
-                mapped_body = super::copilot_optimizer::strip_thinking_blocks(mapped_body);
-            }
-
             // 4. Warmup 小模型降级
             if self.copilot_optimizer_config.warmup_downgrade && classification.is_warmup {
                 log::info!(
@@ -1576,6 +1568,14 @@ impl RequestForwarder {
         };
         if adapter.name() == "Claude" {
             if let Some(api_format) = resolved_claude_api_format.as_deref() {
+                // 原生 Messages 保留 thinking 签名；只在 OpenAI 桥接路径剥离。
+                if is_copilot
+                    && self.copilot_optimizer_config.enabled
+                    && self.copilot_optimizer_config.strip_thinking
+                    && super::providers::claude_api_format_needs_transform(api_format)
+                {
+                    mapped_body = super::copilot_optimizer::strip_thinking_blocks(mapped_body);
+                }
                 super::providers::normalize_anthropic_messages_for_provider(
                     &mut mapped_body,
                     provider,
@@ -2856,16 +2856,18 @@ impl RequestForwarder {
         }
 
         let model = body.get("model").and_then(|value| value.as_str());
-        if let Some(model_id) = model {
-            if self
-                .is_copilot_openai_vendor_model(provider, model_id)
-                .await
-            {
-                return "openai_responses".to_string();
-            }
-        }
-
-        "openai_chat".to_string()
+        let record = match model {
+            Some(model_id) => self.copilot_model_record(provider, model_id).await,
+            None => None,
+        };
+        copilot_api_format_for_model(
+            record.as_ref().map(|model| model.vendor.as_str()),
+            record
+                .as_ref()
+                .map(|model| model.supported_endpoints.as_slice())
+                .unwrap_or_default(),
+        )
+        .to_string()
     }
 
     /// 用 Copilot live `/models` 列表确认 model ID 真实可用，找不到时按 family 降级。
@@ -2911,10 +2913,14 @@ impl RequestForwarder {
         }
     }
 
-    async fn is_copilot_openai_vendor_model(&self, provider: &Provider, model_id: &str) -> bool {
+    async fn copilot_model_record(
+        &self,
+        provider: &Provider,
+        model_id: &str,
+    ) -> Option<super::providers::copilot_auth::CopilotModel> {
         let Some(app_handle) = &self.app_handle else {
             log::debug!("[Copilot] AppHandle unavailable, fallback to chat/completions");
-            return false;
+            return None;
         };
 
         let copilot_state = app_handle.state::<CopilotAuthState>();
@@ -2924,28 +2930,28 @@ impl RequestForwarder {
             .as_ref()
             .and_then(|m| m.managed_account_id_for("github_copilot"));
 
-        let vendor_result = match account_id.as_deref() {
+        let record_result = match account_id.as_deref() {
             Some(id) => {
                 copilot_auth
-                    .get_model_vendor_for_account(id, model_id)
+                    .get_model_record_for_account(id, model_id)
                     .await
             }
-            None => copilot_auth.get_model_vendor(model_id).await,
+            None => copilot_auth.get_model_record(model_id).await,
         };
 
-        match vendor_result {
-            Ok(Some(vendor)) => vendor.eq_ignore_ascii_case("openai"),
+        match record_result {
+            Ok(Some(record)) => Some(record),
             Ok(None) => {
                 log::debug!(
                     "[Copilot] Model vendor unavailable for {model_id}, fallback to chat/completions"
                 );
-                false
+                None
             }
             Err(err) => {
                 log::warn!(
                     "[Copilot] Failed to resolve model vendor for {model_id}, fallback to chat/completions: {err}"
                 );
-                false
+                None
             }
         }
     }
@@ -2997,6 +3003,34 @@ impl RequestForwarder {
             // 其他错误（数据库/内部错误等）：不是换供应商能解决的问题
             _ => ErrorCategory::NonRetryable,
         }
+    }
+}
+
+/// Native Copilot Messages errors use the same signature/budget rectifiers as
+/// Anthropic. Errors from Chat/Responses do not match their trigger keywords.
+fn uses_anthropic_rectifiers(provider_type: Option<ProviderType>) -> bool {
+    matches!(
+        provider_type,
+        Some(ProviderType::Claude | ProviderType::ClaudeAuth | ProviderType::GitHubCopilot)
+    )
+}
+
+/// Prefer native Messages only when the live model record advertises it.
+/// Unknown models retain the existing Chat Completions fallback.
+fn copilot_api_format_for_model(
+    vendor: Option<&str>,
+    supported_endpoints: &[String],
+) -> &'static str {
+    if vendor.is_some_and(|vendor| vendor.eq_ignore_ascii_case("openai")) {
+        "openai_responses"
+    } else if vendor.is_some_and(|vendor| vendor.eq_ignore_ascii_case("anthropic"))
+        && supported_endpoints
+            .iter()
+            .any(|endpoint| endpoint.trim_end_matches('/') == "/v1/messages")
+    {
+        "anthropic"
+    } else {
+        "openai_chat"
     }
 }
 
@@ -4024,6 +4058,40 @@ mod tests {
     use serde_json::json;
     use std::collections::HashMap;
     use std::time::Duration;
+
+    #[test]
+    fn copilot_native_messages_require_advertised_endpoint() {
+        let messages = vec!["/v1/messages/".to_string(), "/chat/completions".to_string()];
+        let chat = vec!["/chat/completions".to_string()];
+        assert_eq!(
+            copilot_api_format_for_model(Some("Anthropic"), &messages),
+            "anthropic"
+        );
+        for endpoints in [&chat[..], &[][..]] {
+            assert_eq!(
+                copilot_api_format_for_model(Some("Anthropic"), endpoints),
+                "openai_chat"
+            );
+        }
+        assert_eq!(copilot_api_format_for_model(None, &messages), "openai_chat");
+        assert_eq!(
+            copilot_api_format_for_model(Some("OpenAI"), &chat),
+            "openai_responses"
+        );
+    }
+
+    #[test]
+    fn anthropic_rectifiers_cover_copilot_native_messages() {
+        for provider_type in [
+            ProviderType::Claude,
+            ProviderType::ClaudeAuth,
+            ProviderType::GitHubCopilot,
+        ] {
+            assert!(uses_anthropic_rectifiers(Some(provider_type)));
+        }
+        assert!(!uses_anthropic_rectifiers(Some(ProviderType::CodexOAuth)));
+        assert!(!uses_anthropic_rectifiers(None));
+    }
 
     fn test_provider_with_type(provider_type: Option<&str>) -> Provider {
         Provider {

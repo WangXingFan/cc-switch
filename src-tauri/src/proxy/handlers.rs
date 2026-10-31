@@ -227,6 +227,7 @@ async fn handle_messages_for_app(
     let connection_guard = result.connection_guard.take();
     ctx.outbound_model = result.outbound_model.take();
     ctx.provider = result.provider;
+    let resolved_api_format = result.claude_api_format.is_some();
     let api_format = result
         .claude_api_format
         .as_deref()
@@ -241,7 +242,10 @@ async fn handle_messages_for_app(
             app_type.as_str()
         ))
     })?;
-    let needs_transform = adapter.needs_transform(&ctx.provider);
+    let needs_transform = claude_response_needs_transform(
+        resolved_api_format.then_some(api_format.as_str()),
+        adapter.needs_transform(&ctx.provider),
+    );
 
     // Claude 特有：格式转换处理
     if needs_transform {
@@ -266,6 +270,18 @@ async fn handle_messages_for_app(
         connection_guard,
     )
     .await
+}
+
+/// The per-request upstream format takes precedence over Copilot's provider
+/// default, so native Anthropic responses pass through unchanged.
+fn claude_response_needs_transform(
+    resolved_api_format: Option<&str>,
+    provider_default: bool,
+) -> bool {
+    resolved_api_format.map_or(
+        provider_default,
+        super::providers::claude_api_format_needs_transform,
+    )
 }
 
 fn validate_claude_desktop_gateway_auth(
@@ -2868,6 +2884,20 @@ mod tests {
         atomic::{AtomicUsize, Ordering},
         Arc,
     };
+
+    #[test]
+    fn claude_response_transform_follows_the_resolved_format() {
+        use super::claude_response_needs_transform;
+
+        assert!(!claude_response_needs_transform(Some("anthropic"), true));
+        assert!(claude_response_needs_transform(Some("openai_chat"), true));
+        assert!(claude_response_needs_transform(
+            Some("openai_responses"),
+            false
+        ));
+        assert!(claude_response_needs_transform(None, true));
+        assert!(!claude_response_needs_transform(None, false));
+    }
 
     #[test]
     fn body_looks_like_sse_detects_unlabeled_sse_prefixes() {

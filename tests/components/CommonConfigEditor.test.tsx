@@ -159,9 +159,9 @@ describe("CommonConfigEditor auto mode server toggle", () => {
       name: "claudeConfig.disableAutoModeServer",
     });
 
-  it("reads CLAUDE_CODE_AUTO_MODE_SERVER=0 as checked", () => {
+  it.each(["0", 0])("reads CLAUDE_CODE_AUTO_MODE_SERVER=%s as checked", (value) => {
     renderEditor(
-      JSON.stringify({ env: { CLAUDE_CODE_AUTO_MODE_SERVER: "0" } }),
+      JSON.stringify({ env: { CLAUDE_CODE_AUTO_MODE_SERVER: value } }),
     );
 
     expect(autoModeServerCheckbox()).toBeChecked();
@@ -179,6 +179,12 @@ describe("CommonConfigEditor auto mode server toggle", () => {
         ANTHROPIC_BASE_URL: "https://gw.example",
         CLAUDE_CODE_AUTO_MODE_SERVER: "0",
       },
+    });
+
+    fireEvent.click(autoModeServerCheckbox());
+
+    expect(JSON.parse(onChange.mock.calls[1][0])).toEqual({
+      env: { ANTHROPIC_BASE_URL: "https://gw.example" },
     });
   });
 

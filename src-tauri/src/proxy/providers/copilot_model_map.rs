@@ -126,6 +126,19 @@ pub fn resolve_against_models(client_id: &str, models: &[CopilotModel]) -> Optio
     }
 }
 
+/// Return the same exact-or-family match used for model normalization, with its
+/// advertised upstream endpoints intact.
+pub fn resolve_model_record<'a>(
+    client_id: &str,
+    models: &'a [CopilotModel],
+) -> Option<&'a CopilotModel> {
+    let resolved = resolve_against_models(client_id, models);
+    let target = resolved.as_deref().unwrap_or(client_id);
+    models
+        .iter()
+        .find(|model| model.id.eq_ignore_ascii_case(target))
+}
+
 fn detect_family(id: &str) -> Option<&'static str> {
     let lower = id.to_ascii_lowercase();
     if lower.contains("haiku") {
@@ -300,7 +313,21 @@ mod tests {
             name: id.to_string(),
             vendor: "anthropic".to_string(),
             model_picker_enabled: true,
+            supported_endpoints: Vec::new(),
         }
+    }
+
+    #[test]
+    fn resolved_record_preserves_endpoints_for_aliases_and_family_fallback() {
+        let mut native = model("claude-sonnet-4.6");
+        native.supported_endpoints = vec!["/v1/messages".to_string()];
+        let models = vec![model("claude-sonnet-4"), native];
+        for requested in ["claude-sonnet-4-6", "claude-sonnet-4-9"] {
+            let record = resolve_model_record(requested, &models).unwrap();
+            assert_eq!(record.id, "claude-sonnet-4.6");
+            assert_eq!(record.supported_endpoints, ["/v1/messages"]);
+        }
+        assert!(resolve_model_record("unknown-model", &models).is_none());
     }
 
     #[test]
