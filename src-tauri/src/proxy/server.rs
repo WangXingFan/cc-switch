@@ -508,7 +508,10 @@ mod tests {
         provider.meta = Some(ProviderMeta {
             api_format: Some("openai_chat".to_string()),
             multi_key_config: Some(MultiKeyConfig {
-                keys: vec!["rotation-key-one".to_string(), "rotation-key-two".to_string()],
+                keys: vec![
+                    "rotation-key-one".to_string(),
+                    "rotation-key-two".to_string(),
+                ],
                 strategy: KeyRotationStrategy::RoundRobin,
                 ..Default::default()
             }),
