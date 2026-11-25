@@ -53,7 +53,7 @@ try {
           if (command === "search_session_content") return { hits: [], status: { running: false, processed: 1, total: 1 } };
           if (command === "get_session_messages") return messages;
           if (command === "stream_session_messages") {
-            args.onChunk.onmessage({ type: "header", total: messages.length, parseMs: 1 });
+            args.onChunk.onmessage({ type: "header", total: messages.length, turns: [], cached: false, parseMs: 1 });
             args.onChunk.onmessage({ type: "messages", start: 0, messages });
             args.onChunk.onmessage({ type: "done", payloadBytes: 500 });
             return null;
@@ -63,7 +63,7 @@ try {
           if (command === "get_usage_summary" || command === "get_session_usage_summary") return summary;
           if (command === "get_usage_summary_by_app") return [{ appType: "claude", summary }];
           if (command === "get_usage_trends") return Array.from({ length: 7 }, (_, i) => ({ date: new Date(now - (6-i)*86400000).toISOString().slice(0,10), requestCount: 12+i, totalCost: String(0.4+i/10), totalTokens: 15000+i*1000, totalInputTokens: 4000, totalOutputTokens: 2000, totalCacheCreationTokens: 1000, totalCacheReadTokens: 8000+i*1000 }));
-          if (command === "get_usage_first_date") return Math.floor(now/1000)-30*86400;
+          if (command === "get_usage_first_date") return new Date(now-30*86400000).toISOString().slice(0,10);
           if (command === "get_request_logs") return { data: [], total: 0, page: 0, pageSize: 20 };
           if (command === "get_session_usage_last_sync") return now;
           if (command.startsWith("list_") || command === "get_installed_skills" || command === "get_live_provider_ids" || command === "get_provider_stats" || command === "get_model_stats" || command === "get_model_pricing") return [];
@@ -75,6 +75,7 @@ try {
         },
       };
     }, { view });
+    try {
     await page.goto("http://127.0.0.1:4173");
     if (view === "plugins") await page.getByText("frontend-design", { exact: true }).waitFor();
     if (view === "sessions") {
@@ -82,9 +83,17 @@ try {
       await page.getByText("请说明这次更新的功能，并检查配置文件。", { exact: true }).first().waitFor();
     }
     if (view === "mcp") await page.getByText("Documentation MCP", { exact: true }).waitFor();
-    if (view === "settings") await page.getByRole("tab", { name: /用量/ }).click();
+    if (view === "settings") {
+      await page.getByRole("tab", { name: /用量/ }).click();
+      await page.getByText("120", { exact: true }).first().waitFor();
+    }
     await page.screenshot({ path: `ui-preview/${view}.png`, fullPage: true });
     if (errors.length) throw new Error(`${view}: ${errors.join("; ")}`);
+    } catch (error) {
+      await page.screenshot({ path: `ui-preview/${view}-failure.png`, fullPage: true });
+      await fs.writeFile(`ui-preview/${view}-failure.txt`, `${error}\n${errors.join("\n")}\n${await page.locator("body").innerText()}`);
+      throw error;
+    }
     await page.close();
   }
 } finally {
