@@ -1,38 +1,37 @@
-# Selected upstream features
+# 选定上游功能接入
 
-Source: upstream v4.0.40 (`f19a9d4f4`). Fork baseline: `9940a570c`.
+上游参考：v4.0.40（`f19a9d4f4`）。本地分支基线：`9940a570c`。
+功能代码提交：`24d0f9c3a`。
 
-Scope: structured session reader and message-content search; plugin management
-for the fork's existing supported applications; on-demand MCP handshakes;
-Codex subagent model, reasoning, concurrency and Auto Review model settings;
-usage heatmap, currency/exchange-rate display and provider/model cache metrics.
+## 功能与入口
 
-The existing application shell, custom provider creation, multi-key rotation,
-NewAPI balance queries, cost multipliers, global shortcut and live configuration
-write engine remain the basis of the integration. New upstream applications and
-aggregation mode are outside this port.
+| 功能 | 入口 | 接入内容 |
+| --- | --- | --- |
+| 新版会话阅读器 | 原有会话管理按钮 | 按轮次阅读、对话目录、工具调用与结果、代码与差异展示、长内容按需加载、Markdown 导出 |
+| 消息正文搜索 | 会话管理中的搜索设置 | 可选本地正文索引、按消息内容搜索、命中片段跳转 |
+| 统一插件管理 | 供应商工具栏的拼图按钮 | Claude Code、Codex、Grok Build、OpenClaw、Pi 的已安装插件、发现和市场管理 |
+| MCP 连通性检查 | MCP 服务器管理 | 单项或批量检查、取消检查、连接成功/需要认证/失败状态 |
+| Codex 更多模型设置 | Codex 供应商编辑页 | 子代理模型、推理强度、最大并发数、Auto Review 自动审批模型 |
+| 更多统计功能 | 设置 → 使用统计 | 趋势图、热力图、供应商和模型缓存指标、日志列选择、多币种和自动汇率 |
 
-Compilation, formatting, tests and builds run in GitHub Actions only.
-CI run links and final results will be recorded when integration is complete.
+插件操作依赖对应客户端 CLI，界面按各客户端能力提供安装、更新、启停等操作。
+Codex 的并发数属于全局设置，模型选择属于供应商配置；Auto Review 设置会写入模型目录并在重新打开时保留。
 
-## Feature entry points
+费用原始数据仍以美元存储。汇率只用于显示；自动汇率保留缓存，获取失败时使用已保存的汇率。
+统计中区分实测生成速度和基于会话时间戳的估算，没有足够计时数据时不显示实测速度。
 
-- Sessions: use the existing session-history button. The reader groups messages
-  into turns, renders tool calls and results, and loads long content on demand.
-  Message-content search is optional and uses a local index.
-- Plugins: the puzzle button in the provider toolbar opens unified management
-  for Claude Code, Codex, Grok Build, OpenClaw and Pi. Available actions follow
-  each application's own CLI capabilities.
-- MCP: the existing unified MCP page has individual and batch connectivity
-  checks, including authenticated-server and failure states.
-- Codex: the provider editor exposes the subagent model, reasoning effort,
-  concurrency and Auto Review model. Concurrency remains a global Codex setting;
-  model choices belong to the provider. Auto Review is included in every
-  generated catalog entry and preserved when reading the catalog back.
-- Settings → Usage: trend charts and heatmaps, provider/model cache metrics,
-  selectable log columns, and currency display with manual or automatic rates.
-  Stored costs remain in USD. Automatic rates are cached and fall back to saved
-  rates if fetching fails. Existing model pricing and cost multipliers are kept.
+## 本地功能兼容
 
-The new statistics distinguish measured generation speed from estimates based
-on session timestamps. Requests without adequate timing show no measured speed.
+沿用本地应用外壳和配置写入机制，保留自定义供应商创建、多 Key 轮换、NewAPI 余额查询、费用倍率、全局快捷键和现有定价管理。
+本次选择性移植上述功能，没有引入上游新增应用或聚合模式。
+
+## 验证与交付
+
+编译、格式化、测试、构建及界面预览均在 GitHub Actions 中执行，本地仅修改源码和读取 CI 结果。
+
+- [功能接入 CI](https://github.com/WangXingFan/cc-switch/actions/runs/45619193507)：成功，对应功能代码提交 `24d0f9c3a`。前端类型检查、2,085 项测试、构建及四页界面预览全部通过；后端 Clippy、3,222 项库测试和各集成测试全部通过（9 项库测试按原有配置忽略）。
+- [Windows 分支构建](https://github.com/WangXingFan/cc-switch/actions/runs/45619196037)：对应同一代码提交，生成 MSI 和便携版。
+- [变更草稿 PR](https://github.com/WangXingFan/cc-switch/pull/2)。
+
+界面预览使用模拟数据，包含会话阅读器、插件、MCP、统计四页；不代表已连接用户的真实 MCP 服务或插件市场。
+本次没有在本机启动编译、测试或安装新程序。
