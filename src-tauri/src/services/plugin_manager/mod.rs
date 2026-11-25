@@ -8,7 +8,7 @@
 //! - Codex：`codex plugin list|add|remove` 和 `codex plugin marketplace list|add|remove|upgrade`。
 //!   Codex 没有启用 / 停用命令，开关就是 `config.toml` 的 `[plugins."<id>"] enabled`，
 //!   经写入引擎原位改这一个键。
-//! - Grok Build、MiniMax Code、OpenClaw、Pi、Antigravity：见各自的子模块。
+//! - Grok Build、OpenClaw、Pi：见各自的子模块。
 //!
 //! 写锁只在 CC Switch 自己写文件时拿（Codex 和 Pi 的启停、Pi 本地包的卸载）。CLI 改自己的配置和用户手改
 //! 文件是一回事：切换供应商写之前本来就会重读比对，所以 CLI 调用期间（安装、更新最长
@@ -45,14 +45,6 @@ pub const CLI_NOT_INSTALLED: &str = "PLUGIN_CLI_NOT_INSTALLED";
 /// Claude Code 要用户亲自确认市场声明的命令（命令来源的插件、取归档用的 headersHelper）
 /// 时返回的错误码。CC Switch 不传 `-y` 代为同意，前端提示用户去终端里装。
 pub const NEEDS_TERMINAL_CONFIRM: &str = "PLUGIN_NEEDS_TERMINAL_CONFIRM";
-
-/// 插件目录正被同应用的其它进程占用（例如 Windows 下运行中的 Antigravity Hub / agy 会话），
-/// 无法替换或移除目录时返回的错误码，前端据此提示关闭相关进程后重试。
-pub const PLUGIN_IN_USE: &str = "PLUGIN_IN_USE";
-
-/// 插件装在 CC Switch 无法原地更新的位置（Antigravity 旧版的数字目录）时返回的错误码，
-/// 前端提示用户卸载后从「发现」重新安装。
-pub const UPDATE_NEEDS_REINSTALL: &str = "PLUGIN_UPDATE_NEEDS_REINSTALL";
 
 const LIST_TIMEOUT: Duration = Duration::from_secs(90);
 const TOGGLE_TIMEOUT: Duration = Duration::from_secs(60);
@@ -208,11 +200,9 @@ fn validate_app_plugin_id(app: PluginApp, id: &str) -> Result<(), String> {
     }
 }
 
-/// 按应用校验安装参数：Antigravity 目录条目是 `name@marketplace`，已安装条目是目录名。
+/// 按应用校验安装参数。
 fn validate_install_plugin_id(app: PluginApp, id: &str) -> Result<(), String> {
-    match app {
-        _ => validate_app_plugin_id(app, id),
-    }
+    validate_app_plugin_id(app, id)
 }
 
 /// 这个应用的 CLI 没有对应命令（前端本该隐藏入口）。

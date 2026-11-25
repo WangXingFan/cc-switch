@@ -8,16 +8,19 @@
 
 use std::collections::HashSet;
 use std::fs::File;
-use std::io::{self, BufRead, BufReader, Read};
+use std::io::{self, BufRead, BufReader};
+#[cfg(test)]
+use std::io::Read;
 use std::path::{Path, PathBuf};
 
-use crate::config::atomic_write;
-use crate::error::AppError;
+#[cfg(test)]
+use crate::{config::atomic_write, error::AppError};
 
 const COMPRESSED_SUFFIX: &str = ".zst";
 const PLAIN_SUFFIX: &str = ".jsonl";
 const READER_CAPACITY: usize = 1 << 20;
 /// 与 Codex 压缩时用的级别无关，只用于 CC Switch 原地改写压缩文件（历史分桶迁移）。
+#[cfg(test)]
 const WRITE_LEVEL: i32 = 3;
 
 fn file_name(path: &Path) -> Option<&str> {
@@ -76,6 +79,7 @@ pub fn reader_from_file(path: &Path, file: File) -> io::Result<Box<dyn BufRead +
 }
 
 /// 读出全文（UTF-8），压缩文件先解压。
+#[cfg(test)]
 pub fn read_to_string(path: &Path) -> io::Result<String> {
     if !is_compressed(path) {
         return std::fs::read_to_string(path);
@@ -89,6 +93,7 @@ pub fn read_to_string(path: &Path) -> io::Result<String> {
 ///
 /// 两种形态都保留原 mtime：`codex resume` 按 mtime 排序，会话列表里压缩会话的最后活跃
 /// 时间也取 mtime（Codex 压缩时也保留了它），改写元数据不该让老会话显示成刚刚活跃。
+#[cfg(test)]
 pub fn write_rollout(path: &Path, bytes: &[u8]) -> Result<(), AppError> {
     let modified = std::fs::metadata(path)
         .and_then(|meta| meta.modified())
@@ -117,6 +122,7 @@ pub fn write_rollout(path: &Path, bytes: &[u8]) -> Result<(), AppError> {
 }
 
 /// 逻辑文件名（去掉 `.zst`）。`path` 可以是任意平台的路径字符串（游标里存的原样）。
+#[cfg(test)]
 pub fn logical_file_name(path: &str) -> &str {
     let name = path.rsplit(['/', '\\']).next().unwrap_or(path);
     match name.strip_suffix(COMPRESSED_SUFFIX) {

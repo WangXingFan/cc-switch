@@ -4164,16 +4164,25 @@ wire_api = "responses"
             "autoReviewModel":"review-model"
         }});
         let catalog = codex_model_catalog_from_settings(
-            &settings, "", CodexCatalogToolProfile::NativeResponses,
-        ).unwrap().unwrap();
+            &settings,
+            "",
+            CodexCatalogToolProfile::NativeResponses,
+        )
+        .unwrap()
+        .unwrap();
         for entry in catalog["models"].as_array().unwrap() {
             assert_eq!(entry["auto_review_model_override"], "review-model");
         }
         let restored = build_simplified_catalog_from_texts("", &catalog.to_string()).unwrap();
         assert_eq!(restored["autoReviewModel"], "review-model");
         let mut unchanged = json!({"models":[{"slug":"main-model"}]});
-        assert!(!apply_codex_auto_review_model(&mut unchanged, "missing-model"));
-        assert!(unchanged["models"][0].get("auto_review_model_override").is_none());
+        assert!(!apply_codex_auto_review_model(
+            &mut unchanged,
+            "missing-model"
+        ));
+        assert!(unchanged["models"][0]
+            .get("auto_review_model_override")
+            .is_none());
     }
 
     #[test]

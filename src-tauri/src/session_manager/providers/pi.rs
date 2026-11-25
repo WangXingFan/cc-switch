@@ -259,10 +259,6 @@ pub(crate) fn scan_sessions_with_status(status: &mut ScanStatus) -> Vec<SessionM
     scan_sessions_for_with_status(&PI, status)
 }
 
-pub(crate) fn scan_sessions_for(d: &Dialect) -> Vec<SessionMeta> {
-    scan_sessions_for_with_status(d, &mut ScanStatus::default())
-}
-
 pub(crate) fn scan_sessions_for_with_status(
     d: &Dialect,
     status: &mut ScanStatus,

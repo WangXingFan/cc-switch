@@ -294,6 +294,7 @@ impl TranscriptCache {
     /// Release retained bodies in lightweight mode. Check the flag under the
     /// same lock in insert so an already-running parser cannot refill the cache.
     /// Existing readers keep their Arc until their current operation finishes.
+    #[cfg(test)]
     pub fn set_enabled(&self, enabled: bool) {
         let mut entries = self.lock();
         self.enabled.store(enabled, Ordering::Relaxed);
