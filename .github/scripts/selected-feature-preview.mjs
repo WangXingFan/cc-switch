@@ -24,7 +24,7 @@ try {
       localStorage.setItem("cc-switch-last-app", "claude");
       localStorage.setItem("cc-switch.sessionManager.groupMode", "time");
       const now = Date.now();
-      const settings = { language: "zh", showInTray: true, sessionAutoSyncEnabled: false, sessionContentSearchEnabled: true, usageDisplay: { currency: "CNY", exchangeRates: { CNY: 7.2 } } };
+      const settings = { language: "zh", firstRunNoticeConfirmed: true, usageConfirmed: true, showInTray: true, sessionAutoSyncEnabled: false, sessionContentSearchEnabled: true, usageDisplay: { currency: "CNY", exchangeRates: { CNY: 7.2 } } };
       const messages = [
         { role: "user", id: "u1", ts: now, content: "请说明这次更新的功能，并检查配置文件。" },
         { role: "assistant", id: "a1", ts: now + 1000, blocks: [{ type: "text", text: "本次更新包含 **会话阅读器**、插件管理、MCP 连通性检查和增强统计。\n\n```toml\n[agents]\nmax_threads = 8\n```" }] },
