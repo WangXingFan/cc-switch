@@ -114,6 +114,9 @@ import {
   isProxyAppId,
 } from "@/config/appConfig";
 
+import { PluginsPage } from "@/components/plugins/PluginsPage";
+import { Puzzle } from "lucide-react";
+
 type View =
   | "providers"
   | "settings"
@@ -123,6 +126,7 @@ type View =
   | "mcp"
   | "agents"
   | "universal"
+  | "plugins"
   | "sessions"
   | "workspace"
   | "openclawEnv"
@@ -159,6 +163,7 @@ const VALID_VIEWS: View[] = [
   "agents",
   "universal",
   "sessions",
+  "plugins",
   "workspace",
   "openclawEnv",
   "openclawTools",
@@ -1010,6 +1015,8 @@ function App() {
   const renderContent = () => {
     const content = (() => {
       switch (currentView) {
+      case "plugins":
+        return <PluginsPage />;
         case "settings":
           return (
             <SettingsPage
@@ -1774,6 +1781,12 @@ function App() {
         appId={activeApp}
         isProxyTakeover={isCurrentAppTakeoverActive}
       />
+
+      <Button variant="outline" size="sm" className="fixed bottom-4 right-4 z-40 shadow-sm"
+        onClick={() => setCurrentView(currentView === "plugins" ? "providers" : "plugins")}
+        aria-label={t("plugins.title", { defaultValue: "Plugins" })}>
+        <Puzzle size={16} /> {t("plugins.title", { defaultValue: "Plugins" })}
+      </Button>
 
       {effectiveUsageProvider && (
         <UsageScriptModal

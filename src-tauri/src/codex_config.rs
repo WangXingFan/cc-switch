@@ -2019,6 +2019,54 @@ fn codex_model_catalog_from_settings(
     config_text: &str,
     profile: CodexCatalogToolProfile,
 ) -> Result<Option<Value>, AppError> {
+    let mut result = codex_model_catalog_from_settings_inner(settings, config_text, profile)?;
+    if let (Some(catalog), Some(model)) = (result.as_mut(), codex_card_auto_review_model(settings)) {
+        apply_codex_auto_review_model(catalog, model);
+    }
+    Ok(result)
+}
+
+fn codex_card_auto_review_model(settings: &Value) -> Option<&str> {
+    settings
+        .get("modelCatalog")
+        .and_then(|catalog| catalog.get("autoReviewModel"))
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .filter(|model| !model.is_empty())
+}
+
+/// Codex 自动审批（Auto Review）用的模型：写进目录每一行的 `auto_review_model_override`。
+/// Codex 按主模型那一行的这个字段选审批模型（codex-rs `ext/guardian-reviewer/src/model.rs`），
+/// 主模型可以是目录里任何一行，所以每行都写。审批请求和主对话走同一家：直连、路由下只能
+/// 选这一家目录里的模型，聚合下可以选别家发布的 `ccs-*` 模型。
+///
+/// 不写时 Codex 用供应商默认的 `codex-auto-review`，目录里没有它（第三方的目录）就由主模型
+/// 自己审批。`model` 不在目录里时不写：Codex 照样会拿这个名字发请求，上游多半不认。
+/// 返回是否写了。
+pub(crate) fn apply_codex_auto_review_model(catalog: &mut Value, model: &str) -> bool {
+    let Some(entries) = catalog.get_mut("models").and_then(Value::as_array_mut) else {
+        return false;
+    };
+    if !entries
+        .iter()
+        .any(|entry| entry.get("slug").and_then(Value::as_str) == Some(model))
+    {
+        return false;
+    }
+    for entry in entries.iter_mut() {
+        if let Some(obj) = entry.as_object_mut() {
+            obj.insert("auto_review_model_override".to_string(), json!(model));
+        }
+    }
+    true
+}
+
+
+fn codex_model_catalog_from_settings_inner(
+    settings: &Value,
+    config_text: &str,
+    profile: CodexCatalogToolProfile,
+) -> Result<Option<Value>, AppError> {
     let specs = codex_catalog_model_specs(settings);
     if specs.is_empty() {
         return Ok(None);
@@ -2312,7 +2360,13 @@ fn build_simplified_catalog_from_texts(config_text: &str, catalog_text: &str) ->
         return None;
     }
 
-    Some(json!({ "models": entries }))
+    let mut simplified = json!({ "models": entries });
+    if let Some(model) = models.first().and_then(|entry| entry.get("auto_review_model_override")).and_then(Value::as_str) {
+        if models.iter().all(|entry| entry.get("auto_review_model_override").and_then(Value::as_str) == Some(model)) {
+            simplified["autoReviewModel"] = json!(model);
+        }
+    }
+    Some(simplified)
 }
 
 /// Extract a provider-scoped `experimental_bearer_token` from Codex `config.toml`.

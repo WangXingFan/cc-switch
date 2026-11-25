@@ -864,3 +864,16 @@ pub fn get_claude_config_status() -> ConfigStatus {
         path: path.to_string_lossy().to_string(),
     }
 }
+
+#[cfg(test)]
+pub(crate) fn sqlite_unsupported_in_temp_dir() -> bool {
+    let temp = std::env::temp_dir();
+    let unsupported = is_wsl_path(&temp);
+    if unsupported {
+        eprintln!(
+            "temp dir {} is a WSL share where SQLite cannot lock; skipping",
+            temp.display()
+        );
+    }
+    unsupported
+}

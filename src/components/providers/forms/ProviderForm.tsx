@@ -70,6 +70,7 @@ import { BasicFormFields } from "./BasicFormFields";
 import { ClaudeFormFields } from "./ClaudeFormFields";
 import { ClaudeDesktopProviderForm } from "./ClaudeDesktopProviderForm";
 import { GrokBuildProviderForm } from "./GrokBuildProviderForm";
+import { CodexAdvancedModels } from "./CodexAdvancedModels";
 import { CodexFormFields } from "./CodexFormFields";
 import { GeminiFormFields } from "./GeminiFormFields";
 import { PiProviderForm } from "./PiProviderForm";
@@ -638,6 +639,8 @@ function ProviderFormFull({
     codexBaseUrl,
     codexModel,
     codexCatalogModels,
+    codexAutoReviewModel,
+    setCodexAutoReviewModel,
     codexAuthError,
     setCodexAuth,
     setCodexConfig,
@@ -1563,10 +1566,14 @@ function ProviderFormFull({
         } as {
           auth: unknown;
           config: string;
-          modelCatalog?: { models: CodexCatalogModel[] };
+          modelCatalog?: { models: CodexCatalogModel[]; autoReviewModel?: string };
         };
         if (normalizedCatalogModels.length > 0) {
-          configObj.modelCatalog = { models: normalizedCatalogModels };
+          configObj.modelCatalog = {
+            models: normalizedCatalogModels,
+            ...(normalizedCatalogModels.some(model => model.model === codexAutoReviewModel)
+              ? { autoReviewModel: codexAutoReviewModel } : {}),
+          };
         }
         settingsConfig = JSON.stringify(configObj);
       } catch (err) {
@@ -2557,6 +2564,17 @@ function ProviderFormFull({
               onLocalProxyHeadersOverrideChange={setLocalProxyHeadersOverride}
               localProxyBodyOverride={localProxyBodyOverride}
               onLocalProxyBodyOverrideChange={setLocalProxyBodyOverride}
+            />
+          )}
+
+          {appId === "codex" && (
+            <CodexAdvancedModels
+              config={codexConfig}
+              onConfigChange={setCodexConfig}
+              models={codexCatalogModels}
+              official={category === "official"}
+              autoReviewModel={codexAutoReviewModel}
+              onAutoReviewModelChange={setCodexAutoReviewModel}
             />
           )}
 

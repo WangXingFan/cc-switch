@@ -199,3 +199,29 @@ pub async fn toggle_mcp_app(
 pub async fn import_mcp_from_apps(state: State<'_, AppState>) -> Result<usize, String> {
     McpService::import_from_all_apps(&state).map_err(|e| e.to_string())
 }
+
+/// Start a bounded, one-shot batch only while the MCP page is mounted.
+#[tauri::command]
+pub async fn start_mcp_connectivity_checks(
+    state: State<'_, AppState>,
+    server_ids: Vec<String>,
+    on_result: tauri::ipc::Channel<crate::services::mcp_connectivity::ConnectivityResult>,
+) -> Result<String, String> {
+    let servers = McpService::get_all_servers(&state).map_err(|e| e.to_string())?;
+    Ok(crate::services::mcp_connectivity::start_checks(
+        // Use the page's enabled selection: app toggles update it optimistically,
+        // so the database's enablement flags can still lag behind the UI.
+        servers
+            .into_iter()
+            .filter(|(id, _)| server_ids.contains(id))
+            .map(|(_, server)| server)
+            .collect(),
+        move |result| on_result.send(result).is_ok(),
+    ))
+}
+
+#[tauri::command]
+pub fn cancel_mcp_connectivity_checks(batch_id: String) {
+    crate::services::mcp_connectivity::cancel_checks(&batch_id);
+}
+

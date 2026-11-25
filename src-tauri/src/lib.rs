@@ -34,6 +34,8 @@ mod provider;
 mod proxy;
 mod services;
 mod session_manager;
+mod codex_rollout_file;
+mod sync_utils;
 mod settings;
 mod store;
 
@@ -1493,6 +1495,16 @@ pub fn run() {
             commands::copy_text_to_clipboard,
             commands::get_claude_plugin_status,
             commands::read_claude_plugin_config,
+            commands::list_installed_plugins,
+            commands::list_plugin_catalog,
+            commands::list_plugin_marketplaces,
+            commands::install_plugin,
+            commands::uninstall_plugin,
+            commands::set_plugin_enabled,
+            commands::update_plugin,
+            commands::add_plugin_marketplace,
+            commands::remove_plugin_marketplace,
+            commands::refresh_plugin_marketplaces,
             commands::apply_claude_plugin_config,
             commands::is_claude_plugin_applied,
             commands::apply_claude_onboarding_skip,
@@ -1521,6 +1533,8 @@ pub fn run() {
             commands::set_mcp_enabled,
             // Unified MCP management
             commands::get_mcp_servers,
+            commands::start_mcp_connectivity_checks,
+            commands::cancel_mcp_connectivity_checks,
             commands::upsert_mcp_server,
             commands::delete_mcp_server,
             commands::toggle_mcp_app,
@@ -1665,6 +1679,9 @@ pub fn run() {
             commands::set_auto_failover_enabled,
             // Usage statistics
             commands::get_usage_summary,
+            commands::get_session_usage_summary,
+            commands::get_usage_first_date,
+            commands::fetch_exchange_rates,
             commands::get_usage_summary_by_app,
             commands::get_usage_trends,
             commands::get_provider_stats,
@@ -1690,6 +1707,15 @@ pub fn run() {
             commands::save_stream_check_config,
             // Session manager
             commands::list_sessions,
+            commands::sync_session_index,
+            commands::search_session_content,
+            commands::cancel_session_content_search,
+            commands::clear_session_index,
+            commands::stream_session_messages,
+            commands::get_session_block_content,
+            commands::get_session_image,
+            commands::reveal_session_path,
+            commands::export_session_markdown,
             commands::get_session_messages,
             commands::delete_session,
             commands::delete_sessions,

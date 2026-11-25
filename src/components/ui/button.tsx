@@ -8,6 +8,7 @@ const buttonVariants = cva(
   {
     variants: {
       variant: {
+        quiet: "border border-transparent text-fg-1 hover:bg-subtle",
         // 主按钮：蓝底白字（对应旧版 primary）
         default:
           "bg-blue-500 text-white hover:bg-blue-600 dark:bg-blue-600 dark:hover:bg-blue-700",
@@ -29,6 +30,12 @@ const buttonVariants = cva(
         link: "text-blue-500 underline-offset-4 hover:underline dark:text-blue-400",
       },
       size: {
+        compact:
+          "h-control-sm rounded-control px-3 text-body font-medium transition-[background-color,filter,scale] active:scale-[0.96] [&[aria-haspopup]]:active:scale-100",
+        regular:
+          "h-control rounded-control px-3.5 text-body font-medium transition-[background-color,filter,scale] active:scale-[0.96] [&[aria-haspopup]]:active:scale-100",
+        "icon-compact":
+          "h-control-sm w-control-sm rounded-control p-0 text-fg-2 hover:text-fg-1 transition-[background-color,color,scale] active:scale-[0.96] [&[aria-haspopup]]:active:scale-100",
         default: "h-9 px-4 py-2",
         sm: "h-8 rounded-md px-3 text-xs",
         lg: "h-10 rounded-md px-8",

@@ -1,3 +1,4 @@
+use std::collections::BTreeMap;
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -382,6 +383,10 @@ pub struct AppSettings {
     /// 代理接管记账与启动费用回填（不读会话文件）不受此开关影响。
     #[serde(default = "default_session_auto_sync_enabled")]
     pub session_auto_sync_enabled: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub usage_display: Option<UsageDisplaySettings>,
+    #[serde(default)]
+    pub session_content_search_enabled: bool,
     /// Whether to show the failover toggle independently on the main page
     #[serde(default)]
     pub enable_failover_toggle: bool,
@@ -542,6 +547,8 @@ impl Default for AppSettings {
             usage_confirmed: None,
             usage_dashboard_refresh_interval_ms: None,
             session_auto_sync_enabled: true,
+            usage_display: None,
+            session_content_search_enabled: false,
             enable_failover_toggle: false,
             show_profile_switcher: true,
             preserve_codex_official_auth_on_switch: false,
@@ -1495,4 +1502,38 @@ mod tests {
         let entries = fs::read_dir(dir.path()).expect("read dir").count();
         assert_eq!(entries, 1, "no temp or backup files left behind");
     }
+}#[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct UsageDisplaySettings {
+    /// 显示币种（"USD" / "CNY" / "JPY" 等，见前端 `DISPLAY_CURRENCIES`），缺省为 USD
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub currency: Option<String>,
+    /// 1 美元折多少目标币种，按币种存：换回 USD 再换回来，填过的汇率还在
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub exchange_rates: BTreeMap<String, f64>,
+    /// 侧栏「今日」显示哪几项（"cost" / "tokens" / "requests" / "hitRate"，最多两项），
+    /// 缺省只显示金额；空列表＝不显示，所以空列表也要写进文件
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub sidebar_today_items: Option<Vec<String>>,
+    /// 请求日志的列显隐：只存用户改过的列（列 id → 是否显示），没写的按各列默认值，
+    /// 以后新加的列也按它自己的默认值出现
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub request_log_columns: BTreeMap<String, bool>,
+    /// 用量趋势图的样式（"bar" / "area"），缺省为柱形图
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub trend_chart_type: Option<String>,
+    /// 汇率来源："auto" 自动获取（每日更新）/"manual" 手动填写，缺省按 manual
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub rate_source: Option<String>,
+    /// 自动获取到的汇率，按币种存；和手填的 `exchange_rates` 分开，切回手动不丢手填值
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub auto_exchange_rates: BTreeMap<String, f64>,
+    /// 上次成功取到汇率的时间（毫秒时间戳）
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub rate_fetched_at: Option<i64>,
+    /// 上次取到汇率的实际数据源，界面署名用（open.er-api.com / floatrates.com）
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub rate_provider: Option<String>,
 }
+
+

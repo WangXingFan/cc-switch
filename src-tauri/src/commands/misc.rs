@@ -2434,7 +2434,7 @@ fn path_line_from_env_output(raw: &str) -> Option<&str> {
 /// 合并两段 PATH：`primary` 全部保留在前，`extra` 中未出现过的段按序追加。
 /// 空段直接丢弃（`a::b` 里的空段在 POSIX 下语义是"当前目录"，注入时不该带上）。
 #[cfg(not(target_os = "windows"))]
-fn merge_path_segments(primary: &str, extra: &str) -> String {
+pub(crate) fn merge_path_segments(primary: &str, extra: &str) -> String {
     let mut seen = std::collections::HashSet::new();
     let mut merged: Vec<&str> = Vec::new();
     for segment in primary.split(':').chain(extra.split(':')) {
@@ -3543,12 +3543,7 @@ pub(crate) fn run_detected_tool_command_with_timeout(
     if !VALID_TOOLS.contains(&tool) {
         return Err(format!("Unsupported tool: {tool}"));
     }
-    if args.iter().any(|arg| {
-        arg.is_empty()
-            || !arg
-                .chars()
-                .all(|c| c.is_ascii_alphanumeric() || matches!(c, '-' | '_' | '.'))
-    }) {
+    if args.iter().any(|arg| !is_safe_tool_command_arg(arg)) {
         return Err("Invalid tool command arguments".to_string());
     }
 
@@ -8186,4 +8181,28 @@ mod tests {
             "pushd \"\\\\server\\share\\100%%^&^(test^)\" || exit /b 1\r\n"
         );
     }
+}
+
+#[cfg(not(target_os = "windows"))]
+pub(crate) fn cached_login_shell_path() -> Option<String> {
+    static PATH: std::sync::OnceLock<Option<String>> = std::sync::OnceLock::new();
+    PATH.get_or_init(login_shell_path).clone()
+}
+
+pub(crate) fn is_safe_tool_command_arg(arg: &str) -> bool {
+    !arg.is_empty()
+        && arg.chars().all(|c| {
+            c.is_ascii_alphanumeric() || matches!(c, '-' | '_' | '.' | '@' | '/' | ':' | '+')
+        })
+}
+
+pub(crate) fn locate_detected_tool(tool: &str, timeout: std::time::Duration) -> Result<(), String> {
+    if !VALID_TOOLS.contains(&tool) {
+        return Err(format!("Unsupported tool: {tool}"));
+    }
+    #[cfg(target_os = "windows")]
+    if wsl_distro_for_tool(tool).is_some() {
+        return Ok(());
+    }
+    locate_default_tool(tool, CommandDeadline::from_timeout(Some(timeout))).map(|_| ())
 }
