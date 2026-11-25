@@ -8,9 +8,9 @@
 
 use std::collections::HashSet;
 use std::fs::File;
-use std::io::{self, BufRead, BufReader};
 #[cfg(test)]
 use std::io::Read;
+use std::io::{self, BufRead, BufReader};
 use std::path::{Path, PathBuf};
 
 #[cfg(test)]

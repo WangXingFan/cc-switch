@@ -1608,9 +1608,30 @@ impl Database {
             // INSERT OR IGNORE preserves existing user-defined prices.
             ("gpt-6.1-sol", "GPT-6.1 Sol", "2", "10", "0.10", "2.50"),
             ("qwen4-max", "Qwen4 Max", "1.50", "4.50", "0.075", "1.875"),
-            ("gemini-4-hydrogen", "Gemini 4 Hydrogen", "1.50", "7.50", "0.075", "0"),
-            ("gemini-4-argon", "Gemini 4 Argon", "2.00", "10.00", "0.10", "0"),
-            ("gemini-4-neon", "Gemini 4 Neon", "3.00", "15.00", "0.15", "0"),
+            (
+                "gemini-4-hydrogen",
+                "Gemini 4 Hydrogen",
+                "1.50",
+                "7.50",
+                "0.075",
+                "0",
+            ),
+            (
+                "gemini-4-argon",
+                "Gemini 4 Argon",
+                "2.00",
+                "10.00",
+                "0.10",
+                "0",
+            ),
+            (
+                "gemini-4-neon",
+                "Gemini 4 Neon",
+                "3.00",
+                "15.00",
+                "0.15",
+                "0",
+            ),
             // Claude Fable 5.1 / Mythos 5.1（2026-09-01 发布；同 Fable 5 价，
             // 但缓存读为 0.025x = $0.25，非 Fable 5 的 $1）
             (

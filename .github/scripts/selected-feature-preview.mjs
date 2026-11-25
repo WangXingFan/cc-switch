@@ -15,7 +15,7 @@ try {
   }
   browser = await chromium.launch();
   for (const view of ["plugins", "sessions", "mcp", "settings"]) {
-    const page = await browser.newPage({ viewport: { width: 1280, height: 900 }, locale: "zh-CN" });
+    const page = await browser.newPage({ viewport: { width: 1280, height: 900 }, locale: "zh-CN", reducedMotion: "reduce" });
     const errors = [];
     page.on("pageerror", error => errors.push(error.message));
     await page.addInitScript(({ view }) => {
@@ -42,6 +42,7 @@ try {
         convertFileSrc: value => value,
         async invoke(command, args = {}) {
           if (command === "get_settings") return settings;
+          if (command === "check_env_conflicts") return [];
           if (command === "save_settings") { Object.assign(settings, args.settings); return true; }
           if (command === "get_providers" || command === "get_global_proxy_config" || command === "get_proxy_takeover_status") return {};
           if (command === "get_current_provider") return "";
@@ -84,10 +85,11 @@ try {
     }
     if (view === "mcp") await page.getByText("Documentation MCP", { exact: true }).waitFor();
     if (view === "settings") {
-      await page.getByRole("tab", { name: /用量/ }).click();
+      await page.getByRole("tab", { name: "使用统计", exact: true }).click();
       await page.getByText("120", { exact: true }).first().waitFor();
     }
-    await page.screenshot({ path: `ui-preview/${view}.png`, fullPage: true });
+    await page.waitForTimeout(600);
+    await page.screenshot({ path: `ui-preview/${view}.png`, fullPage: true, animations: "disabled" });
     if (errors.length) throw new Error(`${view}: ${errors.join("; ")}`);
     } catch (error) {
       await page.screenshot({ path: `ui-preview/${view}-failure.png`, fullPage: true });
