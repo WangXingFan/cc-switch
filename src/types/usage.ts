@@ -213,7 +213,7 @@ export type AppType =
   | "gemini"
   | "grokbuild"
   | "opencode"
-  | "pi"
+  | "pi";
 
 export type AppTypeFilter = "all" | AppType;
 
@@ -238,9 +238,7 @@ export function omitsCacheWrites(appType: string): boolean {
 
 // Pi and Oh My Pi sessions can mix Anthropic and OpenAI APIs, but the dashboard
 // aggregates only by app type. Treat cache-write coverage as partial.
-const PARTIAL_CACHE_WRITE_APP_TYPES: ReadonlySet<string> = new Set([
-  "pi",
-]);
+const PARTIAL_CACHE_WRITE_APP_TYPES: ReadonlySet<string> = new Set(["pi"]);
 
 export type CacheWriteAvailability = "ok" | "partial" | "na";
 

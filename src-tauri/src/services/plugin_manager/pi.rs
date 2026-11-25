@@ -504,7 +504,7 @@ fn parse_search_page(value: &Value) -> (Vec<(String, PluginEntry)>, usize) {
 }
 
 async fn fetch_catalog() -> Result<Vec<PluginEntry>, String> {
-    let client = crate::proxy::http_client::get_for_url(REGISTRY_SEARCH_URL);
+    let client = crate::proxy::http_client::get();
     let mut seen = std::collections::HashSet::new();
     let mut catalog = Vec::new();
     let mut from = 0usize;

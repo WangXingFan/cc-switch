@@ -154,13 +154,18 @@ module.exports = {
         },
       },
       boxShadow: {
-        "v7-sm": "var(--shadow-sm)", "v7-md": "var(--shadow-md)", "v7-lg": "var(--shadow-lg)",
+        "v7-sm": "var(--shadow-sm)",
+        "v7-md": "var(--shadow-md)",
+        "v7-lg": "var(--shadow-lg)",
         sm: "0 1px 2px 0 rgb(0 0 0 / 0.05)",
         md: "0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1)",
         lg: "0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1)",
       },
       borderRadius: {
-        control: "6px", row: "8px", panel: "10px", dialog: "12px",
+        control: "6px",
+        row: "8px",
+        panel: "10px",
+        dialog: "12px",
         sm: "0.375rem",
         md: "0.5rem",
         lg: "0.75rem",
@@ -293,4 +298,3 @@ module.exports = {
   },
   plugins: [],
 };
-

@@ -1442,8 +1442,6 @@ export function SessionManagerPage({
             </p>
           )}
 
-
-
           {appFilter === "pi" && piStatus === "requires_project_context" && (
             <div role="status" className="mx-6 mt-3 shrink-0">
               <Notice

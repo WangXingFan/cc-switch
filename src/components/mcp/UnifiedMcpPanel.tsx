@@ -1,6 +1,13 @@
 import React, { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Edit3, ExternalLink, Search, Server, Trash2, PlugZap } from "lucide-react";
+import {
+  Edit3,
+  ExternalLink,
+  Search,
+  Server,
+  Trash2,
+  PlugZap,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -11,7 +18,10 @@ import {
   useDeleteMcpServer,
   useImportMcpFromApps,
 } from "@/hooks/useMcp";
-import { useMcpConnectivity, type McpConnectionState } from "@/hooks/useMcpConnectivity";
+import {
+  useMcpConnectivity,
+  type McpConnectionState,
+} from "@/hooks/useMcpConnectivity";
 import type { McpServer } from "@/types";
 import type { AppId } from "@/lib/api/types";
 import McpFormModal from "./McpFormModal";
@@ -287,11 +297,27 @@ const UnifiedMcpPanel = React.forwardRef<
       />
 
       <div className="mb-3 flex justify-end">
-        <Button variant="outline" size="sm"
-          disabled={!connectivity.canCheck || connectivity.checking || interactionBlocked}
-          onClick={connectivity.checkAll}>
+        <Button
+          variant="outline"
+          size="sm"
+          disabled={
+            !connectivity.canCheck ||
+            connectivity.checking ||
+            interactionBlocked
+          }
+          onClick={connectivity.checkAll}
+        >
           <PlugZap size={14} />
-          {t(connectivity.checking ? "mcp.connectivity.checking" : "mcp.connectivity.checkAll", { defaultValue: connectivity.checking ? "Checking…" : "Check connectivity" })}
+          {t(
+            connectivity.checking
+              ? "mcp.connectivity.checking"
+              : "mcp.connectivity.checkAll",
+            {
+              defaultValue: connectivity.checking
+                ? "Checking…"
+                : "Check connectivity",
+            },
+          )}
         </Button>
       </div>
 
@@ -457,13 +483,26 @@ const UnifiedMcpListItem: React.FC<UnifiedMcpListItemProps> = ({
       </div>
 
       {connectionState && (
-        <Button variant="ghost" size="sm"
-          className={connectionState === "connected" ? "text-green-600 dark:text-green-400" : connectionState === "disconnected" ? "text-red-500" : "text-muted-foreground"}
+        <Button
+          variant="ghost"
+          size="sm"
+          className={
+            connectionState === "connected"
+              ? "text-green-600 dark:text-green-400"
+              : connectionState === "disconnected"
+                ? "text-red-500"
+                : "text-muted-foreground"
+          }
           disabled={disabled || connectionState === "checking"}
           onClick={() => onCheck(id)}
-          title={t("mcp.connectivity.checkOne", { defaultValue: "Test connection" })}>
+          title={t("mcp.connectivity.checkOne", {
+            defaultValue: "Test connection",
+          })}
+        >
           <PlugZap size={14} />
-          {t(`mcp.connectivity.${connectionState}`, { defaultValue: connectionState })}
+          {t(`mcp.connectivity.${connectionState}`, {
+            defaultValue: connectionState,
+          })}
         </Button>
       )}
 

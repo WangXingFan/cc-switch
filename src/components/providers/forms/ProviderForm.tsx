@@ -872,7 +872,8 @@ function ProviderFormFull({
           !Array.isArray(auth) &&
           typeof config === "string"
         ) {
-          resetCodexConfig(auth as Record<string, unknown>, config);
+          const catalog = settings.modelCatalog as { models?: CodexCatalogModel[]; autoReviewModel?: string } | undefined;
+          resetCodexConfig(auth as Record<string, unknown>, config, catalog?.models ?? [], catalog?.autoReviewModel ?? "");
         }
       } else if (appId === "gemini") {
         const env = settings.env;
@@ -1566,13 +1567,19 @@ function ProviderFormFull({
         } as {
           auth: unknown;
           config: string;
-          modelCatalog?: { models: CodexCatalogModel[]; autoReviewModel?: string };
+          modelCatalog?: {
+            models: CodexCatalogModel[];
+            autoReviewModel?: string;
+          };
         };
         if (normalizedCatalogModels.length > 0) {
           configObj.modelCatalog = {
             models: normalizedCatalogModels,
-            ...(normalizedCatalogModels.some(model => model.model === codexAutoReviewModel)
-              ? { autoReviewModel: codexAutoReviewModel } : {}),
+            ...(normalizedCatalogModels.some(
+              (model) => model.model === codexAutoReviewModel,
+            )
+              ? { autoReviewModel: codexAutoReviewModel }
+              : {}),
           };
         }
         settingsConfig = JSON.stringify(configObj);

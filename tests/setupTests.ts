@@ -23,6 +23,9 @@ beforeAll(async () => {
 });
 
 afterEach(() => {
+  for (const key of Object.keys(localStorage)) {
+    if (key.startsWith("cc-switch-cache:") || key.startsWith("cc-switch.usage.")) localStorage.removeItem(key);
+  }
   cleanup();
   resetProviderState();
   server.resetHandlers();

@@ -86,8 +86,7 @@ export const PLUGIN_CLI_NAME: Record<PluginApp, string> = {
 };
 
 /** 各 CLI 的登录命令，提示用户去终端登录时用。 */
-export const PLUGIN_LOGIN_COMMAND: Partial<Record<PluginApp, string>> = {
-};
+export const PLUGIN_LOGIN_COMMAND: Partial<Record<PluginApp, string>> = {};
 
 export interface PluginEntry {
   /** 交给 CLI 的 id：多数应用是 `name@marketplace`，Grok Build 是插件名，OpenClaw 是插件 id 或 ClawHub 包名，Pi 是包来源（`npm:<包名>`） */

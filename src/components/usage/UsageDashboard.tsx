@@ -52,6 +52,7 @@ import { useSettingsQuery } from "@/lib/query";
 import { DEFAULT_VISIBLE_APPS } from "@/config/appConfig";
 import { useUsageEventBridge } from "@/hooks/useUsageEventBridge";
 import { useUsageAutoRefresh } from "@/hooks/useUsageAutoRefresh";
+import { useAutoExchangeRates } from "@/hooks/useAutoExchangeRates";
 import { usageApi } from "@/lib/api/usage";
 import { getUsageRangePresetLabel, resolveUsageRange } from "@/lib/usageRange";
 import { cn } from "@/lib/utils";
@@ -261,6 +262,11 @@ export function UsageDashboard({
   usageDisplay,
   onUsageDisplayChange,
 }: UsageDashboardProps = {}) {
+  useAutoExchangeRates(
+    usageDisplay,
+    (next) => onUsageDisplayChange?.(next),
+    settingsReady && onUsageDisplayChange != null,
+  );
   const { t, i18n } = useTranslation();
   const queryClient = useQueryClient();
   const [range, setRange] = useState<UsageRangeSelection>(() => ({

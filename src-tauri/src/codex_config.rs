@@ -2020,7 +2020,8 @@ fn codex_model_catalog_from_settings(
     profile: CodexCatalogToolProfile,
 ) -> Result<Option<Value>, AppError> {
     let mut result = codex_model_catalog_from_settings_inner(settings, config_text, profile)?;
-    if let (Some(catalog), Some(model)) = (result.as_mut(), codex_card_auto_review_model(settings)) {
+    if let (Some(catalog), Some(model)) = (result.as_mut(), codex_card_auto_review_model(settings))
+    {
         apply_codex_auto_review_model(catalog, model);
     }
     Ok(result)
@@ -2060,7 +2061,6 @@ pub(crate) fn apply_codex_auto_review_model(catalog: &mut Value, model: &str) ->
     }
     true
 }
-
 
 fn codex_model_catalog_from_settings_inner(
     settings: &Value,
@@ -2361,8 +2361,17 @@ fn build_simplified_catalog_from_texts(config_text: &str, catalog_text: &str) ->
     }
 
     let mut simplified = json!({ "models": entries });
-    if let Some(model) = models.first().and_then(|entry| entry.get("auto_review_model_override")).and_then(Value::as_str) {
-        if models.iter().all(|entry| entry.get("auto_review_model_override").and_then(Value::as_str) == Some(model)) {
+    if let Some(model) = models
+        .first()
+        .and_then(|entry| entry.get("auto_review_model_override"))
+        .and_then(Value::as_str)
+    {
+        if models.iter().all(|entry| {
+            entry
+                .get("auto_review_model_override")
+                .and_then(Value::as_str)
+                == Some(model)
+        }) {
             simplified["autoReviewModel"] = json!(model);
         }
     }

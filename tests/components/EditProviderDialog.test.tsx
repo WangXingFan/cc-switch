@@ -234,7 +234,10 @@ describe("EditProviderDialog", () => {
         category: "custom",
         settingsConfig: settingsConfig as Record<string, unknown>,
       };
-      apiMocks.getEditorView.mockResolvedValue({ settings: view, inactive: [] });
+      apiMocks.getEditorView.mockResolvedValue({
+        settings: view,
+        inactive: [],
+      });
       const handleSubmit = vi.fn().mockResolvedValue(undefined);
 
       render(

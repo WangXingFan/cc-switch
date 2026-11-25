@@ -1670,6 +1670,12 @@ function App() {
                               >
                                 <Cpu className="w-4 h-4" />
                               </Button>
+                              <Button variant="ghost" size="sm"
+                                onClick={() => setCurrentView("plugins")}
+                                title={t("plugins.title", { defaultValue: "Plugins" })}
+                                aria-label={t("plugins.title", { defaultValue: "Plugins" })}>
+                                <Puzzle className="w-4 h-4" />
+                              </Button>
                               <Button
                                 variant="ghost"
                                 size="sm"
@@ -1705,6 +1711,12 @@ function App() {
                                 title={t("prompts.manage")}
                               >
                                 <Book className="w-4 h-4" />
+                              </Button>
+                              <Button variant="ghost" size="sm"
+                                onClick={() => setCurrentView("plugins")}
+                                title={t("plugins.title", { defaultValue: "Plugins" })}
+                                aria-label={t("plugins.title", { defaultValue: "Plugins" })}>
+                                <Puzzle className="w-4 h-4" />
                               </Button>
                               <Button
                                 variant="ghost"
@@ -1782,11 +1794,7 @@ function App() {
         isProxyTakeover={isCurrentAppTakeoverActive}
       />
 
-      <Button variant="outline" size="sm" className="fixed bottom-4 right-4 z-40 shadow-sm"
-        onClick={() => setCurrentView(currentView === "plugins" ? "providers" : "plugins")}
-        aria-label={t("plugins.title", { defaultValue: "Plugins" })}>
-        <Puzzle size={16} /> {t("plugins.title", { defaultValue: "Plugins" })}
-      </Button>
+
 
       {effectiveUsageProvider && (
         <UsageScriptModal

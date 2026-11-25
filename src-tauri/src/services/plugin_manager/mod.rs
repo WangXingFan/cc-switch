@@ -200,7 +200,6 @@ fn validate_app_plugin_id(app: PluginApp, id: &str) -> Result<(), String> {
         PluginApp::Grok => is_name_segment(id),
         PluginApp::Openclaw => is_package_name(id),
         PluginApp::Pi => return pi::validate_source(id),
-
     };
     if ok {
         Ok(())
@@ -212,7 +211,6 @@ fn validate_app_plugin_id(app: PluginApp, id: &str) -> Result<(), String> {
 /// 按应用校验安装参数：Antigravity 目录条目是 `name@marketplace`，已安装条目是目录名。
 fn validate_install_plugin_id(app: PluginApp, id: &str) -> Result<(), String> {
     match app {
-
         _ => validate_app_plugin_id(app, id),
     }
 }
@@ -271,7 +269,7 @@ fn cli_context(app: PluginApp) -> (Vec<(&'static str, String)>, PathBuf) {
     let (dir, mut env) = match app {
         PluginApp::Claude => {
             let dir = crate::config::get_claude_config_dir();
-            let env = crate::settings::get_override_dir(&crate::app_config::AppType::Claude)
+            let env = crate::settings::get_claude_override_dir()
                 .filter(|d| !is_default_claude_dir(d))
                 .map(|d| vec![("CLAUDE_CONFIG_DIR", d.to_string_lossy().into_owned())])
                 .unwrap_or_default();
@@ -310,7 +308,6 @@ fn cli_context(app: PluginApp) -> (Vec<(&'static str, String)>, PathBuf) {
             let env = vec![("PI_CODING_AGENT_DIR", dir.to_string_lossy().into_owned())];
             (dir, env)
         }
-
     };
     // CC Switch 启动时给自己设了 RUST_BACKTRACE=1（panic_hook），子进程会继承：Codex 这类
     // Rust 写的 CLI 一报错就把整段堆栈打进 stderr，进而塞满失败提示。这里显式关掉。
@@ -569,7 +566,14 @@ fn wsl_unc_root(dir: &Path) -> Option<PathBuf> {
 pub(super) fn wsl_root_for_app(app: PluginApp) -> Option<PathBuf> {
     #[cfg(target_os = "windows")]
     {
-        let override_dir = crate::settings::get_override_dir(&app.app_type())?;
+        let override_dir = (match app.app_type() {
+            AppType::Claude => crate::settings::get_claude_override_dir(),
+            AppType::Codex => crate::settings::get_codex_override_dir(),
+            AppType::GrokBuild => crate::settings::get_grok_override_dir(),
+            AppType::OpenClaw => crate::settings::get_openclaw_override_dir(),
+            AppType::Pi => crate::settings::get_pi_override_dir(),
+            _ => None,
+        })?;
         wsl_unc_root(&override_dir)
     }
     #[cfg(not(target_os = "windows"))]
@@ -959,10 +963,7 @@ fn catalog_from_listing(listing: PluginListing) -> Vec<PluginEntry> {
 
 pub fn list_marketplaces(app: PluginApp) -> Result<Vec<PluginMarketplace>, String> {
     // MiniMax Code 正式版禁用了市场管理；OpenClaw、Pi、Antigravity 没有可增删的市场。
-    if matches!(
-        app,
-        PluginApp::Openclaw | PluginApp::Pi
-    ) {
+    if matches!(app, PluginApp::Openclaw | PluginApp::Pi) {
         return Err(unsupported(app, "marketplace management"));
     }
     let out = run_cli(
@@ -1024,11 +1025,9 @@ pub fn install_plugin(app: PluginApp, id: &str) -> Result<PluginActionOutcome, S
         .and_then(|out| claude_action_result(&out))
         .map(|v| ok_outcome(&v)),
         // Codex 和 MiniMax Code 都是 `plugin add <name@marketplace> --json`
-        PluginApp::Codex => {
-            run_cli(app, &["plugin", "add", id, "--json"], NETWORK_TIMEOUT)
-                .and_then(|out| codex_action_result(&out))
-                .map(|v| ok_outcome(&v))
-        }
+        PluginApp::Codex => run_cli(app, &["plugin", "add", id, "--json"], NETWORK_TIMEOUT)
+            .and_then(|out| codex_action_result(&out))
+            .map(|v| ok_outcome(&v)),
         PluginApp::Grok => run_action(app, &["plugin", "install", id, "--trust"], NETWORK_TIMEOUT),
         PluginApp::Openclaw => {
             let spec = openclaw::install_spec(id);
@@ -1045,7 +1044,6 @@ pub fn install_plugin(app: PluginApp, id: &str) -> Result<PluginActionOutcome, S
             }
             run_action(app, &["install", id], NETWORK_TIMEOUT)
         }
-
     }
 }
 
@@ -1071,11 +1069,9 @@ pub fn uninstall_plugin(
         )
         .and_then(|out| claude_action_result(&out))
         .map(|v| ok_outcome(&v)),
-        PluginApp::Codex => {
-            run_cli(app, &["plugin", "remove", id, "--json"], TOGGLE_TIMEOUT)
-                .and_then(|out| codex_action_result(&out))
-                .map(|v| ok_outcome(&v))
-        }
+        PluginApp::Codex => run_cli(app, &["plugin", "remove", id, "--json"], TOGGLE_TIMEOUT)
+            .and_then(|out| codex_action_result(&out))
+            .map(|v| ok_outcome(&v)),
         // 不加 `--confirm` / `--force` 时 CLI 会在终端里等确认；前端已经弹过确认框
         PluginApp::Grok => run_action(
             app,
@@ -1098,7 +1094,6 @@ pub fn uninstall_plugin(
             })
         }
         PluginApp::Pi => Err(pi::terminal_hint("remove", id)),
-
     }
 }
 
@@ -1123,10 +1118,7 @@ pub fn set_plugin_enabled(
                 changed,
                 ..Default::default()
             })
-        }
-
-            .and_then(|out| codex_action_result(&out))
-            .map(|v| ok_outcome(&v)),
+        },
         PluginApp::Grok => run_action(app, &["plugin", verb, id], TOGGLE_TIMEOUT),
         // 不代传 `--accept-capabilities`：要权限确认的插件，CLI 会报错让用户去终端里确认
         PluginApp::Openclaw => run_action(app, &["plugins", verb, id], TOGGLE_TIMEOUT),
@@ -1135,7 +1127,6 @@ pub fn set_plugin_enabled(
             changed,
             ..Default::default()
         }),
-
     }
 }
 
@@ -1309,8 +1300,6 @@ pub fn update_plugin(
                 ..Default::default()
             })
         }
-
-
     }
 }
 
@@ -1335,9 +1324,7 @@ pub fn add_marketplace(app: PluginApp, source: &str) -> Result<PluginActionOutco
             &["plugin", "marketplace", "add", &source],
             NETWORK_TIMEOUT,
         ),
-        PluginApp::Openclaw | PluginApp::Pi => {
-            Err(unsupported(app, "marketplace management"))
-        }
+        PluginApp::Openclaw | PluginApp::Pi => Err(unsupported(app, "marketplace management")),
     }
 }
 
@@ -1362,9 +1349,7 @@ pub fn remove_marketplace(app: PluginApp, name: &str) -> Result<PluginActionOutc
             &["plugin", "marketplace", "remove", name],
             TOGGLE_TIMEOUT,
         ),
-        PluginApp::Openclaw | PluginApp::Pi => {
-            Err(unsupported(app, "marketplace management"))
-        }
+        PluginApp::Openclaw | PluginApp::Pi => Err(unsupported(app, "marketplace management")),
     }
 }
 
@@ -1433,7 +1418,6 @@ pub fn refresh_marketplaces(app: PluginApp) -> Result<PluginActionOutcome, Strin
             changed: true,
             ..Default::default()
         }),
-
     }
 }
 
@@ -1459,10 +1443,6 @@ mod tests {
             assert!(validate_plugin_id(bad).is_err(), "{bad}");
         }
     }
-
-
-
-
 
     #[test]
     fn marketplace_source_rejects_options_and_shell_syntax() {
@@ -1826,7 +1806,6 @@ enabled = false
 
     /// 子进程不继承 CC Switch 自己的 RUST_BACKTRACE=1，CLI 报错时不带堆栈。
 
-
     /// 配置目录不存在时：CLI 没装就不建目录（#9852）；装了才建，已存在的直接用、不再探测。
     #[test]
     fn working_dir_is_created_only_when_cli_is_installed() {
@@ -1855,7 +1834,6 @@ enabled = false
     }
 
     /// `cli_context` 只算路径，不在家目录里建任何东西。
-
 
     /// Codex 的启停开关经写入引擎写 `config.toml`：只改这一个键、按 0600 写、拿 Codex 的写锁。
     #[test]

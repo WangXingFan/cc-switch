@@ -31,7 +31,6 @@ export const mcpApi = {
     await invoke("cancel_mcp_connectivity_checks", { batchId });
   },
 
-
   async getStatus(): Promise<McpStatus> {
     return await invoke("get_claude_mcp_status");
   },

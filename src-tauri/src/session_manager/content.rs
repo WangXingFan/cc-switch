@@ -78,7 +78,6 @@ impl ValidatedSource {
 /// 校验 `sourcePath` 归属，见模块文档。
 pub fn validate_source(provider_id: &str, source_path: &str) -> Result<ValidatedSource, String> {
     let location = match provider_id {
-
         "opencode" if source_path.starts_with("sqlite:") => validate_sqlite_source(
             source_path,
             opencode::parse_sqlite_source(source_path),
@@ -311,19 +310,7 @@ fn read_jsonl_line(path: &Path, offset: u64, len: u32) -> Result<Vec<u8>, String
         .ok_or_else(|| STALE.to_string())?;
     // 多读前后各一个字节，用来判断行边界
     let start = offset.saturating_sub(1);
-    let (buf, more_after_end) = if path
-        .extension()
-        .is_some_and(|extension| extension == "zstd")
-    {
-        let bytes = super::providers::dsh::read_session(path)?;
-        if end > bytes.len() as u64 {
-            return Err(STALE.to_string());
-        }
-        (
-            bytes[start as usize..(end as usize + 1).min(bytes.len())].to_vec(),
-            end < bytes.len() as u64,
-        )
-    } else if crate::codex_rollout_file::is_compressed(path) {
+    let (buf, more_after_end) = if crate::codex_rollout_file::is_compressed(path) {
         read_compressed_window(path, start, end)?
     } else {
         read_plain_window(path, start, end)?
@@ -645,7 +632,7 @@ fn project_dir_for(source: &ValidatedSource) -> Option<PathBuf> {
     }
 
     use super::providers::{
-        claude, codex, gemini, grokbuild, hermes, kimi, mcode, omp, openclaw, opencode, pi,
+        claude, codex, gemini, grokbuild, hermes, openclaw, opencode, pi,
     };
     let sessions = match source.provider_id.as_str() {
         "codex" => codex::scan_sessions(),
@@ -656,13 +643,6 @@ fn project_dir_for(source: &ValidatedSource) -> Option<PathBuf> {
         "grokbuild" => grokbuild::scan_sessions(),
         "hermes" => hermes::scan_sessions(),
         "pi" => pi::scan_sessions(),
-        "mcode" => mcode::scan_sessions(),
-        "kimi" => kimi::scan_sessions(),
-        "omp" => omp::scan_sessions(),
-        "dsh" => super::providers::dsh::scan_sessions(),
-        "workbuddy" => super::providers::workbuddy::scan_sessions(),
-        "agy" => super::providers::agy::scan_sessions(),
-        "copilot" => super::providers::copilot::scan_sessions(),
         _ => return None,
     };
     let project = sessions

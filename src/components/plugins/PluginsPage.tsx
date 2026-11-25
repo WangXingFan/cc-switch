@@ -560,10 +560,9 @@ export function PluginsPage({ apps, initialApp }: PluginsPageProps) {
       ]}
       trailing={
         appChoices.length > SEGMENTED_APP_LIMIT ? (
-          <AppPicker apps={appChoices} value={app} onChange={switchApp} />
+          <AppPicker apps={[...appChoices]} value={app} onChange={switchApp} />
         ) : appChoices.length > 1 ? (
           <SegmentedControl<PluginApp>
-            size="sm"
             aria-label={t("pluginsPage.appAria")}
             value={app}
             onValueChange={switchApp}
@@ -1216,7 +1215,6 @@ function PluginRow({
       {entry.installed ? (
         <>
           <Switch
-            size="sm"
             checked={entry.enabled}
             disabled={busy || readOnlyScope}
             aria-label={t("pluginsPage.enableAria", { name: label })}

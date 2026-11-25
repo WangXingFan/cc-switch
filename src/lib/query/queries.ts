@@ -16,7 +16,6 @@ import type {
   Settings,
   UsageResult,
   SessionMeta,
-  SessionMessage,
 } from "@/types";
 import { usageKeys } from "@/lib/query/usage";
 import { extractErrorMessage } from "@/utils/errorUtils";
@@ -312,14 +311,4 @@ export const useSessionsQuery = () => {
   });
 };
 
-export const useSessionMessagesQuery = (
-  providerId?: string,
-  sourcePath?: string,
-) => {
-  return useQuery<SessionMessage[]>({
-    queryKey: ["sessionMessages", providerId, sourcePath],
-    queryFn: async () => sessionsApi.getMessages(providerId!, sourcePath!),
-    enabled: Boolean(providerId && sourcePath),
-    staleTime: 30 * 1000,
-  });
-};
+export { useSessionMessagesQuery } from "./sessions";

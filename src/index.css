@@ -362,8 +362,10 @@ input[type="password"]::-ms-clear {
   --diff-add-bg: var(--success-soft);
   --diff-del-bg: var(--danger-soft);
   --shadow-sm: 0 1px 2px rgba(16, 24, 40, 0.06);
-  --shadow-md: 0 4px 12px rgba(16, 24, 40, 0.08), 0 1px 3px rgba(16, 24, 40, 0.06);
-  --shadow-lg: 0 20px 40px rgba(16, 24, 40, 0.16), 0 4px 12px rgba(16, 24, 40, 0.08);
+  --shadow-md:
+    0 4px 12px rgba(16, 24, 40, 0.08), 0 1px 3px rgba(16, 24, 40, 0.06);
+  --shadow-lg:
+    0 20px 40px rgba(16, 24, 40, 0.16), 0 4px 12px rgba(16, 24, 40, 0.08);
 }
 .dark {
   --bg-app: #1c1c1e;
@@ -427,8 +429,16 @@ input[type="password"]::-ms-clear {
   --agent-generic: var(--text-2);
   --diff-add-bg: var(--success-soft);
   --diff-del-bg: var(--danger-soft);
-  --shadow-sm: 0 0 0 1px rgba(255, 255, 255, 0.08), 0 1px 2px rgba(0, 0, 0, 0.4);
+  --shadow-sm:
+    0 0 0 1px rgba(255, 255, 255, 0.08), 0 1px 2px rgba(0, 0, 0, 0.4);
   --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.45), 0 1px 3px rgba(0, 0, 0, 0.4);
   --shadow-lg: 0 20px 40px rgba(0, 0, 0, 0.5), 0 4px 12px rgba(0, 0, 0, 0.4);
 }
-:root, .dark { --action-bg: hsl(var(--primary)); --action-fg: hsl(var(--primary-foreground)); --action-text: hsl(var(--primary)); --action-hover: hsl(var(--primary) / .85); --action-soft: hsl(var(--primary) / .1); }
+:root,
+.dark {
+  --action-bg: hsl(var(--primary));
+  --action-fg: hsl(var(--primary-foreground));
+  --action-text: hsl(var(--primary));
+  --action-hover: hsl(var(--primary) / 0.85);
+  --action-soft: hsl(var(--primary) / 0.1);
+}

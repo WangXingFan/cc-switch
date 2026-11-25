@@ -19,7 +19,9 @@ fn content_search_accepts_cancellation_before_its_first_poll() {
 #[test]
 #[serial_test::serial]
 fn borrowed_session_responses_preserve_the_json_and_channel_contract() {
-    let _home = crate::commands::startup_tests::TestHome::new();
+    if !crate::sync_utils::in_isolated_process("commands::session_manager::tests::borrowed_session_responses_preserve_the_json_and_channel_contract") {
+        return;
+    }
     let root = crate::config::get_claude_settings_path()
         .parent()
         .unwrap()

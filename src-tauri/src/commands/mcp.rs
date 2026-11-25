@@ -224,4 +224,3 @@ pub async fn start_mcp_connectivity_checks(
 pub fn cancel_mcp_connectivity_checks(batch_id: String) {
     crate::services::mcp_connectivity::cancel_checks(&batch_id);
 }
-

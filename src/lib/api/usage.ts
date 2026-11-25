@@ -13,7 +13,7 @@ import type {
   PaginatedLogs,
   SessionSyncResult,
 } from "@/types/usage";
-import type { FetchedExchangeRates, UsageResult } from "@/types";
+import type { FetchedExchangeRates, UsageResult, NewApiAccountConfig } from "@/types";
 import type { AppId } from "./types";
 import type { TemplateType } from "@/config/constants";
 
@@ -33,6 +33,7 @@ export const usageApi = {
     accessToken?: string,
     userId?: string,
     templateType?: TemplateType,
+    newApiAccounts?: NewApiAccountConfig[],
   ): Promise<UsageResult> => {
     return invoke("testUsageScript", {
       providerId,
@@ -44,6 +45,7 @@ export const usageApi = {
       accessToken,
       userId,
       templateType,
+      newApiAccounts,
     });
   },
 

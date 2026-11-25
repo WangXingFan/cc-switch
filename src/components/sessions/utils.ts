@@ -35,8 +35,11 @@ export const SESSION_SOURCE_PATHS: Record<SessionAppId, string[]> = {
   pi: ["~/.pi/agent/sessions"],
 };
 
-export const nativeDeleteHintKey = (_session: SessionMeta): string | undefined => undefined;
-export const canDeleteSession = (session: SessionMeta) => Boolean(session.sourcePath);
+export const nativeDeleteHintKey = (
+  _session: SessionMeta,
+): string | undefined => undefined;
+export const canDeleteSession = (session: SessionMeta) =>
+  Boolean(session.sourcePath);
 
 export interface SessionProjectGroup {
   key: string;

@@ -398,7 +398,7 @@ async fn batches_allow_stdio_cold_starts_longer_than_ten_seconds() {
     // cannot use a UNC working directory, so skip it when TEMP is on a WSL share.
     #[cfg(windows)]
     {
-        if !crate::config::is_wsl_path(dir.path()) {
+        if !crate::claude_mcp::is_wsl_path(dir.path()) {
             spec["command"] = json!("cmd");
             spec["args"] = json!([
                 "/d",

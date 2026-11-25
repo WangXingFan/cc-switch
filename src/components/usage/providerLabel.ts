@@ -13,14 +13,7 @@ const SESSION_PROVIDER_APPS: Record<string, AppId> = {
   "Gemini (Session)": "gemini",
   "OpenCode (Session)": "opencode",
   "Grok Build (Session)": "grokbuild",
-  "MiniMax Code (Session)": "mcode",
-  "Kimi Code (Session)": "kimi",
-  "WorkBuddy (Session)": "workbuddy",
   "Pi (Session)": "pi",
-  "Oh My Pi (Session)": "omp",
-  "Antigravity (Session)": "agy",
-  "Copilot CLI (Session)": "copilot",
-  "DeepSeek Harness (Session)": "dsh",
 };
 
 /**
@@ -28,7 +21,6 @@ const SESSION_PROVIDER_APPS: Record<string, AppId> = {
  * DeepSeek Harness 的 Web 与 Desktop 共用一份 DeepSeek 账号登录，用量合并记在 dsh 下。
  */
 const SESSION_ACCOUNT_PROVIDER_APPS: Record<string, AppId> = {
-  "DeepSeek Harness (OAuth)": "dsh",
 };
 
 export interface UsageProviderLabel {

@@ -6,7 +6,8 @@ pub(crate) trait MutexExt<T: ?Sized> {
 
 impl<T: ?Sized> MutexExt<T> for Mutex<T> {
     fn lock_recover(&self) -> MutexGuard<'_, T> {
-        self.lock().unwrap_or_else(std::sync::PoisonError::into_inner)
+        self.lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
     }
 }
 
@@ -38,4 +39,3 @@ pub(crate) fn in_isolated_process(test_name: &str) -> bool {
     );
     false
 }
-
