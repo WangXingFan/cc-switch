@@ -383,7 +383,40 @@ export interface RemoteSnapshotInfo {
 
 // 应用设置类型（用于设置对话框与 Tauri API）
 // 存储在本地 ~/.cc-switch/settings.json，不随数据库同步
+export interface UsageDisplaySettings {
+  /** 显示币种（见 `DISPLAY_CURRENCIES`），缺省为 USD */
+  currency?: string;
+  /** 1 美元折多少目标币种，按币种存 */
+  exchangeRates?: Record<string, number>;
+  /** 侧栏「今日」显示哪几项（见 `SIDEBAR_TODAY_ITEMS`），缺省只显示金额；空列表＝不显示 */
+  sidebarTodayItems?: string[];
+  /** 请求日志列显隐：只存用户改过的列（列 id → 是否显示） */
+  requestLogColumns?: Record<string, boolean>;
+  /** 用量趋势图的样式（见 `TREND_CHART_TYPES`），缺省为柱形图 */
+  trendChartType?: string;
+  /** 汇率来源（"auto" 自动获取 / "manual" 手动填写），缺省为 manual，只有用户主动选自动才联网 */
+  rateSource?: string;
+  /** 自动获取到的汇率，按币种存；与手填的 `exchangeRates` 分开，切回手动不丢手填值 */
+  autoExchangeRates?: Record<string, number>;
+  /** 上次成功取到汇率的时间（毫秒时间戳） */
+  rateFetchedAt?: number;
+  /** 上次取到汇率的实际数据源（后端返回的 source），用于界面署名 */
+  rateProvider?: string;
+}
+
+/** 后端 `fetch_exchange_rates` 的返回：1 美元折多少目标币种 */
+export interface FetchedExchangeRates {
+  rates: Record<string, number>;
+  fetchedAt: number;
+  /** 实际取到数据的源，界面标注用 */
+  source: string;
+}
+
+// 应用设置类型（用于设置对话框与 Tauri API）
+// 存储在本地 ~/.cc-switch/settings.json，不随数据库同步
 export interface Settings {
+  usageDisplay?: UsageDisplaySettings;
+  sessionContentSearchEnabled?: boolean;
   // ===== 设备级 UI 设置 =====
   // 是否在系统托盘（macOS 菜单栏）显示图标
   showInTray: boolean;
@@ -504,6 +537,42 @@ export interface Settings {
   globalShortcut?: string;
 }
 
+export interface SessionTextRange {
+  start: number;
+  end: number;
+}
+
+/** 一条命中消息的摘录 */
+export interface SessionContentSnippet {
+  /** 摘录所在消息在会话里的序号 */
+  messageIndex: number;
+  /** 命中词附近的纯文本，空白已压缩 */
+  text: string;
+  /** 按完整消息匹配后映射到最终 text 的位置，避免截断改变上下文小写规则。 */
+  highlights: SessionTextRange[];
+}
+
+/** 会话正文搜索的命中（search_session_content）：最多 3 条摘录，第一条最相关 */
+export interface SessionContentHit {
+  providerId: string;
+  sourcePath: string;
+  snippets: SessionContentSnippet[];
+  /** 命中的消息条数 */
+  matchCount: number;
+}
+
+/** 正文索引的进度；running 为 false 且 processed === total 时索引已是最新 */
+export interface SessionIndexStatus {
+  running: boolean;
+  processed: number;
+  total: number;
+}
+
+export interface SessionContentSearchResult {
+  hits: SessionContentHit[];
+  status: SessionIndexStatus;
+}
+
 export interface SessionMeta {
   providerId: string;
   sessionId: string;
@@ -516,11 +585,212 @@ export interface SessionMeta {
   resumeCommand?: string;
 }
 
+// ─── 会话阅读页数据模型（对应 Rust session_manager/model.rs） ───
+
+export type ToolKind =
+  | "shell"
+  | "read"
+  | "search"
+  | "edit"
+  | "write"
+  | "web"
+  | "mcp"
+  | "agent"
+  | "ask"
+  | "todo"
+  | "other";
+
+export type ToolStatus =
+  | "success"
+  | "error"
+  | "interrupted"
+  | "pending"
+  | "unknown";
+
+export type EventKind =
+  | "aborted"
+  | "compaction"
+  | "model_change"
+  | "thinking_level"
+  | "hook"
+  | "pr_link"
+  | "slash_command"
+  | "info"
+  | "error"
+  | "sub_agent"
+  | "goal"
+  | "other";
+
+/** 大内容的「按需取」引用：前端不解析，原样回传给后端 */
+export type ContentRef =
+  | { kind: "jsonl"; offset: number; len: number; pointer: string }
+  | {
+      kind: "sqlite";
+      table: string;
+      id: string;
+      column: string;
+      pointer: string;
+    }
+  | { kind: "file"; relPath: string; pointer: string }
+  | { kind: "sidecar"; relPath: string };
+
+export type ImageSource =
+  | { kind: "inline"; content: ContentRef }
+  | { kind: "local_file"; path: string };
+
+export interface ImageRef {
+  source: ImageSource;
+  mediaType: string;
+  /** 解码后的字节数估算 */
+  size: number;
+  alt?: string;
+}
+
+export interface DiffFile {
+  path: string;
+  op: "add" | "update" | "delete" | "rename";
+  added: number;
+  removed: number;
+}
+
+export interface DiffSummary {
+  files: DiffFile[];
+  added: number;
+  removed: number;
+  full?: ContentRef;
+}
+
+export interface TextBlock {
+  type: "text";
+  /** 正文；带 full 时只是预览（超长注入文本） */
+  text: string;
+  full?: ContentRef;
+}
+
+export interface ThinkingBlock {
+  type: "thinking";
+  /** 可见正文的预览；可能为空（加密/只有签名） */
+  text: string;
+  summary?: string;
+  redacted?: boolean;
+  durationMs?: number;
+  full?: ContentRef;
+}
+
+export interface ToolCallBlock {
+  type: "tool_call";
+  /** 与 ToolResultBlock.callId 配对 */
+  id: string;
+  rawName: string;
+  kind: ToolKind;
+  title: string;
+  detail?: string;
+  server?: string;
+  inputPreview: string;
+  inputTotalLen: number;
+  inputFull?: ContentRef;
+  diff?: DiffSummary;
+  byUser?: boolean;
+}
+
+export interface ToolResultBlock {
+  type: "tool_result";
+  /** 为空串表示源数据没有配对信息，显示为通用「工具输出」 */
+  callId: string;
+  status: ToolStatus;
+  preview: string;
+  totalLen: number;
+  lineCount: number;
+  truncated: boolean;
+  full?: ContentRef;
+  exitCode?: number;
+  durationMs?: number;
+  images?: ImageRef[];
+  savedPath?: string;
+}
+
+export interface ImageBlock {
+  type: "image";
+  image: ImageRef;
+}
+
+export interface EventBlock {
+  type: "event";
+  kind: EventKind;
+  /** 说明；带 full 时只是预览（压缩摘要等长文本） */
+  text?: string;
+  url?: string;
+  full?: ContentRef;
+}
+
+export interface StepBlock {
+  type: "step";
+  phase: "start" | "finish";
+  tokens?: number;
+  costUsd?: number;
+  reason?: string;
+}
+
+export type SessionBlock =
+  | TextBlock
+  | ThinkingBlock
+  | ToolCallBlock
+  | ToolResultBlock
+  | ImageBlock
+  | EventBlock
+  | StepBlock;
+
+export interface MessageMeta {
+  model?: string;
+  inputTokens?: number;
+  outputTokens?: number;
+  cacheReadTokens?: number;
+  cacheWriteTokens?: number;
+  reasoningTokens?: number;
+  costUsd?: number;
+  durationMs?: number;
+  stopReason?: string;
+}
+
 export interface SessionMessage {
   role: string;
-  content: string;
+  /**
+   * 旧格式的纯文本内容：只有 blocks 缺失时（旧后端）才下发，
+   * 有 blocks 时前端一律从 blocks 推导（见 reader/turns.ts `messageText`）
+   */
+  content?: string;
   ts?: number;
+  id?: string;
+  turnId?: string;
+  injected?: boolean;
+  /** 旧后端 / 尚未迁移的解析器会省略 → 前端按 content 兜底 */
+  blocks?: SessionBlock[];
+  meta?: MessageMeta;
 }
+
+export interface TurnIndex {
+  turnId: string;
+  firstMessageIndex: number;
+  lastMessageIndex: number;
+  questionPreview: string;
+  ts?: number;
+  stepCount: number;
+  errorCount: number;
+  hasFinalReply: boolean;
+  aborted: boolean;
+}
+
+export type TranscriptChunk =
+  | {
+      type: "header";
+      total: number;
+      turns: TurnIndex[];
+      cached: boolean;
+      parseMs: number;
+    }
+  | { type: "messages"; start: number; messages: SessionMessage[] }
+  | { type: "done"; payloadBytes: number }
+  | { type: "error"; message: string };
 
 // MCP 服务器连接参数（宽松：允许扩展字段）
 export interface McpServerSpec {

@@ -23,6 +23,7 @@ use std::collections::HashMap;
 use std::fs;
 use std::io::{BufRead, BufReader, Read, Seek, SeekFrom};
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicI64, Ordering};
 use std::sync::OnceLock;
 use std::time::SystemTime;
 
@@ -49,6 +50,19 @@ impl SessionSyncResult {
         self.deferred_files = self.deferred_files.saturating_add(other.deferred_files);
         self.errors.extend(other.errors);
     }
+}
+
+static LAST_SYNC_COMPLETED_AT_MS: AtomicI64 = AtomicI64::new(0);
+
+/// 记下一次扫描完成的时间；只会往后走（并发调用时不会被较早的时间覆盖）。
+pub(crate) fn record_sync_completed(at_ms: i64) {
+    LAST_SYNC_COMPLETED_AT_MS.fetch_max(at_ms, Ordering::Relaxed);
+}
+
+/// 最近一次完整扫描完成的时间（毫秒时间戳）；本次启动后还没扫过时为 `None`。
+pub fn last_sync_completed_at() -> Option<i64> {
+    let value = LAST_SYNC_COMPLETED_AT_MS.load(Ordering::Relaxed);
+    (value > 0).then_some(value)
 }
 
 pub fn session_sync_mutex() -> &'static tokio::sync::Mutex<()> {
@@ -146,6 +160,7 @@ pub fn sync_all_unlocked(db: &Database) -> SessionSyncResult {
         crate::services::session_usage_pi::sync_pi_usage(db),
     );
     notify_sync_result(&result);
+    record_sync_completed(chrono::Utc::now().timestamp_millis());
     result
 }
 
@@ -814,6 +829,7 @@ fn insert_session_log_entry_on_conn(
         });
 
     let dedup_key = DedupKey {
+        data_source: "session_log",
         app_type: "claude",
         model: &msg.model,
         input_tokens: msg.input_tokens,

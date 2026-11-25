@@ -107,6 +107,7 @@ export function useCodexConfigState({ initialData }: UseCodexConfigStateProps) {
   const [codexCatalogModels, setCodexCatalogModels] = useState<
     CodexCatalogModel[]
   >([]);
+  const [codexAutoReviewModel, setCodexAutoReviewModel] = useState("");
   const [codexAuthError, setCodexAuthError] = useState("");
 
   const isUpdatingCodexBaseUrlRef = useRef(false);
@@ -130,6 +131,7 @@ export function useCodexConfigState({ initialData }: UseCodexConfigStateProps) {
       setCodexAuthState(JSON.stringify(auth, null, 2));
 
       const modelCatalog = (config as any).modelCatalog;
+      setCodexAutoReviewModel(modelCatalog?.autoReviewModel ?? "");
       const rawCatalogModels = Array.isArray(modelCatalog?.models)
         ? modelCatalog.models
         : [];
@@ -299,11 +301,13 @@ export function useCodexConfigState({ initialData }: UseCodexConfigStateProps) {
       auth: Record<string, unknown>,
       config: string,
       modelCatalogModels: CodexCatalogModel[] = [],
+      autoReviewModel: string = "",
     ) => {
       const authString = JSON.stringify(auth, null, 2);
       setCodexAuth(authString);
       setCodexConfig(config);
       setCodexCatalogModels(modelCatalogModels);
+      setCodexAutoReviewModel(autoReviewModel);
 
       const baseUrl = extractCodexBaseUrl(config);
       setCodexBaseUrl(baseUrl || "");
@@ -314,6 +318,8 @@ export function useCodexConfigState({ initialData }: UseCodexConfigStateProps) {
   );
 
   return {
+    codexAutoReviewModel,
+    setCodexAutoReviewModel,
     codexAuth,
     codexConfig,
     codexApiKey,

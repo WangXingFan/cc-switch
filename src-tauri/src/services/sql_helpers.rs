@@ -66,6 +66,19 @@ pub fn fresh_input_sql(alias: &str) -> String {
     )
 }
 
+pub fn real_total_tokens_sql(alias: &str) -> String {
+    let prefix = if alias.is_empty() {
+        String::new()
+    } else {
+        format!("{alias}.")
+    };
+    let fresh_input = fresh_input_sql(alias);
+    format!(
+        "(({fresh_input}) + {prefix}output_tokens \
+          + {prefix}cache_creation_tokens + {prefix}cache_read_tokens)"
+    )
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

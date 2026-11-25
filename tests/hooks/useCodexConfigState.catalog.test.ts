@@ -1,4 +1,4 @@
-import { renderHook } from "@testing-library/react";
+import { act, renderHook } from "@testing-library/react";
 import { describe, it, expect } from "vitest";
 import { useCodexConfigState } from "@/components/providers/forms/hooks/useCodexConfigState";
 
@@ -9,6 +9,31 @@ import { useCodexConfigState } from "@/components/providers/forms/hooks/useCodex
 // 注意：initialData 必须是稳定引用（hook 的 init effect 依赖 [initialData]）。
 // 写成内联字面量会每次 re-render 产生新引用 → effect 反复 setState → 死循环 OOM。
 describe("useCodexConfigState catalog load", () => {
+  it("loads Auto Review and preserves it when projecting a draft", () => {
+    const models = [{ model: "main" }, { model: "review" }];
+    const initialData = {
+      settingsConfig: {
+        auth: {},
+        config: "[agents]\nmax_threads = 8\n",
+        modelCatalog: { models, autoReviewModel: "review" },
+      },
+    };
+    const { result } = renderHook(() => useCodexConfigState({ initialData }));
+    expect(result.current.codexAutoReviewModel).toBe("review");
+    act(() =>
+      result.current.resetCodexConfig(
+        {},
+        initialData.settingsConfig.config,
+        models,
+        "review",
+      ),
+    );
+    expect(result.current.codexAutoReviewModel).toBe("review");
+    expect(result.current.codexCatalogModels).toEqual(models);
+    expect(result.current.codexConfig).toContain("max_threads = 8");
+    act(() => result.current.resetCodexConfig({}, ""));
+    expect(result.current.codexAutoReviewModel).toBe("");
+  });
   it("preserves native-profile hidden fields (camelCase, DB SSOT)", () => {
     const initialData = {
       settingsConfig: {

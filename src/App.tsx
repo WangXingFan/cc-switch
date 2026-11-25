@@ -114,6 +114,9 @@ import {
   isProxyAppId,
 } from "@/config/appConfig";
 
+import { PluginsPage } from "@/components/plugins/PluginsPage";
+import { Puzzle } from "lucide-react";
+
 type View =
   | "providers"
   | "settings"
@@ -123,6 +126,7 @@ type View =
   | "mcp"
   | "agents"
   | "universal"
+  | "plugins"
   | "sessions"
   | "workspace"
   | "openclawEnv"
@@ -159,6 +163,7 @@ const VALID_VIEWS: View[] = [
   "agents",
   "universal",
   "sessions",
+  "plugins",
   "workspace",
   "openclawEnv",
   "openclawTools",
@@ -1010,6 +1015,8 @@ function App() {
   const renderContent = () => {
     const content = (() => {
       switch (currentView) {
+        case "plugins":
+          return <PluginsPage />;
         case "settings":
           return (
             <SettingsPage
@@ -1316,6 +1323,7 @@ function App() {
                       defaultValue: "统一供应商",
                     })}
                   {currentView === "sessions" && t("sessionManager.title")}
+                  {currentView === "plugins" && t("pluginsPage.title")}
                   {currentView === "workspace" && t("workspace.title")}
                   {currentView === "openclawEnv" && t("openclaw.env.title")}
                   {currentView === "openclawTools" && t("openclaw.tools.title")}
@@ -1666,6 +1674,19 @@ function App() {
                               <Button
                                 variant="ghost"
                                 size="sm"
+                                onClick={() => setCurrentView("plugins")}
+                                title={t("pluginsPage.title", {
+                                  defaultValue: "Plugins",
+                                })}
+                                aria-label={t("pluginsPage.title", {
+                                  defaultValue: "Plugins",
+                                })}
+                              >
+                                <Puzzle className="w-4 h-4" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
                                 onClick={() => setCurrentView("sessions")}
                                 className="text-muted-foreground hover:text-foreground hover:bg-black/5 dark:hover:bg-white/5 w-8 px-2"
                                 title={t("sessionManager.title")}
@@ -1698,6 +1719,19 @@ function App() {
                                 title={t("prompts.manage")}
                               >
                                 <Book className="w-4 h-4" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => setCurrentView("plugins")}
+                                title={t("pluginsPage.title", {
+                                  defaultValue: "Plugins",
+                                })}
+                                aria-label={t("pluginsPage.title", {
+                                  defaultValue: "Plugins",
+                                })}
+                              >
+                                <Puzzle className="w-4 h-4" />
                               </Button>
                               <Button
                                 variant="ghost"

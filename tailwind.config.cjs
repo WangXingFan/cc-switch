@@ -5,6 +5,90 @@ module.exports = {
   theme: {
     extend: {
       colors: {
+        app: "var(--bg-app)",
+        sidebar: "var(--bg-sidebar)",
+        subtle: "var(--bg-subtle)",
+        selected: "var(--bg-selected)",
+        surface: "var(--bg-card)",
+        "border-strong": "var(--border-strong)",
+        fg: {
+          1: "var(--text-1)",
+          2: "var(--text-2)",
+          3: "var(--text-3)",
+        },
+        action: {
+          DEFAULT: "var(--action-bg)",
+          fg: "var(--action-fg)",
+          hover: "var(--action-hover)",
+          text: "var(--action-text)",
+          soft: "var(--action-soft)",
+        },
+        inverse: {
+          DEFAULT: "var(--inverse-bg)",
+          fg: "var(--inverse-fg)",
+          hover: "var(--inverse-hover)",
+        },
+        overlay: "var(--overlay)",
+        "control-off": "var(--control-off)",
+        direct: {
+          DEFAULT: "var(--direct-fill)",
+          text: "var(--direct-text)",
+          soft: "var(--direct-soft)",
+          solid: "var(--direct-solid)",
+          on: "var(--direct-on)",
+          border: "var(--direct-border)",
+        },
+        route: {
+          DEFAULT: "var(--route-fill)",
+          text: "var(--route-text)",
+          soft: "var(--route-soft)",
+          solid: "var(--route-solid)",
+          on: "var(--route-on)",
+          border: "var(--route-border)",
+        },
+        stack: {
+          DEFAULT: "var(--stack-fill)",
+          text: "var(--stack-text)",
+          soft: "var(--stack-soft)",
+          solid: "var(--stack-solid)",
+          on: "var(--stack-on)",
+          border: "var(--stack-border)",
+        },
+        success: {
+          DEFAULT: "var(--success)",
+          text: "var(--success-text)",
+          soft: "var(--success-soft)",
+        },
+        warning: {
+          DEFAULT: "var(--warning)",
+          text: "var(--warning-text)",
+          soft: "var(--warning-soft)",
+        },
+        danger: {
+          DEFAULT: "var(--danger)",
+          text: "var(--danger-text)",
+          soft: "var(--danger-soft)",
+        },
+        // 会话阅读页 Agent 主题色：text-agent-claude / bg-agent-codex / border-agent-gemini …
+        agent: {
+          claude: "var(--agent-claude)",
+          codex: "var(--agent-codex)",
+          gemini: "var(--agent-gemini)",
+          opencode: "var(--agent-opencode)",
+          pi: "var(--agent-pi)",
+          generic: "var(--agent-generic)",
+        },
+        diff: {
+          add: "var(--diff-add-bg)",
+          del: "var(--diff-del-bg)",
+        },
+        chart: {
+          1: "var(--chart-1)",
+          2: "var(--chart-2)",
+          usage: "var(--chart-usage)",
+          grid: "var(--chart-grid)",
+        },
+
         background: "hsl(var(--background))",
         foreground: "hsl(var(--foreground))",
         card: {
@@ -70,15 +154,59 @@ module.exports = {
         },
       },
       boxShadow: {
+        "v7-sm": "var(--shadow-sm)",
+        "v7-md": "var(--shadow-md)",
+        "v7-lg": "var(--shadow-lg)",
         sm: "0 1px 2px 0 rgb(0 0 0 / 0.05)",
         md: "0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1)",
         lg: "0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1)",
       },
       borderRadius: {
+        control: "6px",
+        row: "8px",
+        panel: "10px",
+        dialog: "12px",
         sm: "0.375rem",
         md: "0.5rem",
         lg: "0.75rem",
         xl: "0.875rem",
+      },
+      fontSize: {
+        // v7 字体角色（AUTHORING.md「颜色与字体」）
+        badge: [
+          "var(--fs-badge)",
+          { lineHeight: "var(--lh-badge)", fontWeight: "500" },
+        ],
+        caption: ["var(--fs-caption)", { lineHeight: "var(--lh-caption)" }],
+        body: ["var(--fs-body)", { lineHeight: "var(--lh-body)" }],
+        strong: [
+          "var(--fs-strong)",
+          { lineHeight: "var(--lh-strong)", fontWeight: "500" },
+        ],
+        section: [
+          "var(--fs-section)",
+          { lineHeight: "var(--lh-section)", fontWeight: "600" },
+        ],
+        title: [
+          "var(--fs-title)",
+          { lineHeight: "var(--lh-title)", fontWeight: "600" },
+        ],
+        page: [
+          "var(--fs-page)",
+          { lineHeight: "var(--lh-page)", fontWeight: "600" },
+        ],
+        metric: ["24px", { lineHeight: "32px", fontWeight: "600" }],
+        // 还没迁到字体角色的 text-xs 跟着辅助字放大，免得舒适密度下它比正文小两档
+      },
+      spacing: {
+        // 按钮：control = regular，control-sm = compact
+        control: "var(--h-control)",
+        "control-sm": "var(--h-control-sm)",
+        "nav-row": "var(--h-nav-row)",
+        "card-y": "var(--card-py)",
+      },
+      minHeight: {
+        card: "var(--h-card)",
       },
       fontFamily: {
         // 使用与之前版本保持一致的系统字体栈
@@ -170,4 +298,3 @@ module.exports = {
   },
   plugins: [],
 };
-

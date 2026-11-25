@@ -7,6 +7,7 @@
 //! list's title lookup need the same resolution, so it lives here once.
 
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicBool, Ordering};
 
 use toml_edit::DocumentMut;
 
@@ -97,4 +98,18 @@ mod tests {
             ]
         );
     }
+}
+
+pub(crate) fn codex_state_db_is_lockable(path: &Path) -> bool {
+    if !crate::claude_mcp::is_wsl_path(path) {
+        return true;
+    }
+    static WARNED: AtomicBool = AtomicBool::new(false);
+    if !WARNED.swap(true, Ordering::Relaxed) {
+        log::warn!(
+            "Skipping Codex state DB on a WSL path (Windows cannot lock it): {}",
+            path.display()
+        );
+    }
+    false
 }

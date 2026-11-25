@@ -159,13 +159,16 @@ describe("CommonConfigEditor auto mode server toggle", () => {
       name: "claudeConfig.disableAutoModeServer",
     });
 
-  it.each(["0", 0])("reads CLAUDE_CODE_AUTO_MODE_SERVER=%s as checked", (value) => {
-    renderEditor(
-      JSON.stringify({ env: { CLAUDE_CODE_AUTO_MODE_SERVER: value } }),
-    );
+  it.each(["0", 0])(
+    "reads CLAUDE_CODE_AUTO_MODE_SERVER=%s as checked",
+    (value) => {
+      renderEditor(
+        JSON.stringify({ env: { CLAUDE_CODE_AUTO_MODE_SERVER: value } }),
+      );
 
-    expect(autoModeServerCheckbox()).toBeChecked();
-  });
+      expect(autoModeServerCheckbox()).toBeChecked();
+    },
+  );
 
   it("writes and removes the env key", () => {
     const onChange = renderEditor(
