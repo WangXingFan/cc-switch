@@ -1,5 +1,5 @@
-use std::collections::BTreeMap;
 use serde::{Deserialize, Serialize};
+use std::collections::BTreeMap;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -1537,5 +1537,3 @@ mod tests {
         assert_eq!(entries, 1, "no temp or backup files left behind");
     }
 }
-
-

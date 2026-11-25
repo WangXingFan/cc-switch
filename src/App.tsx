@@ -1323,6 +1323,7 @@ function App() {
                       defaultValue: "统一供应商",
                     })}
                   {currentView === "sessions" && t("sessionManager.title")}
+                  {currentView === "plugins" && t("pluginsPage.title")}
                   {currentView === "workspace" && t("workspace.title")}
                   {currentView === "openclawEnv" && t("openclaw.env.title")}
                   {currentView === "openclawTools" && t("openclaw.tools.title")}
@@ -1672,8 +1673,8 @@ function App() {
                               </Button>
                               <Button variant="ghost" size="sm"
                                 onClick={() => setCurrentView("plugins")}
-                                title={t("plugins.title", { defaultValue: "Plugins" })}
-                                aria-label={t("plugins.title", { defaultValue: "Plugins" })}>
+                                title={t("pluginsPage.title", { defaultValue: "Plugins" })}
+                                aria-label={t("pluginsPage.title", { defaultValue: "Plugins" })}>
                                 <Puzzle className="w-4 h-4" />
                               </Button>
                               <Button
@@ -1714,8 +1715,8 @@ function App() {
                               </Button>
                               <Button variant="ghost" size="sm"
                                 onClick={() => setCurrentView("plugins")}
-                                title={t("plugins.title", { defaultValue: "Plugins" })}
-                                aria-label={t("plugins.title", { defaultValue: "Plugins" })}>
+                                title={t("pluginsPage.title", { defaultValue: "Plugins" })}
+                                aria-label={t("pluginsPage.title", { defaultValue: "Plugins" })}>
                                 <Puzzle className="w-4 h-4" />
                               </Button>
                               <Button

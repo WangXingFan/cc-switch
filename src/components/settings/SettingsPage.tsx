@@ -528,7 +528,9 @@ export function SettingsPage({
                   settingsReady={settings != null}
                   onOpenRoutingSettings={() => setActiveTab("proxy")}
                   usageDisplay={settings?.usageDisplay}
-                  onUsageDisplayChange={(usageDisplay) => handleAutoSave({ usageDisplay })}
+                  onUsageDisplayChange={(usageDisplay) =>
+                    handleAutoSave({ usageDisplay })
+                  }
                   refreshIntervalMs={settings?.usageDashboardRefreshIntervalMs}
                   onRefreshIntervalChange={(usageDashboardRefreshIntervalMs) =>
                     handleAutoSave({ usageDashboardRefreshIntervalMs })

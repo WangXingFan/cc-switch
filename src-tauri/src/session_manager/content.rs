@@ -631,9 +631,7 @@ fn project_dir_for(source: &ValidatedSource) -> Option<PathBuf> {
         return Some(dir.clone());
     }
 
-    use super::providers::{
-        claude, codex, gemini, grokbuild, hermes, openclaw, opencode, pi,
-    };
+    use super::providers::{claude, codex, gemini, grokbuild, hermes, openclaw, opencode, pi};
     let sessions = match source.provider_id.as_str() {
         "codex" => codex::scan_sessions(),
         "claude" => claude::scan_sessions(),

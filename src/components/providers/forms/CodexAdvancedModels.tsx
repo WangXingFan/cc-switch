@@ -79,7 +79,7 @@ export function CodexAdvancedModels({
           </div>
           <div className="space-y-1.5">
             <Label htmlFor="codexSubagentEffort">
-              {t("codexConfig.subagentEffortLabel", {
+              {t("codexConfig.subagentReasoningEffortLabel", {
                 defaultValue: "Subagent reasoning effort",
               })}
             </Label>

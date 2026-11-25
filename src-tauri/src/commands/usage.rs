@@ -307,7 +307,6 @@ pub async fn record_models_dev_sync_result(
 
 /// 拉取 models.dev 数据，走后端代理感知 HTTP 客户端，避免 WebView 直连在代理环境下超时
 
-
 #[tauri::command]
 pub async fn delete_model_pricing(
     state: State<'_, AppState>,
@@ -426,4 +425,3 @@ pub fn get_usage_data_sources(
 ) -> Result<Vec<crate::services::session_usage::DataSourceSummary>, AppError> {
     crate::services::session_usage::get_data_source_breakdown(&state.db)
 }
-

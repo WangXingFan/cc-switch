@@ -13,7 +13,11 @@ import type {
   PaginatedLogs,
   SessionSyncResult,
 } from "@/types/usage";
-import type { FetchedExchangeRates, UsageResult, NewApiAccountConfig } from "@/types";
+import type {
+  FetchedExchangeRates,
+  UsageResult,
+  NewApiAccountConfig,
+} from "@/types";
 import type { AppId } from "./types";
 import type { TemplateType } from "@/config/constants";
 

@@ -11,12 +11,7 @@ import {
   sessionsApi,
   type AppId,
 } from "@/lib/api";
-import type {
-  Provider,
-  Settings,
-  UsageResult,
-  SessionMeta,
-} from "@/types";
+import type { Provider, Settings, UsageResult, SessionMeta } from "@/types";
 import { usageKeys } from "@/lib/query/usage";
 import { extractErrorMessage } from "@/utils/errorUtils";
 

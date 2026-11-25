@@ -1,5 +1,8 @@
 import type { SessionContentHit } from "@/types";
-import { createHighlightedSnippet, findTextMatches } from "@/components/sessions/utils";
+import {
+  createHighlightedSnippet,
+  findTextMatches,
+} from "@/components/sessions/utils";
 import type { AppId } from "@/lib/api/types";
 import type {
   McpServer,

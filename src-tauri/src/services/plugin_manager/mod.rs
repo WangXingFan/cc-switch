@@ -1118,7 +1118,7 @@ pub fn set_plugin_enabled(
                 changed,
                 ..Default::default()
             })
-        },
+        }
         PluginApp::Grok => run_action(app, &["plugin", verb, id], TOGGLE_TIMEOUT),
         // 不代传 `--accept-capabilities`：要权限确认的插件，CLI 会报错让用户去终端里确认
         PluginApp::Openclaw => run_action(app, &["plugins", verb, id], TOGGLE_TIMEOUT),

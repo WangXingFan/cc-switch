@@ -39,6 +39,7 @@ import { settingsCardClass, settingsGroupTitleClass } from "./settingsStyles";
 interface UsageDisplaySectionProps {
   value: UsageDisplaySettings | undefined;
   onChange: (next: UsageDisplaySettings) => Promise<boolean> | boolean | void;
+  showSidebarToday?: boolean;
 }
 
 /** 「美元」「日元」：按界面语言取币种名，取不到就只写代码 */
@@ -59,6 +60,7 @@ function currencyName(code: DisplayCurrency, lang: string): string | undefined {
 export function UsageDisplaySection({
   value,
   onChange,
+  showSidebarToday = true,
 }: UsageDisplaySectionProps) {
   const { t, i18n } = useTranslation();
   const lang = getResolvedLang(i18n);
@@ -345,6 +347,7 @@ export function UsageDisplaySection({
               </div>
             </>
           )}
+          {showSidebarToday && <>
           <span className="text-body text-fg-2">
             {t("usage.display.sidebarToday")}
           </span>
@@ -370,6 +373,7 @@ export function UsageDisplaySection({
             })}
             onToggle={(id) => void toggleTodayItem(id as SidebarTodayItem)}
           />
+          </>}
         </div>
         {currency !== "USD" && (
           <p

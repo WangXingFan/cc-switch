@@ -327,6 +327,7 @@ export function UsageSettingsSheet({
 
           {onUsageDisplayChange && (
             <UsageDisplaySection
+              showSidebarToday={false}
               value={usageDisplay}
               onChange={onUsageDisplayChange}
             />

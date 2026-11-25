@@ -8,7 +8,6 @@
 //! ~/.claude/projects/*/*.jsonl → 增量解析 → 去重 → 费用计算 → proxy_request_logs 表
 //! ```
 
-use std::sync::atomic::{AtomicI64, Ordering};
 use crate::config::get_claude_config_dir;
 use crate::database::{lock_conn, Database};
 use crate::error::AppError;
@@ -24,6 +23,7 @@ use std::collections::HashMap;
 use std::fs;
 use std::io::{BufRead, BufReader, Read, Seek, SeekFrom};
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicI64, Ordering};
 use std::sync::OnceLock;
 use std::time::SystemTime;
 

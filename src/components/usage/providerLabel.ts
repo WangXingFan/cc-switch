@@ -20,8 +20,7 @@ const SESSION_PROVIDER_APPS: Record<string, AppId> = {
  * 同样来自会话日志、但能认出走的是官方账号登录（OAuth）的占位名。
  * DeepSeek Harness 的 Web 与 Desktop 共用一份 DeepSeek 账号登录，用量合并记在 dsh 下。
  */
-const SESSION_ACCOUNT_PROVIDER_APPS: Record<string, AppId> = {
-};
+const SESSION_ACCOUNT_PROVIDER_APPS: Record<string, AppId> = {};
 
 export interface UsageProviderLabel {
   label: string;

@@ -8,8 +8,10 @@ const buttonVariants = cva(
   {
     variants: {
       variant: {
-        solid: "bg-blue-500 text-white hover:bg-blue-600 dark:bg-blue-600 dark:hover:bg-blue-700",
-        neutral: "border border-border-default bg-background text-foreground hover:bg-accent",
+        solid:
+          "bg-blue-500 text-white hover:bg-blue-600 dark:bg-blue-600 dark:hover:bg-blue-700",
+        neutral:
+          "border border-border-default bg-background text-foreground hover:bg-accent",
         quiet: "border border-transparent text-fg-1 hover:bg-subtle",
         // 主按钮：蓝底白字（对应旧版 primary）
         default:

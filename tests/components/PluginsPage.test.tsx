@@ -1055,4 +1055,5 @@ describe("PluginsPage", () => {
     ).toBeInTheDocument();
     expect(m.listMarketplaces).not.toHaveBeenCalledWith("openclaw");
   });
+});
 

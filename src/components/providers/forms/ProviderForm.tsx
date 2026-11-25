@@ -872,8 +872,15 @@ function ProviderFormFull({
           !Array.isArray(auth) &&
           typeof config === "string"
         ) {
-          const catalog = settings.modelCatalog as { models?: CodexCatalogModel[]; autoReviewModel?: string } | undefined;
-          resetCodexConfig(auth as Record<string, unknown>, config, catalog?.models ?? [], catalog?.autoReviewModel ?? "");
+          const catalog = settings.modelCatalog as
+            | { models?: CodexCatalogModel[]; autoReviewModel?: string }
+            | undefined;
+          resetCodexConfig(
+            auth as Record<string, unknown>,
+            config,
+            catalog?.models ?? [],
+            catalog?.autoReviewModel ?? "",
+          );
         }
       } else if (appId === "gemini") {
         const env = settings.env;
