@@ -14,13 +14,20 @@ describe("useCodexConfigState catalog load", () => {
     const initialData = {
       settingsConfig: {
         auth: {},
-        config: '[agents]\nmax_threads = 8\n',
+        config: "[agents]\nmax_threads = 8\n",
         modelCatalog: { models, autoReviewModel: "review" },
       },
     };
     const { result } = renderHook(() => useCodexConfigState({ initialData }));
     expect(result.current.codexAutoReviewModel).toBe("review");
-    act(() => result.current.resetCodexConfig({}, initialData.settingsConfig.config, models, "review"));
+    act(() =>
+      result.current.resetCodexConfig(
+        {},
+        initialData.settingsConfig.config,
+        models,
+        "review",
+      ),
+    );
     expect(result.current.codexAutoReviewModel).toBe("review");
     expect(result.current.codexCatalogModels).toEqual(models);
     expect(result.current.codexConfig).toContain("max_threads = 8");

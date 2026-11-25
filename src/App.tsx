@@ -1015,8 +1015,8 @@ function App() {
   const renderContent = () => {
     const content = (() => {
       switch (currentView) {
-      case "plugins":
-        return <PluginsPage />;
+        case "plugins":
+          return <PluginsPage />;
         case "settings":
           return (
             <SettingsPage
@@ -1671,10 +1671,17 @@ function App() {
                               >
                                 <Cpu className="w-4 h-4" />
                               </Button>
-                              <Button variant="ghost" size="sm"
+                              <Button
+                                variant="ghost"
+                                size="sm"
                                 onClick={() => setCurrentView("plugins")}
-                                title={t("pluginsPage.title", { defaultValue: "Plugins" })}
-                                aria-label={t("pluginsPage.title", { defaultValue: "Plugins" })}>
+                                title={t("pluginsPage.title", {
+                                  defaultValue: "Plugins",
+                                })}
+                                aria-label={t("pluginsPage.title", {
+                                  defaultValue: "Plugins",
+                                })}
+                              >
                                 <Puzzle className="w-4 h-4" />
                               </Button>
                               <Button
@@ -1713,10 +1720,17 @@ function App() {
                               >
                                 <Book className="w-4 h-4" />
                               </Button>
-                              <Button variant="ghost" size="sm"
+                              <Button
+                                variant="ghost"
+                                size="sm"
                                 onClick={() => setCurrentView("plugins")}
-                                title={t("pluginsPage.title", { defaultValue: "Plugins" })}
-                                aria-label={t("pluginsPage.title", { defaultValue: "Plugins" })}>
+                                title={t("pluginsPage.title", {
+                                  defaultValue: "Plugins",
+                                })}
+                                aria-label={t("pluginsPage.title", {
+                                  defaultValue: "Plugins",
+                                })}
+                              >
                                 <Puzzle className="w-4 h-4" />
                               </Button>
                               <Button
@@ -1794,8 +1808,6 @@ function App() {
         appId={activeApp}
         isProxyTakeover={isCurrentAppTakeoverActive}
       />
-
-
 
       {effectiveUsageProvider && (
         <UsageScriptModal

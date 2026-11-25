@@ -1,14 +1,12 @@
 import { describe, expect, it, vi } from "vitest";
 import {
   buildCdResumeCommand,
-  canDeleteSession,
   getSessionLastText,
   getSessionTimeBucket,
   groupSessionsByProject,
   groupSessionsByTime,
   isArchivedSession,
   formatMessageTime,
-  nativeDeleteHintKey,
 } from "@/components/sessions/utils";
 import type { SessionMeta } from "@/types";
 

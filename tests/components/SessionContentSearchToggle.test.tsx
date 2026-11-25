@@ -15,7 +15,7 @@ import { setSessionFixtures, setSettings } from "../msw/state";
 import { waitForOverlayTransition } from "../utils/overlayTransition";
 
 const toastError = vi.hoisted(() => vi.fn());
-vi.mock("@/lib/toast", () => ({
+vi.mock("sonner", () => ({
   toast: { error: toastError, success: vi.fn() },
 }));
 

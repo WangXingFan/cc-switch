@@ -347,33 +347,35 @@ export function UsageDisplaySection({
               </div>
             </>
           )}
-          {showSidebarToday && <>
-          <span className="text-body text-fg-2">
-            {t("usage.display.sidebarToday")}
-          </span>
-          <ChecklistMenu
-            label={t("usage.display.sidebarToday")}
-            className="w-full"
-            summary={
-              todayItems.length > 0
-                ? todayItems.map(todayLabel).join(" + ")
-                : t("usage.display.sidebarTodayItems.none")
-            }
-            items={SIDEBAR_TODAY_ITEMS.map((item) => {
-              const checked = todayItems.includes(item);
-              return {
-                id: item,
-                label: todayLabel(item),
-                checked,
-                disabled: todayFull && !checked,
-              };
-            })}
-            note={t("usage.display.sidebarTodayLimit", {
-              count: SIDEBAR_TODAY_MAX_ITEMS,
-            })}
-            onToggle={(id) => void toggleTodayItem(id as SidebarTodayItem)}
-          />
-          </>}
+          {showSidebarToday && (
+            <>
+              <span className="text-body text-fg-2">
+                {t("usage.display.sidebarToday")}
+              </span>
+              <ChecklistMenu
+                label={t("usage.display.sidebarToday")}
+                className="w-full"
+                summary={
+                  todayItems.length > 0
+                    ? todayItems.map(todayLabel).join(" + ")
+                    : t("usage.display.sidebarTodayItems.none")
+                }
+                items={SIDEBAR_TODAY_ITEMS.map((item) => {
+                  const checked = todayItems.includes(item);
+                  return {
+                    id: item,
+                    label: todayLabel(item),
+                    checked,
+                    disabled: todayFull && !checked,
+                  };
+                })}
+                note={t("usage.display.sidebarTodayLimit", {
+                  count: SIDEBAR_TODAY_MAX_ITEMS,
+                })}
+                onToggle={(id) => void toggleTodayItem(id as SidebarTodayItem)}
+              />
+            </>
+          )}
         </div>
         {currency !== "USD" && (
           <p
