@@ -30,8 +30,12 @@ Codex 的并发数属于全局设置，模型选择属于供应商配置；Auto 
 编译、格式化、测试、构建及界面预览均在 GitHub Actions 中执行，本地仅修改源码和读取 CI 结果。
 
 - [功能接入 CI](https://github.com/WangXingFan/cc-switch/actions/runs/45619193507)：成功，对应功能代码提交 `24d0f9c3a`。前端类型检查、2,085 项测试、构建及四页界面预览全部通过；后端 Clippy、3,222 项库测试和各集成测试全部通过（9 项库测试按原有配置忽略）。
-- [Windows 分支构建](https://github.com/WangXingFan/cc-switch/actions/runs/45619196037)：对应同一代码提交，生成 MSI 和便携版。
+- [Windows 分支构建](https://github.com/WangXingFan/cc-switch/actions/runs/45619196037)：同一代码提交的全部检查、测试、正式版编译及 MSI/便携版上传均成功。
 - [变更草稿 PR](https://github.com/WangXingFan/cc-switch/pull/2)。
 
 界面预览使用模拟数据，包含会话阅读器、插件、MCP、统计四页；不代表已连接用户的真实 MCP 服务或插件市场。
 本次没有在本机启动编译、测试或安装新程序。
+
+本地交付目录：`outputs/selected-upstream-features-20261125/`，包含 MSI 安装包、便携版 ZIP 和四页预览图。
+源码已快进同步到原工作目录；更新前的版本保存在 `backup/before-selected-features-20261125` 分支。
+远程 main 未合并，未发布 Release。安装包沿用本地版本号 3.20.7，包含以上功能代码。
