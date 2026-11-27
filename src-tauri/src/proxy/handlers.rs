@@ -485,7 +485,7 @@ async fn handle_claude_transform(
             // "claude" 会把 claude-desktop 的行错记到 claude 名下
             let app_type_str = ctx.app_type_str;
 
-            Some(SseUsageCollector::new(
+            Some(SseUsageCollector::new_for_converted_stream(
                 start_time,
                 Some(claude_stream_usage_event_filter),
                 move |events, first_token_ms| {
@@ -1379,7 +1379,7 @@ async fn handle_codex_chat_to_responses_transform(
             let start_time = ctx.start_time;
             let session_id = ctx.session_id.clone();
 
-            Some(SseUsageCollector::new(
+            Some(SseUsageCollector::new_for_converted_stream(
                 start_time,
                 Some(codex_stream_usage_event_filter),
                 move |events, first_token_ms| {
@@ -1758,7 +1758,7 @@ fn build_codex_anthropic_sse_response(
         let start_time = ctx.start_time;
         let session_id = ctx.session_id.clone();
 
-        Some(SseUsageCollector::new(
+        Some(SseUsageCollector::new_for_converted_stream(
             start_time,
             Some(codex_stream_usage_event_filter),
             move |events, first_token_ms| {

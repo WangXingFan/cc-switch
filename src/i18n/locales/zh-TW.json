@@ -170,7 +170,13 @@
         "oauthTitle": "OAuth 驗證模式",
         "oauthHint": "Google 官方使用 OAuth 個人驗證，無需填寫 API Key。首次使用時會自動開啟瀏覽器進行登入。",
         "apiKeyPlaceholder": "請輸入 Gemini API Key"
-      }
+      },
+      "agy": {},
+      "managedAccount": {},
+      "claudeAccount": {
+        "plan": {}
+      },
+      "grokAccount": {}
     },
     "duplicateLiveIdsLoadFailed": "讀取設定中的供應商識別碼失敗，請先修復設定後再試",
     "editorViewFailed": "無法讀取用戶端設定檔，下方顯示的是保存的供應商設定：{{error}}",
@@ -179,7 +185,9 @@
       "message": "開啟編輯器之後，下面這些設定被其他程式（例如 Claude Code）改過。要用你的修改覆蓋，還是保留外部的修改？其餘變更都會照常儲存。",
       "keepTheirs": "保留外部修改",
       "keepMine": "用我的修改覆蓋"
-    }
+    },
+    "officialModelsReason": {},
+    "openTerminalDialog": {}
   },
   "claudeCode": {
     "needsRouting": "需要路由",
@@ -294,7 +302,8 @@
     "windowControlFailed": "視窗控制失敗：{{error}}",
     "officialBlockedByProxy": "本地路由模式下不能切換至官方供應商，使用路由存取官方 API 可能導致帳號被封鎖",
     "proxyOfficialWarning": "目前供應商 {{name}} 是官方供應商，建議切換至第三方供應商後再使用本地路由",
-    "proxyReasonClaudeDesktop": "使用 Claude Desktop 本機路由模式"
+    "proxyReasonClaudeDesktop": "使用 Claude Desktop 本機路由模式",
+    "codexHistorySplit": {}
   },
   "confirm": {
     "deleteProvider": "刪除供應商",
@@ -440,7 +449,8 @@
           "debug": "詳細資訊，包含 SSE 串流與請求/回應詳情",
           "trace": "全部日誌，最詳細"
         }
-      }
+      },
+      "privacyFilter": {}
     },
     "language": "介面語言",
     "languageHint": "切換後立即預覽介面語言，儲存後永久生效。",
@@ -577,7 +587,8 @@
         "warning": "將覆寫雲端已有的同步資料",
         "legacyNotice": "檢測到舊版雲端路徑資料。本次上傳將寫入新路徑 v2/db-v6，不會覆寫舊路徑。",
         "confirm": "確認上傳"
-      }
+      },
+      "clearConfirm": {}
     },
     "syncType": {
       "label": "同步方式",
@@ -678,7 +689,8 @@
         "createdAt": "上傳時間",
         "warning": "將覆寫該 S3 路徑下已有的同步資料",
         "confirm": "確認上傳"
-      }
+      },
+      "clearConfirm": {}
     },
     "autoReload": "資料已重新整理",
     "languageOptionChinese": "简体中文",
@@ -901,7 +913,35 @@
       "defaultCostMultiplierRequired": "預設倍率不能為空",
       "defaultCostMultiplierInvalid": "預設倍率格式不正確"
     },
-    "saveFailedGeneric": "儲存失敗，請重試"
+    "saveFailedGeneric": "儲存失敗，請重試",
+    "backupStorage": {
+      "items": {
+        "database": {},
+        "skills": {},
+        "codexHistoryUnify": {},
+        "codexHistoryUnifyRestore": {},
+        "codexHistoryProviderMigration": {},
+        "liveFirstWrite": {},
+        "hermes": {},
+        "openclaw": {},
+        "proxyLiveBackup": {},
+        "envVars": {},
+        "legacyConfigBackups": {},
+        "legacyConfigArchive": {},
+        "legacyDbUpgrade": {},
+        "legacyToolSearch": {}
+      }
+    },
+    "copilotVscode": {},
+    "codexQuotaProtection": {},
+    "codexPauseOfficialLogin": {},
+    "sections": {},
+    "appConfig": {},
+    "routing": {},
+    "data": {},
+    "ipDiagnostics": {
+      "errors": {}
+    }
   },
   "apps": {
     "claude": "Claude",
@@ -1627,7 +1667,10 @@
     "fetchModelsNotSupported": "該供應商不支援取得模型清單",
     "fetchModelsEndpointNotFound": "未找到可用的模型清單端點，請檢查 Base URL 或確認供應商是否開放該 API",
     "fetchModelsTimeout": "請求逾時，請檢查網路連線",
-    "requiredFields": "請填寫供應商名稱、API 位址、API Key 和模型"
+    "requiredFields": "請填寫供應商名稱、API 位址、API Key 和模型",
+    "nativeConfig": {},
+    "stackLayout": {},
+    "modelPicker": {}
   },
   "copilot": {
     "authSection": "GitHub Copilot 驗證",
@@ -1666,7 +1709,9 @@
     "deploymentType": "GitHub 部署類型",
     "deploymentGitHubCom": "GitHub.com",
     "deploymentEnterprise": "GitHub Enterprise Server",
-    "enterpriseDomainPlaceholder": "例如：company.ghe.com"
+    "enterpriseDomainPlaceholder": "例如：company.ghe.com",
+    "form": {},
+    "quota": {}
   },
   "codexOauth": {
     "authStatus": "驗證狀態",
@@ -1733,7 +1778,8 @@
   "managedAuth": {
     "accountRemoved": "帳號已移除",
     "selectedAccountNeedsReauth": "已綁定的帳號不存在或需要重新登入",
-    "selectedAccountUnavailable": "已綁定的帳號不存在或需要重新登入，請重新選擇帳號"
+    "selectedAccountUnavailable": "已綁定的帳號不存在或需要重新登入，請重新選擇帳號",
+    "remove": {}
   },
   "endpointTest": {
     "title": "請求位址管理",
@@ -1952,7 +1998,14 @@
     "sortAriaLabel": "切換預設排序",
     "sortNameAscTooltip": "按名稱 A-Z 排序",
     "sortOriginalTooltip": "恢復原始順序",
-    "noSearchResults": "沒有相符的預設供應商。"
+    "noSearchResults": "沒有相符的預設供應商。",
+    "group": {},
+    "groupHint": {},
+    "loginWith": {},
+    "family": {},
+    "version": {},
+    "plan": {},
+    "region": {}
   },
   "usage": {
     "title": "使用統計",
@@ -2316,7 +2369,8 @@
       "noFirstToken": "沒有首字計時，不算速度",
       "providerId": "供應商 ID",
       "copyRequestId": "複製請求 ID",
-      "requestIdCopied": "已複製請求 ID"
+      "requestIdCopied": "已複製請求 ID",
+      "speedBurst": "疑似緩衝後突發吐出，不算速度"
     },
     "sources": {
       "scanTitle": "自動掃描工作階段日誌",
@@ -2707,7 +2761,10 @@
     "confirm": {
       "deleteTitle": "確認刪除",
       "deleteMessage": "確定要刪除提示詞 \"{{name}}\" 嗎？"
-    }
+    },
+    "importReason": {},
+    "copyDialog": {},
+    "toast": {}
   },
   "profiles": {
     "switcherAriaLabel": "專案：{{name}}",
@@ -3079,7 +3136,8 @@
       "addFailed": "新增失敗",
       "removeSuccess": "儲存庫 {{owner}}/{{name}} 已刪除",
       "removeFailed": "刪除失敗",
-      "skillCount": "識別到 {{count}} 個技能"
+      "skillCount": "識別到 {{count}} 個技能",
+      "token": {}
     },
     "search": "搜尋技能",
     "searchPlaceholder": "搜尋技能名稱或儲存庫名稱...",
@@ -3156,7 +3214,8 @@
       "successSingle": "技能 {{name}} 已安裝",
       "successMultiple": "成功安裝 {{count}} 個技能",
       "noSkillsFound": "ZIP 檔案中未找到技能（需包含 SKILL.md 檔案）"
-    }
+    },
+    "storageSheet": {}
   },
   "deeplink": {
     "confirmImport": "確認匯入供應商設定",
@@ -3254,7 +3313,8 @@
       "cloud": "雲端平台",
       "tool": "開發工具",
       "other": "其他"
-    }
+    },
+    "uploadError": {}
   },
   "providerIcon": {
     "label": "圖示",
@@ -3476,7 +3536,10 @@
       "stopFailed": "停止路由服務失敗：{{detail}}"
     },
     "stoppedWithRestore": "路由服務已關閉，所有應用程式已退回直連",
-    "stopWithRestoreFailed": "停止失敗：{{detail}}"
+    "stopWithRestoreFailed": "停止失敗：{{detail}}",
+    "stackMode": {
+      "codexStale": {}
+    }
   },
   "streamCheck": {
     "reachable": "{{providerName}} 連通正常 ({{responseTimeMs}}ms)",
@@ -3490,7 +3553,8 @@
     "timeout": "逾時時間（秒）",
     "maxRetries": "最大重試次數",
     "degradedThreshold": "緩慢閾值（毫秒）",
-    "error": "{{providerName}} 檢查出錯：{{error}}"
+    "error": "{{providerName}} 檢查出錯：{{error}}",
+    "hint": {}
   },
   "proxyConfig": {
     "proxyEnabled": "路由總開關",
@@ -3767,7 +3831,9 @@
     "expired": "工作階段已過期",
     "expiredHint": "請執行 {{tool}} 命令重新整理登入",
     "queryFailed": "查詢失敗",
-    "refresh": "重新整理"
+    "refresh": "重新整理",
+    "manualQueryHint": "點擊重新整理查詢額度。",
+    "short": {}
   },
   "pluginsPage": {
     "title": "外掛",
@@ -3881,5 +3947,129 @@
     "needsAttention": "需要處理",
     "back": "返回",
     "plugins": "外掛"
-  }
+  },
+  "authCenter": {
+    "autoQuota": {
+      "title": "自動查詢額度",
+      "description": "關閉後，官方帳號額度只在點擊重新整理時查詢。第三方供應商餘額查詢不受影響。"
+    },
+    "group": {},
+    "pending": {},
+    "toast": {},
+    "quota": {},
+    "agy": {},
+    "codebuddy": {
+      "quota": {}
+    },
+    "workbuddy": {
+      "plan": {}
+    },
+    "claude": {},
+    "openBrowser": {}
+  },
+  "mcode": {
+    "empty": {}
+  },
+  "workbuddy": {
+    "empty": {},
+    "form": {},
+    "official": {},
+    "quota": {}
+  },
+  "backgroundTask": {
+    "updateCheckFailed": {},
+    "modelsDevSyncFailed": {}
+  },
+  "appsPage": {
+    "installHint": {}
+  },
+  "appPage": {},
+  "mode": {
+    "names": {},
+    "stackSettings": {},
+    "status": {},
+    "activate": {},
+    "notice": {},
+    "toast": {},
+    "dialog": {},
+    "help": {}
+  },
+  "providerCard": {
+    "status": {},
+    "action": {},
+    "chip": {},
+    "reason": {},
+    "section": {}
+  },
+  "routingSettings": {},
+  "quota": {
+    "reason": {},
+    "resetCredits": {},
+    "credits": {},
+    "windows": {}
+  },
+  "appMatrix": {
+    "pop": {},
+    "toast": {},
+    "cell": {},
+    "ompDiscovery": {}
+  },
+  "mcpPage": {
+    "connection": {},
+    "toast": {},
+    "import": {},
+    "templateLabels": {},
+    "drawer": {
+      "pasteFormats": {},
+      "errors": {}
+    }
+  },
+  "skillsPage": {
+    "addMenu": {},
+    "moreMenu": {},
+    "banner": {},
+    "filter": {},
+    "source": {},
+    "bulk": {},
+    "pop": {},
+    "confirm": {},
+    "toast": {},
+    "installTo": {},
+    "discover": {},
+    "repos": {},
+    "import": {},
+    "restore": {},
+    "repoFail": {}
+  },
+  "newLayoutNotice": {},
+  "whatsNew": {
+    "types": {}
+  },
+  "kimi": {
+    "oauth": {},
+    "empty": {},
+    "capabilities": {},
+    "capabilityHints": {},
+    "error": {}
+  },
+  "omp": {
+    "empty": {},
+    "provider": {},
+    "current": {},
+    "form": {
+      "discoveryTypes": {}
+    },
+    "errors": {}
+  },
+  "codebuddy": {
+    "empty": {},
+    "official": {},
+    "login": {}
+  },
+  "dsh": {
+    "empty": {},
+    "account": {}
+  },
+  "autoUpdate": {},
+  "unreadableEntry": {}
 }

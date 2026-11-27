@@ -24,6 +24,7 @@ const XaiOauthQuotaFooter: React.FC<XaiOauthQuotaFooterProps> = ({
 }) => {
   const {
     data: quota,
+    manualIdle,
     isFetching: loading,
     refetch,
   } = useXaiOauthQuota(meta, { enabled: true, autoQuery: isCurrent });
@@ -31,6 +32,7 @@ const XaiOauthQuotaFooter: React.FC<XaiOauthQuotaFooterProps> = ({
   return (
     <SubscriptionQuotaView
       quota={quota}
+      manualIdle={manualIdle}
       loading={loading}
       refetch={refetch}
       appIdForExpiredHint="xai_oauth"

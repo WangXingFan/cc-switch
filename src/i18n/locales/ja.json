@@ -170,7 +170,13 @@
         "oauthTitle": "OAuth 認証モード",
         "oauthHint": "Google 公式は OAuth 個人認証を使用するため API Key は不要です。初回利用時にブラウザが開きます。",
         "apiKeyPlaceholder": "Gemini API Key を入力"
-      }
+      },
+      "agy": {},
+      "managedAccount": {},
+      "claudeAccount": {
+        "plan": {}
+      },
+      "grokAccount": {}
     },
     "multiKey": {
       "count": "{{count}} 個のキー",
@@ -211,7 +217,9 @@
       "message": "エディターを開いた後、以下の設定が他のプログラム（Claude Code など）によって変更されました。自分の編集で上書きしますか？それとも外部の変更を残しますか？その他の編集はどちらでも保存されます。",
       "keepTheirs": "外部の変更を残す",
       "keepMine": "自分の編集で上書き"
-    }
+    },
+    "officialModelsReason": {},
+    "openTerminalDialog": {}
   },
   "claudeCode": {
     "needsRouting": "ルーティングが必要",
@@ -326,7 +334,8 @@
     "windowControlFailed": "ウィンドウ操作に失敗しました: {{error}}",
     "officialBlockedByProxy": "ローカルルーティングモード中は公式プロバイダーに切り替えできません。ルーティング経由で公式 API にアクセスするとアカウントが停止される可能性があります。",
     "proxyOfficialWarning": "現在のプロバイダー {{name}} は公式です。ローカルルーティングを使用する前にサードパーティプロバイダーに切り替えてください。",
-    "proxyReasonClaudeDesktop": "Claude Desktop ローカルルーティングモードを使用中"
+    "proxyReasonClaudeDesktop": "Claude Desktop ローカルルーティングモードを使用中",
+    "codexHistorySplit": {}
   },
   "confirm": {
     "deleteProvider": "プロバイダーを削除",
@@ -476,7 +485,8 @@
           "debug": "SSE ストリームとリクエスト/レスポンスを含む詳細情報",
           "trace": "すべてのログ、最も詳細"
         }
-      }
+      },
+      "privacyFilter": {}
     },
     "language": "言語",
     "languageHint": "切り替えるとすぐにプレビューされ、保存後に永続化されます。",
@@ -613,7 +623,8 @@
         "warning": "リモートの既存同期データが上書きされます",
         "legacyNotice": "旧レイアウトのリモートデータを検出しました。今回のアップロードは新しい v2/db-v6 パスに書き込み、旧パスは上書きしません。",
         "confirm": "アップロードを実行"
-      }
+      },
+      "clearConfirm": {}
     },
     "syncType": {
       "label": "同期方式",
@@ -714,7 +725,8 @@
         "createdAt": "アップロード日時",
         "warning": "この S3 パスにある既存の同期データが上書きされます",
         "confirm": "アップロードを実行"
-      }
+      },
+      "clearConfirm": {}
     },
     "autoReload": "データを更新しました",
     "languageOptionChinese": "简体中文",
@@ -942,7 +954,35 @@
       "defaultCostMultiplierRequired": "デフォルト倍率は必須です",
       "defaultCostMultiplierInvalid": "デフォルト倍率の形式が正しくありません"
     },
-    "saveFailedGeneric": "保存に失敗しました。もう一度お試しください"
+    "saveFailedGeneric": "保存に失敗しました。もう一度お試しください",
+    "backupStorage": {
+      "items": {
+        "database": {},
+        "skills": {},
+        "codexHistoryUnify": {},
+        "codexHistoryUnifyRestore": {},
+        "codexHistoryProviderMigration": {},
+        "liveFirstWrite": {},
+        "hermes": {},
+        "openclaw": {},
+        "proxyLiveBackup": {},
+        "envVars": {},
+        "legacyConfigBackups": {},
+        "legacyConfigArchive": {},
+        "legacyDbUpgrade": {},
+        "legacyToolSearch": {}
+      }
+    },
+    "copilotVscode": {},
+    "codexQuotaProtection": {},
+    "codexPauseOfficialLogin": {},
+    "sections": {},
+    "appConfig": {},
+    "routing": {},
+    "data": {},
+    "ipDiagnostics": {
+      "errors": {}
+    }
   },
   "apps": {
     "claude": "Claude",
@@ -1668,7 +1708,10 @@
     "fetchModelsNotSupported": "このプロバイダーはモデル一覧の取得に対応していません",
     "fetchModelsEndpointNotFound": "利用可能なモデル一覧エンドポイントが見つかりません。Base URL を確認するか、プロバイダーが該当 API を公開しているかご確認ください",
     "fetchModelsTimeout": "リクエストがタイムアウトしました。ネットワーク接続を確認してください",
-    "requiredFields": "プロバイダー名、API エンドポイント、API Key、モデルを入力してください"
+    "requiredFields": "プロバイダー名、API エンドポイント、API Key、モデルを入力してください",
+    "nativeConfig": {},
+    "stackLayout": {},
+    "modelPicker": {}
   },
   "copilot": {
     "authSection": "GitHub Copilot 認証",
@@ -1707,7 +1750,9 @@
     "deploymentType": "GitHub デプロイメントタイプ",
     "deploymentGitHubCom": "GitHub.com",
     "deploymentEnterprise": "GitHub Enterprise Server",
-    "enterpriseDomainPlaceholder": "例: company.ghe.com"
+    "enterpriseDomainPlaceholder": "例: company.ghe.com",
+    "form": {},
+    "quota": {}
   },
   "codexOauth": {
     "authStatus": "認証状態",
@@ -1774,7 +1819,8 @@
   "managedAuth": {
     "accountRemoved": "アカウントを削除しました",
     "selectedAccountNeedsReauth": "リンクされたアカウントが存在しないか、再ログインが必要です",
-    "selectedAccountUnavailable": "リンクされたアカウントが存在しないか、再ログインが必要です。別のアカウントを選択してください"
+    "selectedAccountUnavailable": "リンクされたアカウントが存在しないか、再ログインが必要です。別のアカウントを選択してください",
+    "remove": {}
   },
   "endpointTest": {
     "title": "API エンドポイント管理",
@@ -1993,7 +2039,14 @@
     "sortAriaLabel": "プリセットの並び順を切り替え",
     "sortNameAscTooltip": "名前順 A-Z で並び替え",
     "sortOriginalTooltip": "元の順序に戻す",
-    "noSearchResults": "一致するプロバイダープリセットがありません。"
+    "noSearchResults": "一致するプロバイダープリセットがありません。",
+    "group": {},
+    "groupHint": {},
+    "loginWith": {},
+    "family": {},
+    "version": {},
+    "plan": {},
+    "region": {}
   },
   "usage": {
     "title": "利用統計",
@@ -2364,7 +2417,8 @@
       "noFirstToken": "最初のトークンの計測がないため速度は出しません",
       "providerId": "プロバイダー ID",
       "copyRequestId": "リクエスト ID をコピー",
-      "requestIdCopied": "リクエスト ID をコピーしました"
+      "requestIdCopied": "リクエスト ID をコピーしました",
+      "speedBurst": "バッファ後の一括到着とみられるため速度は出しません"
     },
     "sources": {
       "scanTitle": "セッションログを自動スキャン",
@@ -2755,7 +2809,10 @@
     "confirm": {
       "deleteTitle": "削除の確認",
       "deleteMessage": "プロンプト「{{name}}」を削除してもよろしいですか？"
-    }
+    },
+    "importReason": {},
+    "copyDialog": {},
+    "toast": {}
   },
   "profiles": {
     "switcherAriaLabel": "プロジェクト：{{name}}",
@@ -3127,7 +3184,8 @@
       "addFailed": "追加に失敗しました",
       "removeSuccess": "リポジトリ {{owner}}/{{name}} を削除しました",
       "removeFailed": "削除に失敗しました",
-      "skillCount": "{{count}} 件のスキルを検出"
+      "skillCount": "{{count}} 件のスキルを検出",
+      "token": {}
     },
     "search": "スキルを検索",
     "searchPlaceholder": "スキル名またはリポジトリで検索...",
@@ -3204,7 +3262,8 @@
       "successSingle": "スキル {{name}} をインストールしました",
       "successMultiple": "{{count}} 件のスキルをインストールしました",
       "noSkillsFound": "ZIP ファイルにスキルが見つかりません（SKILL.md が必要です）"
-    }
+    },
+    "storageSheet": {}
   },
   "deeplink": {
     "confirmImport": "プロバイダーのインポートを確認",
@@ -3302,7 +3361,8 @@
       "cloud": "クラウドプラットフォーム",
       "tool": "開発ツール",
       "other": "その他"
-    }
+    },
+    "uploadError": {}
   },
   "providerIcon": {
     "label": "アイコン",
@@ -3524,7 +3584,10 @@
       "stopFailed": "ルーティングサービスの停止に失敗しました: {{detail}}"
     },
     "stoppedWithRestore": "ルーティングサービスを停止し、すべてのアプリを直接接続に戻しました",
-    "stopWithRestoreFailed": "停止に失敗しました: {{detail}}"
+    "stopWithRestoreFailed": "停止に失敗しました: {{detail}}",
+    "stackMode": {
+      "codexStale": {}
+    }
   },
   "streamCheck": {
     "reachable": "{{providerName}} は接続可能 ({{responseTimeMs}}ms)",
@@ -3538,7 +3601,8 @@
     "timeout": "タイムアウト（秒）",
     "maxRetries": "最大リトライ回数",
     "degradedThreshold": "低速判定しきい値（ミリ秒）",
-    "error": "{{providerName}} のチェックでエラーが発生しました: {{error}}"
+    "error": "{{providerName}} のチェックでエラーが発生しました: {{error}}",
+    "hint": {}
   },
   "proxyConfig": {
     "proxyEnabled": "ルーティング総スイッチ",
@@ -3815,7 +3879,9 @@
     "expired": "セッション期限切れ",
     "expiredHint": "{{tool}}コマンドを実行してログインを更新してください",
     "queryFailed": "クエリに失敗しました",
-    "refresh": "更新"
+    "refresh": "更新",
+    "manualQueryHint": "更新ボタンを押して使用枠を取得してください。",
+    "short": {}
   },
   "pluginsPage": {
     "title": "プラグイン",
@@ -3929,5 +3995,129 @@
     "needsAttention": "対応が必要",
     "back": "戻る",
     "plugins": "プラグイン"
-  }
+  },
+  "authCenter": {
+    "autoQuota": {
+      "title": "残量を自動で取得",
+      "description": "オフの場合、公式アカウントの使用枠は更新ボタンを押したときだけ取得します。外部プロバイダーの残高照会には影響しません。"
+    },
+    "group": {},
+    "pending": {},
+    "toast": {},
+    "quota": {},
+    "agy": {},
+    "codebuddy": {
+      "quota": {}
+    },
+    "workbuddy": {
+      "plan": {}
+    },
+    "claude": {},
+    "openBrowser": {}
+  },
+  "mcode": {
+    "empty": {}
+  },
+  "workbuddy": {
+    "empty": {},
+    "form": {},
+    "official": {},
+    "quota": {}
+  },
+  "backgroundTask": {
+    "updateCheckFailed": {},
+    "modelsDevSyncFailed": {}
+  },
+  "appsPage": {
+    "installHint": {}
+  },
+  "appPage": {},
+  "mode": {
+    "names": {},
+    "stackSettings": {},
+    "status": {},
+    "activate": {},
+    "notice": {},
+    "toast": {},
+    "dialog": {},
+    "help": {}
+  },
+  "providerCard": {
+    "status": {},
+    "action": {},
+    "chip": {},
+    "reason": {},
+    "section": {}
+  },
+  "routingSettings": {},
+  "quota": {
+    "reason": {},
+    "resetCredits": {},
+    "credits": {},
+    "windows": {}
+  },
+  "appMatrix": {
+    "pop": {},
+    "toast": {},
+    "cell": {},
+    "ompDiscovery": {}
+  },
+  "mcpPage": {
+    "connection": {},
+    "toast": {},
+    "import": {},
+    "templateLabels": {},
+    "drawer": {
+      "pasteFormats": {},
+      "errors": {}
+    }
+  },
+  "skillsPage": {
+    "addMenu": {},
+    "moreMenu": {},
+    "banner": {},
+    "filter": {},
+    "source": {},
+    "bulk": {},
+    "pop": {},
+    "confirm": {},
+    "toast": {},
+    "installTo": {},
+    "discover": {},
+    "repos": {},
+    "import": {},
+    "restore": {},
+    "repoFail": {}
+  },
+  "newLayoutNotice": {},
+  "whatsNew": {
+    "types": {}
+  },
+  "kimi": {
+    "oauth": {},
+    "empty": {},
+    "capabilities": {},
+    "capabilityHints": {},
+    "error": {}
+  },
+  "omp": {
+    "empty": {},
+    "provider": {},
+    "current": {},
+    "form": {
+      "discoveryTypes": {}
+    },
+    "errors": {}
+  },
+  "codebuddy": {
+    "empty": {},
+    "official": {},
+    "login": {}
+  },
+  "dsh": {
+    "empty": {},
+    "account": {}
+  },
+  "autoUpdate": {},
+  "unreadableEntry": {}
 }

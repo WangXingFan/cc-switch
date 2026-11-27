@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useSettingsQuery } from "@/lib/query";
 import type { Settings } from "@/types";
@@ -51,58 +51,7 @@ const sanitizeDir = (value?: string | null): string | undefined => {
   return trimmed.length > 0 ? trimmed : undefined;
 };
 
-export interface UseSettingsFormResult {
-  settings: SettingsFormState | null;
-  isLoading: boolean;
-  initialLanguage: Language;
-  updateSettings: (updates: Partial<SettingsFormState>) => void;
-  resetSettings: (serverData: Settings | null) => void;
-  readPersistedLanguage: () => Language;
-  syncLanguage: (lang: Language) => void;
-}
-
-/**
- * useSettingsForm - 表单状态管理
- * 负责：
- * - 表单数据状态
- * - 表单字段更新
- * - 语言同步
- * - 表单重置
- */
-export function useSettingsForm(): UseSettingsFormResult {
-  const { i18n } = useTranslation();
-  const { data, isLoading } = useSettingsQuery();
-
-  const [settingsState, setSettingsState] = useState<SettingsFormState | null>(
-    null,
-  );
-
-  const initialLanguageRef = useRef<Language>("zh");
-
-  const readPersistedLanguage = useCallback((): Language => {
-    if (typeof window !== "undefined") {
-      const stored = window.localStorage.getItem("language");
-      if (isSupportedLanguage(stored)) {
-        return normalizeLanguage(stored);
-      }
-    }
-    return normalizeLanguage(i18n.language);
-  }, [i18n]);
-
-  const syncLanguage = useCallback(
-    (lang: Language) => {
-      const current = normalizeLanguage(i18n.language);
-      if (current !== lang) {
-        void i18n.changeLanguage(lang);
-      }
-    },
-    [i18n],
-  );
-
-  // 初始化设置数据
-  useEffect(() => {
-    if (!data) return;
-
+const normalizeSettings = (data: Settings, readPersistedLanguage: () => Language): SettingsFormState => {
     const normalizedLanguage = normalizeLanguage(
       data.language ?? readPersistedLanguage(),
     );
@@ -130,10 +79,69 @@ export function useSettingsForm(): UseSettingsFormResult {
       language: normalizedLanguage,
     };
 
+  return normalized;
+};
+
+export interface UseSettingsFormResult {
+  settings: SettingsFormState | null;
+  isLoading: boolean;
+  initialLanguage: Language;
+  updateSettings: (updates: Partial<SettingsFormState>) => void;
+  resetSettings: (serverData: Settings | null) => void;
+  readPersistedLanguage: () => Language;
+  syncLanguage: (lang: Language) => void;
+}
+
+/**
+ * useSettingsForm - 表单状态管理
+ * 负责：
+ * - 表单数据状态
+ * - 表单字段更新
+ * - 语言同步
+ * - 表单重置
+ */
+export function useSettingsForm(): UseSettingsFormResult {
+  const { i18n } = useTranslation();
+  const { data, isLoading } = useSettingsQuery();
+
+
+
+  const readPersistedLanguage = useCallback((): Language => {
+    if (typeof window !== "undefined") {
+      const stored = window.localStorage.getItem("language");
+      if (isSupportedLanguage(stored)) {
+        return normalizeLanguage(stored);
+      }
+    }
+    return normalizeLanguage(i18n.language);
+  }, [i18n]);
+
+  const savedSettings = useMemo(() => data ? normalizeSettings(data, readPersistedLanguage) : null, [data, readPersistedLanguage]);
+  const [settingsState, setSettingsState] = useState<SettingsFormState | null>(savedSettings);
+  const initialLanguageRef = useRef<Language>(savedSettings?.language ?? "zh");
+
+  const syncLanguage = useCallback(
+    (lang: Language) => {
+      const current = normalizeLanguage(i18n.language);
+      if (current !== lang) {
+        void i18n.changeLanguage(lang);
+      }
+    },
+    [i18n],
+  );
+
+  // 初始化设置数据
+  useEffect(() => {
+    if (!data) return;
+
+    const normalized = savedSettings;
+    if (!normalized) return;
+    const normalizedLanguage = normalized.language;
+
     setSettingsState(normalized);
     initialLanguageRef.current = normalizedLanguage;
     syncLanguage(normalizedLanguage);
-  }, [data, readPersistedLanguage, syncLanguage]);
+  }, [data, savedSettings, syncLanguage]);
 
   const updateSettings = useCallback(
     (updates: Partial<SettingsFormState>) => {

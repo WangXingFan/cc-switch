@@ -1,3 +1,4 @@
+import { isManualIdle, useQuotaPolicy } from "./quotaPolicy";
 import { useQuery } from "@tanstack/react-query";
 import { copilotGetUsage, copilotGetUsageForAccount } from "@/lib/api/copilot";
 import type { QuotaTier } from "@/types/subscription";
@@ -23,8 +24,10 @@ export function useCopilotQuota(
   accountId: string | null,
   options: UseCopilotQuotaOptions = {},
 ) {
-  const { enabled = true, autoQuery = false } = options;
-  return useQuery<CopilotQuota>({
+  const { enabled = true } = options;
+  const policy = useQuotaPolicy();
+  const autoQuery = policy.autoAllowed && (options.autoQuery ?? false);
+  const query = useQuery<CopilotQuota>({
     queryKey: ["copilot", "quota", accountId ?? "default"],
     queryFn: async (): Promise<CopilotQuota> => {
       const usage = accountId
@@ -53,11 +56,12 @@ export function useCopilotQuota(
         queriedAt: Date.now(),
       };
     },
-    enabled,
+    enabled: policy.autoAllowed && enabled,
     refetchInterval: autoQuery ? REFETCH_INTERVAL : false,
     refetchIntervalInBackground: autoQuery,
     refetchOnWindowFocus: autoQuery,
     staleTime: REFETCH_INTERVAL,
     retry: 1,
   });
+  return { ...query, manualIdle: isManualIdle(policy, query) };
 }

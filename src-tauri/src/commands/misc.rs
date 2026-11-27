@@ -970,7 +970,7 @@ async fn get_single_tool_version_impl(
         "grok" => fetch_npm_latest_for_tool(&client, "@xai-official/grok", tool, local).await,
         "opencode" => {
             if let Some(version) =
-                fetch_npm_latest_for_tool(&client, "opencode-ai", tool, local).await
+                fetch_npm_latest_for_tool(&client, if local.is_some_and(|v| v.trim_start_matches('v').starts_with("2.")) { "@opencode/cli" } else { "opencode-ai" }, tool, local).await
             {
                 Some(version)
             } else {
@@ -1981,8 +1981,22 @@ fn build_tool_search_paths(tool: &str) -> Vec<std::path::PathBuf> {
         extend_mise_node_search_paths(&mut search_paths, &home);
     }
 
+    #[cfg(not(target_os = "windows"))]
+    {
+        if let Some(pnpm_home) = std::env::var_os("PNPM_HOME").filter(|value| !value.is_empty()) {
+            let pnpm_home = std::path::PathBuf::from(pnpm_home);
+            push_unique_path(&mut search_paths, pnpm_home.join("bin"));
+            push_unique_path(&mut search_paths, pnpm_home);
+        }
+    }
+
     #[cfg(target_os = "macos")]
     {
+        if !home.as_os_str().is_empty() {
+            let pnpm_home = home.join("Library").join("pnpm");
+            push_unique_path(&mut search_paths, pnpm_home.join("bin"));
+            push_unique_path(&mut search_paths, pnpm_home);
+        }
         push_unique_path(
             &mut search_paths,
             std::path::PathBuf::from("/opt/homebrew/bin"),
@@ -2008,6 +2022,11 @@ fn build_tool_search_paths(tool: &str) -> Vec<std::path::PathBuf> {
 
     #[cfg(target_os = "linux")]
     {
+        if !home.as_os_str().is_empty() {
+            let pnpm_home = home.join(".local/share/pnpm");
+            push_unique_path(&mut search_paths, pnpm_home.join("bin"));
+            push_unique_path(&mut search_paths, pnpm_home);
+        }
         push_unique_path(
             &mut search_paths,
             std::path::PathBuf::from("/usr/local/bin"),
@@ -2416,7 +2435,7 @@ fn infer_install_source_for_install(launcher: &Path, real: &Path) -> &'static st
 
 /// 从 shell 输出里挑出第一个绝对路径行（trim 后以 `/` 开头），跳过交互式登录 shell
 /// （`-lic`）里 .zshrc 打印的欢迎语/提示符等噪音。canonicalize 由调用方做（碰 FS）。
-#[cfg(not(target_os = "windows"))]
+#[cfg(all(test, not(target_os = "windows")))]
 fn first_abs_path_line(raw: &str) -> Option<&str> {
     raw.lines().map(str::trim).find(|l| l.starts_with('/'))
 }
@@ -2424,7 +2443,7 @@ fn first_abs_path_line(raw: &str) -> Option<&str> {
 /// 从 `env` 输出里取 `PATH=` 那行的值。要求值以 `/` 开头——PATH 首段必是绝对路径，
 /// 这条约束顺带跳过"某个多行值的环境变量恰好有一行以 `PATH=` 开头"的污染，
 /// 与 `first_abs_path_line` 对交互式 shell 噪音的容错同理。
-#[cfg(not(target_os = "windows"))]
+#[cfg(all(test, not(target_os = "windows")))]
 fn path_line_from_env_output(raw: &str) -> Option<&str> {
     raw.lines()
         .filter_map(|line| line.strip_prefix("PATH="))
@@ -2470,22 +2489,7 @@ pub(crate) fn merge_path_segments(primary: &str, extra: &str) -> String {
 /// 解析不到时返回 `None`，调用方保持原有行为（不注入），不引入新的失败模式。
 #[cfg(not(target_os = "windows"))]
 fn login_shell_path() -> Option<String> {
-    use std::process::Command;
-    let shell = std::env::var("SHELL")
-        .ok()
-        .filter(|s| is_valid_shell(s))
-        .unwrap_or_else(|| "sh".to_string());
-    let flag = default_flag_for_shell(&shell);
-    let out = Command::new(shell)
-        .arg(flag)
-        .arg("/usr/bin/env")
-        .output()
-        .ok()?;
-    if !out.status.success() {
-        return None;
-    }
-    let raw = decode_command_output(&out.stdout);
-    Some(path_line_from_env_output(&raw)?.to_string())
+    cached_login_shell_env().and_then(|env| env.path.clone())
 }
 
 /// 用与 `try_get_version` 相同的登录 shell 解析 PATH 默认命中的可执行文件路径，
@@ -2504,12 +2508,14 @@ fn resolve_path_default(
     let flag = default_flag_for_shell(&shell);
     let mut cmd = Command::new(shell);
     cmd.arg(flag)
-        .arg(format!("command -v {tool}"))
+        .arg(format!("echo {COMMAND_V_MARKER}; command -v {tool}"))
         // 改 spawn 后 stdin 不再像 output() 那样默认置 null，须显式关闭：
         // 继承来的 stdin 可能是终端/管道，交互式 rc 里的读操作会永久阻塞。
         .stdin(Stdio::null())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped());
+    #[cfg(not(target_os = "windows"))]
+    if let Some(env) = cached_login_shell_env() { apply_login_shell_vars(&mut cmd, &env.vars); }
     isolate_child_process_group(&mut cmd);
     let child = cmd
         .spawn()
@@ -2521,10 +2527,10 @@ fn resolve_path_default(
     let raw = decode_command_output(&out.stdout);
     // 不能死取第一行：交互式 .zshrc 可能先打印欢迎语（如 "🚀 Welcome back"），
     // command -v 的真实路径在其后；取第一个 `/` 开头的行才稳。
-    let Some(first) = first_abs_path_line(&raw) else {
+    let Some(first) = command_v_abs_path_line(&raw) else {
         return Ok(None);
     };
-    Ok(std::fs::canonicalize(first).ok())
+    Ok(Some(std::path::PathBuf::from(first)))
 }
 
 #[cfg(target_os = "windows")]
@@ -2616,6 +2622,8 @@ fn run_probe_version_command(
         .stdin(Stdio::null())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped());
+    #[cfg(not(target_os = "windows"))]
+    if let Some(env) = cached_login_shell_env() { apply_login_shell_vars(&mut cmd, &env.vars); }
     isolate_child_process_group(&mut cmd);
     let child = cmd.spawn().map_err(|e| e.to_string())?;
     wait_child_output(
@@ -3132,7 +3140,7 @@ fn package_manager_anchored_command_from_paths(
         let brew = sibling_bin(bin_path, "brew")?;
         return Some(format!("{} upgrade {formula}", quote_path_if_spaced(&brew)));
     }
-    let pkg = npm_package_for(tool)?;
+    let pkg = installed_npm_package(tool, real_target)?;
     match infer_install_source(Path::new(bin_path)) {
         "volta" => {
             let volta = sibling_bin(bin_path, "volta")?;
@@ -3224,7 +3232,7 @@ fn anchored_command_from_paths(tool: &str, bin_path: &str, real_target: &str) ->
 
 #[cfg(target_os = "windows")]
 fn package_manager_anchored_command_from_paths(tool: &str, bin_path: &str) -> Option<String> {
-    let pkg = npm_package_for(tool)?;
+    let pkg = installed_npm_package(tool, real_target)?;
 
     match infer_install_source(Path::new(bin_path)) {
         "volta" => {
@@ -3587,7 +3595,9 @@ pub(crate) fn run_detected_tool_command_with_timeout(
             .stdout(Stdio::piped())
             .stderr(Stdio::piped());
         apply_extra_env(&mut cmd, extra_env);
-        isolate_child_process_group(&mut cmd);
+        #[cfg(not(target_os = "windows"))]
+    if let Some(env) = cached_login_shell_env() { apply_login_shell_vars(&mut cmd, &env.vars); }
+    isolate_child_process_group(&mut cmd);
         let child = cmd
             .spawn()
             .map_err(|e| format!("Failed to run {tool}: {e}"))?;
@@ -3846,7 +3856,18 @@ enum UpdateCommand {
 }
 
 fn resolve_update_command(tool: &str, installs: &[ToolInstallation]) -> UpdateCommand {
+    if tool == "pi" {
+        if let Some(install) = default_install(installs) {
+            let real = install.real.to_string_lossy().replace('\\', "/").to_ascii_lowercase();
+            if !real.contains("/node_modules/") && (real.contains("/.pi/") || real.contains("/pi/releases/")) {
+                return UpdateCommand::Anchored(format!("{} update", quote_tool_update_path(&install.path)));
+            }
+        }
+    }
     if let Some(command) = installs_anchored_command(tool, installs) {
+        let command = if tool == "opencode" && default_install(installs).is_some_and(|install| opencode_package_for_path(&install.real.to_string_lossy()) == "@opencode/cli") {
+            command.replace("opencode-ai", "@opencode/cli")
+        } else { command };
         return UpdateCommand::Anchored(command);
     }
     if default_install(installs).is_some_and(is_unmanaged_native_install) {
@@ -4673,6 +4694,8 @@ fn launch_linux_terminal(config_file: &std::path::Path, cwd: Option<&Path>) -> R
         ("alacritty", vec!["-e"]),
         ("kitty", vec!["-e"]),
         ("ghostty", vec!["-e"]),
+            ("x-terminal-emulator", vec!["-e"]),
+            ("xdg-terminal-exec", vec!["--"]),
     ];
 
     // Create temp script file
@@ -4977,6 +5000,8 @@ read -r _
             ("alacritty", vec!["-e"]),
             ("kitty", vec!["-e"]),
             ("ghostty", vec!["-e"]),
+            ("x-terminal-emulator", vec!["-e"]),
+            ("xdg-terminal-exec", vec!["--"]),
         ];
 
         let terminals_to_try: Vec<(&str, Vec<&str>)> = if let Some(ref pref) = preferred {
@@ -5278,7 +5303,9 @@ mod tests {
             .stdin(Stdio::null())
             .stdout(Stdio::piped())
             .stderr(Stdio::piped());
-        isolate_child_process_group(&mut cmd);
+        #[cfg(not(target_os = "windows"))]
+    if let Some(env) = cached_login_shell_env() { apply_login_shell_vars(&mut cmd, &env.vars); }
+    isolate_child_process_group(&mut cmd);
         let child = cmd.spawn().expect("spawn sleep");
         let started = std::time::Instant::now();
         let result = wait_child_output(
@@ -8205,4 +8232,119 @@ pub(crate) fn locate_detected_tool(tool: &str, timeout: std::time::Duration) -> 
         return Ok(());
     }
     locate_default_tool(tool, CommandDeadline::from_timeout(Some(timeout))).map(|_| ())
+}
+
+#[cfg(not(target_os = "windows"))]
+const LOGIN_ENV_MARKER: &str = "\0__CC_SWITCH_ENV__\0";
+
+#[cfg(not(target_os = "windows"))]
+#[derive(Default)]
+pub(super) struct LoginShellEnv {
+    pub(super) path: Option<String>,
+    pub(super) vars: Vec<(String, String)>,
+}
+
+#[cfg(not(target_os = "windows"))]
+fn parse_login_shell_env_output(raw: &str) -> Option<LoginShellEnv> {
+    let (_, records) = raw.split_once(LOGIN_ENV_MARKER)?;
+    let mut env = LoginShellEnv::default();
+    for (key, value) in records
+        .split('\0')
+        .filter_map(|entry| entry.split_once('='))
+    {
+        if !value.starts_with('/') {
+            continue;
+        }
+        match key {
+            "PATH" => env.path = Some(value.to_owned()),
+            "VP_HOME" | "VP_BIN_DIR" | "VP_DATA_DIR" | "VP_CACHE_DIR" | "XDG_DATA_HOME"
+            | "XDG_CONFIG_HOME" | "XDG_CACHE_HOME" | "XDG_STATE_HOME" => {
+                env.vars.push((key.to_owned(), value.to_owned()));
+            }
+            _ => {}
+        }
+    }
+    Some(env)
+}
+
+/// 只补齐当前进程环境里缺失的登录 shell 变量，避免覆盖终端启动（如 `pnpm dev`）或测试里
+/// 显式设置的会话覆盖；调用方再通过 `apply_extra_env` 覆盖应用配置目录等强约束变量。
+#[cfg(not(target_os = "windows"))]
+pub(super) fn apply_login_shell_vars(cmd: &mut std::process::Command, vars: &[(String, String)]) {
+    for (key, value) in vars {
+        if std::env::var_os(key).is_none() {
+            cmd.env(key, value);
+        }
+    }
+}
+
+
+
+#[cfg(not(target_os = "windows"))]
+pub(super) fn login_shell_env(deadline: Option<CommandDeadline>) -> Option<LoginShellEnv> {
+    use std::process::{Command, Stdio};
+    let shell = std::env::var("SHELL")
+        .ok()
+        .filter(|s| is_valid_shell(s))
+        .unwrap_or_else(|| "sh".to_string());
+    let flag = default_flag_for_shell(&shell);
+    let mut cmd = Command::new(shell);
+    cmd.arg(flag)
+        // ENVIRON includes exported variables and preserves fish's colon-separated PATH.
+        // NUL separates records even on macOS versions without env -0.
+        .arg(
+            r#"exec /usr/bin/env awk 'BEGIN {
+            printf "%c__CC_SWITCH_ENV__%c", 0, 0
+            for (key in ENVIRON) printf "%s=%s%c", key, ENVIRON[key], 0
+        }'"#,
+        )
+        .stdin(Stdio::null())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped());
+    isolate_child_process_group(&mut cmd);
+    let child = cmd.spawn().ok()?;
+    let out = wait_child_output(child, deadline).ok()?;
+    if !out.status.success() {
+        return None;
+    }
+    parse_login_shell_env_output(&decode_command_output(&out.stdout))
+}
+
+#[cfg(not(target_os = "windows"))]
+pub(super) fn cached_login_shell_env() -> Option<&'static LoginShellEnv> {
+    static LOGIN_SHELL_ENV: std::sync::LazyLock<Option<LoginShellEnv>> =
+        std::sync::LazyLock::new(|| {
+            login_shell_env(CommandDeadline::from_timeout(Some(
+                std::time::Duration::from_secs(10),
+            )))
+        });
+    LOGIN_SHELL_ENV.as_ref()
+}
+
+#[cfg(not(target_os = "windows"))]
+fn command_v_abs_path_line(raw: &str) -> Option<&str> {
+    let lines: Vec<&str> = raw.lines().map(str::trim).collect();
+    let tail = match lines.iter().rposition(|&line| line == COMMAND_V_MARKER) {
+        Some(index) => &lines[index + 1..],
+        None => &lines[..],
+    };
+    tail.iter().copied().find(|line| line.starts_with('/'))
+}
+
+#[cfg(not(target_os = "windows"))]
+const COMMAND_V_MARKER: &str = "__CC_SWITCH_COMMAND_V__";
+
+fn opencode_package_for_path(path: &str) -> &'static str {
+    let normalized = path.replace('\\', "/").to_ascii_lowercase();
+    if normalized.contains("/@opencode/cli/") || normalized.contains("/opencode-v2/") {
+        "@opencode/cli"
+    } else { "opencode-ai" }
+}
+fn installed_npm_package(tool: &str, path: &str) -> Option<&'static str> {
+    if tool == "opencode" { Some(opencode_package_for_path(path)) } else { npm_package_for(tool) }
+}
+
+fn quote_tool_update_path(path: &str) -> String {
+    #[cfg(target_os = "windows")] { format!("\"{}\"", path) }
+    #[cfg(not(target_os = "windows"))] { shell_single_quote(path) }
 }

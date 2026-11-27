@@ -32,6 +32,10 @@ pub(crate) fn zip_skills_ssot(dest_path: &Path) -> Result<(), AppError> {
             format!("Failed to resolve Skills SSOT directory: {e}"),
         )
     })?;
+    zip_skills_dir(&source, dest_path)
+}
+
+fn zip_skills_dir(source: &Path, dest_path: &Path) -> Result<(), AppError> {
     if let Some(parent) = dest_path.parent() {
         fs::create_dir_all(parent).map_err(|e| AppError::io(parent, e))?;
     }
@@ -43,7 +47,7 @@ pub(crate) fn zip_skills_ssot(dest_path: &Path) -> Result<(), AppError> {
         .last_modified_time(DateTime::default());
 
     if source.exists() {
-        let canonical_root = fs::canonicalize(&source).unwrap_or_else(|_| source.clone());
+        let canonical_root = fs::canonicalize(source).unwrap_or_else(|_| source.to_path_buf());
         let mut visited = HashSet::new();
         mark_visited_dir(&canonical_root, &mut visited)?;
         zip_dir_recursive(
@@ -66,6 +70,21 @@ pub(crate) fn zip_skills_ssot(dest_path: &Path) -> Result<(), AppError> {
 }
 
 pub(crate) fn restore_skills_zip(raw: &[u8]) -> Result<(), AppError> {
+    restore_skills_zip_with_ssot(raw, || {
+        SkillService::get_ssot_dir().map_err(|e| {
+            localized(
+                "webdav.sync.skills_ssot_dir_failed",
+                format!("获取 Skills SSOT 目录失败: {e}"),
+                format!("Failed to resolve Skills SSOT directory: {e}"),
+            )
+        })
+    })
+}
+
+fn restore_skills_zip_with_ssot(
+    raw: &[u8],
+    resolve_ssot: impl FnOnce() -> Result<PathBuf, AppError>,
+) -> Result<(), AppError> {
     let tmp = tempdir().map_err(|e| {
         io_context_localized(
             "webdav.sync.skills_extract_tmpdir_failed",
@@ -120,26 +139,46 @@ pub(crate) fn restore_skills_zip(raw: &[u8]) -> Result<(), AppError> {
             fs::create_dir_all(&out_path).map_err(|e| AppError::io(&out_path, e))?;
             continue;
         }
+        #[cfg(unix)]
+        let restored_mode = if entry.is_symlink() {
+            0o644
+        } else {
+            entry
+                .unix_mode()
+                .map(sanitize_regular_file_unix_mode)
+                .unwrap_or(0o644)
+        };
         if let Some(parent) = out_path.parent() {
             fs::create_dir_all(parent).map_err(|e| AppError::io(parent, e))?;
         }
-        let mut out = fs::File::create(&out_path).map_err(|e| AppError::io(&out_path, e))?;
-        let _written = copy_entry_with_total_limit(
-            &mut entry,
-            &mut out,
-            &mut total_bytes,
-            MAX_SYNC_ARTIFACT_BYTES,
-            &out_path,
-        )?;
+        {
+            #[cfg(unix)]
+            let mut out = {
+                use std::os::unix::fs::OpenOptionsExt;
+                if out_path.is_file() {
+                    fs::remove_file(&out_path).map_err(|e| AppError::io(&out_path, e))?;
+                }
+                fs::OpenOptions::new()
+                    .write(true)
+                    .create(true)
+                    .truncate(true)
+                    .mode(restored_mode)
+                    .open(&out_path)
+                    .map_err(|e| AppError::io(&out_path, e))?
+            };
+            #[cfg(not(unix))]
+            let mut out = fs::File::create(&out_path).map_err(|e| AppError::io(&out_path, e))?;
+            let _written = copy_entry_with_total_limit(
+                &mut entry,
+                &mut out,
+                &mut total_bytes,
+                MAX_SYNC_ARTIFACT_BYTES,
+                &out_path,
+            )?;
+        }
     }
 
-    let ssot = SkillService::get_ssot_dir().map_err(|e| {
-        localized(
-            "webdav.sync.skills_ssot_dir_failed",
-            format!("获取 Skills SSOT 目录失败: {e}"),
-            format!("Failed to resolve Skills SSOT directory: {e}"),
-        )
-    })?;
+    let ssot = resolve_ssot()?;
     let bak = ssot.with_extension("bak");
 
     if ssot.exists() {
@@ -269,7 +308,8 @@ fn zip_dir_recursive(
                 })?;
             zip_dir_recursive(root, &real_path, writer, options, visited)?;
         } else {
-            writer.start_file(&rel_str, options).map_err(|e| {
+            let file_options = regular_file_zip_options(&real_path, options)?;
+            writer.start_file(&rel_str, file_options).map_err(|e| {
                 localized(
                     "webdav.sync.zip_start_file_failed",
                     format!("写入 ZIP 文件头失败: {e}"),
@@ -290,6 +330,40 @@ fn zip_dir_recursive(
         }
     }
     Ok(())
+}
+
+#[cfg(any(unix, test))]
+fn sanitize_regular_file_unix_mode(raw_mode: u32) -> u32 {
+    // Strip file-type bits and special privilege bits (setuid/setgid/sticky: 0o7000).
+    let perms = raw_mode & 0o777;
+    if perms == 0 {
+        0o644
+    } else if perms & 0o111 != 0 {
+        (perms | 0o700) & 0o777
+    } else {
+        (perms | 0o600) & 0o666
+    }
+}
+
+#[cfg(unix)]
+fn regular_file_zip_options(
+    path: &Path,
+    options: SimpleFileOptions,
+) -> Result<SimpleFileOptions, AppError> {
+    use std::os::unix::fs::PermissionsExt;
+    let raw_mode = fs::metadata(path)
+        .map_err(|e| AppError::io(path, e))?
+        .permissions()
+        .mode();
+    Ok(options.unix_permissions(sanitize_regular_file_unix_mode(raw_mode)))
+}
+
+#[cfg(not(unix))]
+fn regular_file_zip_options(
+    _path: &Path,
+    options: SimpleFileOptions,
+) -> Result<SimpleFileOptions, AppError> {
+    Ok(options)
 }
 
 fn copy_dir_recursive(src: &Path, dest: &Path) -> Result<(), AppError> {

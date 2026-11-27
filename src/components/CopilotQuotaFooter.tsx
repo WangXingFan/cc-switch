@@ -7,6 +7,7 @@ import { resolveManagedAccountId } from "@/lib/authBinding";
 import { PROVIDER_TYPES } from "@/config/constants";
 import {
   TierBadge,
+  ManualQuotaHint,
   utilizationColor,
 } from "@/components/SubscriptionQuotaFooter";
 
@@ -45,6 +46,7 @@ const CopilotQuotaFooter: React.FC<CopilotQuotaFooterProps> = ({
 
   const {
     data: quota,
+    manualIdle,
     isFetching: loading,
     refetch,
   } = useCopilotQuota(accountId, { enabled: true, autoQuery: isCurrent });
@@ -56,6 +58,7 @@ const CopilotQuotaFooter: React.FC<CopilotQuotaFooterProps> = ({
     return () => clearInterval(interval);
   }, [quota?.queriedAt]);
 
+  if (manualIdle) return <ManualQuotaHint loading={loading} refetch={refetch} />;
   if (!quota) return null;
 
   // API 调用失败

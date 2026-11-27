@@ -164,6 +164,7 @@ pub async fn update_proxy_config_for_app(
     let app_type = config.app_type.clone();
     let app = require_proxy_app(&app_type)?;
     let circuit_config = CircuitBreakerConfig::from(&config);
+    let guard = crate::mode::controller::lock_settled(state.inner(), &app).await.map_err(|e| e.to_string())?;
     // `enabled` 是模式的镜像，只由进入 / 退出代理改写。
     let mut config = config;
     config.enabled = crate::mode::current::is_proxy(&app);
@@ -171,6 +172,8 @@ pub async fn update_proxy_config_for_app(
     db.update_proxy_config_for_app(config)
         .await
         .map_err(|e| e.to_string())?;
+
+    drop(guard);
 
     state
         .proxy_service
@@ -356,6 +359,7 @@ pub async fn reset_circuit_breaker(
         .reset_provider_circuit_breaker(&provider_id, &app_type)
         .await?;
 
+    let route_revision = db.route_revision(&app);
     // 3. 仅在代理模式且开启自动故障转移时切回优先级更高的供应商。
     let app_in_proxy = crate::mode::current::is_proxy(&app);
     let auto_failover_enabled = match db.get_proxy_config_for_app(&app_type).await {
@@ -406,7 +410,7 @@ pub async fn reset_circuit_breaker(
                     let switch_manager =
                         crate::proxy::failover_switch::FailoverSwitchManager::new();
                     if let Err(e) = switch_manager
-                        .try_switch(Some(&app_handle), &app_type, &provider_id, &provider_name)
+                        .try_switch(Some(&app_handle), &app_type, &provider_id, &provider_name, route_revision)
                         .await
                     {
                         log::error!("[Recovery] 自动切换失败: {e}");

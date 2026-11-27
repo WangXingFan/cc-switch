@@ -169,6 +169,7 @@ pub struct RequestForwarder {
     app_handle: Option<tauri::AppHandle>,
     /// 请求开始时的"当前供应商 ID"（用于判断是否需要同步 UI/托盘）
     current_provider_id_at_start: String,
+    route_revision: Option<u64>,
     /// 代理会话 ID（用于 Gemini Native shadow replay）
     session_id: String,
     /// Session ID 是否由客户端提供；生成值不能作为上游缓存身份。
@@ -194,6 +195,8 @@ pub struct RequestForwarder {
 }
 
 impl RequestForwarder {
+    pub(crate) fn with_route_revision(mut self, revision: u64) -> Self { self.route_revision = Some(revision); self }
+
     /// 预防式 media 降级：发送前对 text-only 模型把图片块替换为标记。
     ///
     /// 受 `enabled && request_media_fallback` 管辖；其中"启发式模型名单预测"
@@ -272,6 +275,7 @@ impl RequestForwarder {
             failover_manager,
             app_handle,
             current_provider_id_at_start,
+            route_revision: None,
             session_id,
             session_client_provided,
             rectifier_config,
@@ -441,6 +445,7 @@ impl RequestForwarder {
         extensions: Extensions,
         providers: Vec<Provider>,
     ) -> Result<ForwardResult, ForwardError> {
+        let route_revision = self.route_revision.unwrap_or_else(|| self.provider_router.route_revision(app_type));
         // 获取适配器
         let adapter = get_adapter(app_type).ok_or_else(|| ForwardError {
             error: ProxyError::ConfigError(format!(
@@ -552,10 +557,12 @@ impl RequestForwarder {
                     // 更新当前应用类型使用的 provider
                     {
                         let mut current_providers = self.current_providers.write().await;
-                        current_providers.insert(
+                        if self.provider_router.route_revision(app_type) == route_revision {
+current_providers.insert(
                             app_type_str.to_string(),
                             (provider.id.clone(), provider.name.clone()),
                         );
+}
                     }
 
                     // 更新成功统计
@@ -564,7 +571,7 @@ impl RequestForwarder {
                         status.success_requests += 1;
                         status.last_error = None;
                         let should_switch =
-                            self.current_provider_id_at_start.as_str() != provider.id.as_str();
+                            self.provider_router.route_revision(app_type) == route_revision && (self.current_provider_id_at_start.as_str() != provider.id.as_str());
                         if should_switch {
                             status.failover_count += 1;
 
@@ -576,7 +583,7 @@ impl RequestForwarder {
                             let at = app_type_str.to_string();
 
                             tokio::spawn(async move {
-                                let _ = fm.try_switch(ah.as_ref(), &at, &pid, &pname).await;
+                                let _ = fm.try_switch(ah.as_ref(), &at, &pid, &pname, route_revision).await;
                             });
                         }
                         // 重新计算成功率
@@ -654,10 +661,12 @@ impl RequestForwarder {
                                     {
                                         let mut current_providers =
                                             self.current_providers.write().await;
-                                        current_providers.insert(
+                                        if self.provider_router.route_revision(app_type) == route_revision {
+current_providers.insert(
                                             app_type_str.to_string(),
                                             (provider.id.clone(), provider.name.clone()),
                                         );
+}
                                     }
 
                                     {
@@ -665,8 +674,8 @@ impl RequestForwarder {
                                         status.success_requests += 1;
                                         status.last_error = None;
                                         let should_switch =
-                                            self.current_provider_id_at_start.as_str()
-                                                != provider.id.as_str();
+                                            self.provider_router.route_revision(app_type) == route_revision && (self.current_provider_id_at_start.as_str()
+                                                != provider.id.as_str());
                                         if should_switch {
                                             status.failover_count += 1;
                                             let fm = self.failover_manager.clone();
@@ -677,7 +686,7 @@ impl RequestForwarder {
 
                                             tokio::spawn(async move {
                                                 let _ = fm
-                                                    .try_switch(ah.as_ref(), &at, &pid, &pname)
+                                                    .try_switch(ah.as_ref(), &at, &pid, &pname, route_revision)
                                                     .await;
                                             });
                                         }
@@ -799,10 +808,12 @@ impl RequestForwarder {
                                         {
                                             let mut current_providers =
                                                 self.current_providers.write().await;
-                                            current_providers.insert(
+                                            if self.provider_router.route_revision(app_type) == route_revision {
+current_providers.insert(
                                                 app_type_str.to_string(),
                                                 (provider.id.clone(), provider.name.clone()),
                                             );
+}
                                         }
 
                                         // 更新成功统计
@@ -811,8 +822,8 @@ impl RequestForwarder {
                                             status.success_requests += 1;
                                             status.last_error = None;
                                             let should_switch =
-                                                self.current_provider_id_at_start.as_str()
-                                                    != provider.id.as_str();
+                                                self.provider_router.route_revision(app_type) == route_revision && (self.current_provider_id_at_start.as_str()
+                                                    != provider.id.as_str());
                                             if should_switch {
                                                 status.failover_count += 1;
 
@@ -825,7 +836,7 @@ impl RequestForwarder {
 
                                                 tokio::spawn(async move {
                                                     let _ = fm
-                                                        .try_switch(ah.as_ref(), &at, &pid, &pname)
+                                                        .try_switch(ah.as_ref(), &at, &pid, &pname, route_revision)
                                                         .await;
                                                 });
                                             }
@@ -964,10 +975,12 @@ impl RequestForwarder {
                                     {
                                         let mut current_providers =
                                             self.current_providers.write().await;
-                                        current_providers.insert(
+                                        if self.provider_router.route_revision(app_type) == route_revision {
+current_providers.insert(
                                             app_type_str.to_string(),
                                             (provider.id.clone(), provider.name.clone()),
                                         );
+}
                                     }
 
                                     {
@@ -975,8 +988,8 @@ impl RequestForwarder {
                                         status.success_requests += 1;
                                         status.last_error = None;
                                         let should_switch =
-                                            self.current_provider_id_at_start.as_str()
-                                                != provider.id.as_str();
+                                            self.provider_router.route_revision(app_type) == route_revision && (self.current_provider_id_at_start.as_str()
+                                                != provider.id.as_str());
                                         if should_switch {
                                             status.failover_count += 1;
                                             let fm = self.failover_manager.clone();
@@ -986,7 +999,7 @@ impl RequestForwarder {
                                             let at = app_type_str.to_string();
                                             tokio::spawn(async move {
                                                 let _ = fm
-                                                    .try_switch(ah.as_ref(), &at, &pid, &pname)
+                                                    .try_switch(ah.as_ref(), &at, &pid, &pname, route_revision)
                                                     .await;
                                             });
                                         }
@@ -1704,6 +1717,7 @@ impl RequestForwarder {
                 mapped_body,
                 reasoning_config.as_ref(),
             )?;
+            super::providers::transform_codex_chat_gemini_schema::adapt_chat_tools_for_gemini(&mut chat_body);
             super::providers::inject_codex_chat_prompt_cache_key(
                 provider,
                 &mut chat_body,
@@ -2504,7 +2518,7 @@ impl RequestForwarder {
         };
 
         // 获取全局代理 URL
-        let upstream_proxy_url: Option<String> = super::http_client::get_current_proxy_url();
+        let (upstream_proxy_url, upstream_client) = super::http_client::upstream_snapshot();
 
         // SOCKS5 代理不支持 CONNECT 隧道，需要用 reqwest
         let is_socks_proxy = upstream_proxy_url
@@ -2526,7 +2540,7 @@ impl RequestForwarder {
             log::debug!(
                 "[Forwarder] Using pooled reqwest client (preserve_exact_header_case={preserve_exact_header_case}, socks_proxy={is_socks_proxy})"
             );
-            let client = super::http_client::get();
+            let client = upstream_client;
             let mut request = client.request(method.clone(), &url);
             if request_is_streaming {
                 // reqwest 的 timeout 是整请求超时；流式请求交给 response_processor

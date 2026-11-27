@@ -382,6 +382,9 @@ pub struct UsageDisplaySettings {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct AppSettings {
+    /// Official account quotas are queried only by an explicit refresh.
+    #[serde(default)]
+    pub official_quota_manual_only: bool,
     // ===== 设备级 UI 设置 =====
     #[serde(default = "default_show_in_tray")]
     pub show_in_tray: bool,
@@ -593,6 +596,7 @@ impl Default for AppSettings {
             first_run_notice_confirmed: None,
             common_config_confirmed: None,
             language: None,
+            official_quota_manual_only: false,
             visible_apps: None,
             claude_config_dir: None,
             codex_config_dir: None,
