@@ -573,9 +573,7 @@ export function UsageDashboard({
   const { data: settings } = useSettingsQuery();
   const filterApps = useMemo(() => {
     const visible = { ...DEFAULT_VISIBLE_APPS, ...settings?.visibleApps };
-    const rank = new Map(
-      APP_IDS.map((app, index) => [app, index]),
-    );
+    const rank = new Map(APP_IDS.map((app, index) => [app, index]));
     const position = (apps: readonly AppId[]) =>
       Math.min(...apps.map((app) => rank.get(app) ?? Infinity));
     return KNOWN_APP_TYPES.flatMap((app) => {

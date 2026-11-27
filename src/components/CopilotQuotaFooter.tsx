@@ -58,7 +58,8 @@ const CopilotQuotaFooter: React.FC<CopilotQuotaFooterProps> = ({
     return () => clearInterval(interval);
   }, [quota?.queriedAt]);
 
-  if (manualIdle) return <ManualQuotaHint loading={loading} refetch={refetch} />;
+  if (manualIdle)
+    return <ManualQuotaHint loading={loading} refetch={refetch} />;
   if (!quota) return null;
 
   // API 调用失败

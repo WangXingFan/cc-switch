@@ -502,4 +502,6 @@ describe("CodexOAuthSection", () => {
   });
 });
 
-vi.mock("@/components/settings/AutoQuotaToggle", () => ({ AutoQuotaToggle: () => <div /> }));
+vi.mock("@/components/settings/AutoQuotaToggle", () => ({
+  AutoQuotaToggle: () => <div />,
+}));

@@ -314,3 +314,21 @@ pub(crate) fn strip_responses_markers(schema: &mut Value) {
         }
     }
 }
+
+#[cfg(test)]
+mod marker_tests {
+    use super::*;
+    use serde_json::json;
+    #[test]
+    fn removes_schema_markers_without_touching_names_or_literal_data() {
+        let mut schema = json!({"type":"object", "encrypted":true,
+            "properties":{"encrypted":{"type":"string","encrypted":false,"default":{"encrypted":true}}},
+            "examples":[{"encrypted":true}],"required":["encrypted"]});
+        strip_responses_markers(&mut schema);
+        assert!(schema.get("encrypted").is_none());
+        assert!(schema["properties"]["encrypted"].get("encrypted").is_none());
+        assert_eq!(schema["properties"]["encrypted"]["default"], json!({"encrypted":true}));
+        assert_eq!(schema["examples"], json!([{"encrypted":true}]));
+        assert_eq!(schema["required"], json!(["encrypted"]));
+    }
+}

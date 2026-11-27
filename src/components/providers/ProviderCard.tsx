@@ -327,7 +327,10 @@ export function ProviderCard({
   // 脚本用量只在「已启用 + 非官方 + 非官方订阅模板」时才查询；展开判定必须复用同一谓词，
   // 因为禁用的 React Query observer 仍会返回同 key 的旧缓存。
   const scriptUsageActive =
-    usageEnabled && !isOfficial && !isOfficialSubscriptionUsage && provider.meta?.usage_script?.templateType !== "github_copilot";
+    usageEnabled &&
+    !isOfficial &&
+    !isOfficialSubscriptionUsage &&
+    provider.meta?.usage_script?.templateType !== "github_copilot";
   const { data: usage } = useUsageQuery(provider.id, appId, {
     enabled: scriptUsageActive,
     autoQueryInterval,

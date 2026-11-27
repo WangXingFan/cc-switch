@@ -1,7 +1,8 @@
-use rusqlite::OptionalExtension;
 //! 代理功能数据访问层
 //!
 //! 处理代理配置、Provider健康状态和使用统计的数据库操作
+
+use rusqlite::OptionalExtension;
 
 use std::str::FromStr;
 

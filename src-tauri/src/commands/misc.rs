@@ -8399,3 +8399,89 @@ fn is_pi_managed_install(entry: &str) -> bool {
         .and_then(|v| v.get("kind")?.as_str().map(|s| s == "pi-managed-install"))
         .unwrap_or(false)
 }
+
+#[cfg(test)]
+mod maintenance_tests {
+    use super::*;
+    #[test]
+    fn pi_managed_install_anchors_to_self_update() {
+        let dir = tempfile::tempdir().unwrap();
+        let bin_dir = dir.path().join(".pi/agent/bin");
+        let install_dir = dir.path().join(".pi/agent/install");
+        std::fs::create_dir_all(&bin_dir).unwrap();
+        std::fs::create_dir_all(&install_dir).unwrap();
+
+        let entry_name = if cfg!(target_os = "windows") {
+            "pi.cmd"
+        } else {
+            "pi"
+        };
+        let entry = bin_dir.join(entry_name);
+        std::fs::write(&entry, "#!/bin/sh\n").unwrap();
+        std::fs::write(bin_dir.join("pi-launcher.js"), "// launcher\n").unwrap();
+        std::fs::write(
+            install_dir.join("managed-install.json"),
+            "\u{feff}{\"kind\":\"pi-managed-install\",\"schemaVersion\":1,\"layout\":\"releases-v1\"}",
+        )
+        .unwrap();
+
+        let entry_str = entry.to_string_lossy().to_string();
+        assert!(is_pi_managed_install(&entry_str));
+
+        let inst = ToolInstallation {
+            path: entry_str.clone(),
+            version: Some("1.5.2".to_string()),
+            runnable: true,
+            error: None,
+            exited_with_error: false,
+            source: infer_install_source(&entry).to_string(),
+            is_path_default: true,
+            real: entry.clone(),
+        };
+        let expected = format!("{} update", quote_tool_update_path(&entry_str));
+        assert_eq!(
+            resolve_update_command("pi", &[inst]),
+            UpdateCommand::Anchored(expected.clone())
+        );
+        assert!(expected.ends_with(" update") && !expected.contains("npm"));
+
+        // Wrong kind or missing launcher/metadata must not match.
+        std::fs::write(
+            install_dir.join("managed-install.json"),
+            r#"{"kind":"other"}"#,
+        )
+        .unwrap();
+        assert!(!is_pi_managed_install(&entry_str));
+
+        std::fs::write(
+            install_dir.join("managed-install.json"),
+            r#"{"kind":"pi-managed-install"}"#,
+        )
+        .unwrap();
+        std::fs::remove_file(bin_dir.join("pi-launcher.js")).unwrap();
+        assert!(!is_pi_managed_install(&entry_str));
+    }
+
+
+    #[test]
+    fn opencode_package_selection_tracks_installed_release_line() {
+        assert_eq!(installed_npm_package("opencode", "/bin/opencode", "/lib/node_modules/@opencode/cli/bin/opencode"), Some("@opencode/cli"));
+        assert_eq!(installed_npm_package("opencode", "/bin/opencode", "/lib/node_modules/opencode-ai/bin/opencode"), Some("opencode-ai"));
+        assert!(!is_opencode_v2_version("1.9.0"));
+        assert!(is_opencode_v2_version("v2.0.0-beta.1"));
+        assert!(is_opencode_v2_version("3.0.0"));
+    }
+    #[cfg(target_os = "windows")]
+    #[test]
+    fn opencode_windows_shim_preserves_v2_package_and_install_arguments() {
+        let dir = tempfile::tempdir().unwrap();
+        let bin = dir.path().join("opencode.cmd");
+        std::fs::write(&bin, r"node %~dp0\node_modules\@opencode\cli\bin\opencode.js").unwrap();
+        std::fs::write(dir.path().join("npm.cmd"), "@echo off").unwrap();
+        let path = bin.to_string_lossy();
+        let command = anchored_command_from_paths("opencode", &path, &path).unwrap();
+        assert!(command.contains("@opencode/cli@latest"));
+        assert!(command.contains("--allow-scripts=@opencode/cli"));
+        assert!(!command.contains("opencode-ai"));
+    }
+}

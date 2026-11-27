@@ -95,7 +95,9 @@ export function useSubscriptionQuota(
     queryKey: subscriptionKeys.quota(appId),
     queryFn: () => subscriptionApi.getQuota(appId),
     enabled:
-      policy.autoAllowed && enabled && ["claude", "codex", "gemini", "grokbuild"].includes(appId),
+      policy.autoAllowed &&
+      enabled &&
+      ["claude", "codex", "gemini", "grokbuild"].includes(appId),
     refetchInterval,
     refetchIntervalInBackground: Boolean(refetchInterval),
     refetchOnWindowFocus: Boolean(refetchInterval),

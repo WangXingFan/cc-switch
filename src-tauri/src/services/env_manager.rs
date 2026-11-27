@@ -268,3 +268,24 @@ mod tests {
         assert!(backup_dir.is_ok());
     }
 }
+
+#[cfg(all(test, not(target_os = "windows")))]
+mod selected_line_tests {
+    use super::*;
+    #[test]
+    fn deleting_one_assignment_keeps_other_assignments_and_line_endings() {
+        let temp = tempfile::tempdir().unwrap();
+        let path = temp.path().join("shell:profile");
+        for newline in ["\n", "\r\n"] {
+            for final_newline in ["", newline] {
+                let source = format!("# keep{newline}export API_KEY=first{newline}export API_KEY=second{newline}echo done{final_newline}");
+                fs::write(&path, source).unwrap();
+                let conflict = EnvConflict { var_name: "API_KEY".into(), var_value: "first".into(), source_type: "file".into(), source_path: format!("{}:2", path.display()) };
+                delete_single_env(&conflict).unwrap();
+                assert_eq!(fs::read_to_string(&path).unwrap(), format!("# keep{newline}export API_KEY=second{newline}echo done{final_newline}"));
+                let stale = EnvConflict { source_path: format!("{}:1", path.display()), ..conflict };
+                assert!(delete_single_env(&stale).is_err());
+            }
+        }
+    }
+}

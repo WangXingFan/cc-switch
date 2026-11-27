@@ -1118,3 +1118,14 @@ fn parse_round_trip(source: &str) -> Result<RtJSONText, AppError> {
         ))
     })
 }
+
+#[cfg(test)]
+mod block_comment_regression_tests {
+    use super::*;
+    #[test]
+    fn block_comments_survive_round_trip_including_unicode_eof_comment() {
+        let source = "{/*账户*/ models: {/*models*/ providers: {}},} //备注";
+        let parsed = parse_round_trip(source).unwrap();
+        assert_eq!(parsed.to_string(), source);
+    }
+}

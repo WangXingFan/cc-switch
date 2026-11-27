@@ -17,7 +17,10 @@ export interface QuotaPolicy {
 export function useQuotaPolicy(): QuotaPolicy {
   const { data, isPending } = useSettingsQuery();
   const manualOnly = data?.officialQuotaManualOnly === true;
-  return { autoAllowed: data !== undefined && !isPending && !manualOnly, manualOnly };
+  return {
+    autoAllowed: data !== undefined && !isPending && !manualOnly,
+    manualOnly,
+  };
 }
 
 /**

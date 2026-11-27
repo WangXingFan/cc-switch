@@ -33,10 +33,26 @@ export function AutoQuotaToggle() {
   return (
     <div className="flex items-center justify-between gap-4 rounded-xl border border-border/60 bg-card/60 p-6">
       <div className="space-y-1">
-        <label htmlFor="official-auto-quota" className="font-medium">{t("authCenter.autoQuota.title", { defaultValue: "自动查询额度" })}</label>
-        <p id="official-auto-quota-hint" className="text-sm text-muted-foreground">{t("authCenter.autoQuota.description", { defaultValue: "关闭后，官方账号的额度只在点击刷新时查询。第三方供应商余额查询不受影响。" })}</p>
+        <label htmlFor="official-auto-quota" className="font-medium">
+          {t("authCenter.autoQuota.title", { defaultValue: "自动查询额度" })}
+        </label>
+        <p
+          id="official-auto-quota-hint"
+          className="text-sm text-muted-foreground"
+        >
+          {t("authCenter.autoQuota.description", {
+            defaultValue:
+              "关闭后，官方账号的额度只在点击刷新时查询。第三方供应商余额查询不受影响。",
+          })}
+        </p>
       </div>
-      <Switch id="official-auto-quota" aria-describedby="official-auto-quota-hint" checked={settings?.officialQuotaManualOnly !== true} disabled={!settings || saving} onCheckedChange={(checked) => void save(checked)} />
+      <Switch
+        id="official-auto-quota"
+        aria-describedby="official-auto-quota-hint"
+        checked={settings?.officialQuotaManualOnly !== true}
+        disabled={!settings || saving}
+        onCheckedChange={(checked) => void save(checked)}
+      />
     </div>
   );
 }
