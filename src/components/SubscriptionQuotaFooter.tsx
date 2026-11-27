@@ -13,6 +13,7 @@ interface SubscriptionQuotaFooterProps {
 }
 
 interface SubscriptionQuotaViewProps {
+  manualIdle?: boolean;
   quota: SubscriptionQuota | undefined;
   loading: boolean;
   refetch: () => void;
@@ -109,6 +110,7 @@ export const SubscriptionQuotaView: React.FC<SubscriptionQuotaViewProps> = ({
   loading,
   refetch,
   appIdForExpiredHint,
+  manualIdle = false,
   inline = false,
 }) => {
   const { t } = useTranslation();
@@ -120,6 +122,9 @@ export const SubscriptionQuotaView: React.FC<SubscriptionQuotaViewProps> = ({
     const interval = setInterval(() => setNow(Date.now()), 30000);
     return () => clearInterval(interval);
   }, [quota?.queriedAt]);
+
+  if (manualIdle)
+    return <ManualQuotaHint loading={loading} refetch={refetch} />;
 
   // 无凭据 → 不显示
   if (!quota || quota.credentialStatus === "not_found") return null;
@@ -409,6 +414,7 @@ const SubscriptionQuotaFooter: React.FC<SubscriptionQuotaFooterProps> = ({
 }) => {
   const {
     data: quota,
+    manualIdle,
     isFetching: loading,
     refetch,
   } = useSubscriptionQuota(
@@ -423,6 +429,7 @@ const SubscriptionQuotaFooter: React.FC<SubscriptionQuotaFooterProps> = ({
   return (
     <SubscriptionQuotaView
       quota={quota}
+      manualIdle={manualIdle}
       loading={loading}
       refetch={refetch}
       // expiredHint 里的 {tool} 是 CLI 命令名：Grok 的命令是 `grok` 而非 appId
@@ -433,3 +440,33 @@ const SubscriptionQuotaFooter: React.FC<SubscriptionQuotaFooterProps> = ({
 };
 
 export default SubscriptionQuotaFooter;
+
+export function ManualQuotaHint({
+  loading,
+  refetch,
+}: {
+  loading: boolean;
+  refetch: () => void;
+}) {
+  const { t } = useTranslation();
+  return (
+    <div className="flex items-center gap-2 py-2 text-xs text-muted-foreground">
+      <span>
+        {t("subscription.manualQueryHint", { defaultValue: "点刷新查询额度" })}
+      </span>
+      <button
+        type="button"
+        onClick={(event) => {
+          event.stopPropagation();
+          refetch();
+        }}
+        disabled={loading}
+        title={t("subscription.refresh")}
+        aria-label={t("subscription.refresh")}
+        className="rounded p-1 hover:bg-muted disabled:opacity-50"
+      >
+        <RefreshCw size={14} className={loading ? "animate-spin" : ""} />
+      </button>
+    </div>
+  );
+}

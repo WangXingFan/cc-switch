@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useSettingsQuery } from "@/lib/query";
 import type { Settings } from "@/types";
@@ -51,6 +51,39 @@ const sanitizeDir = (value?: string | null): string | undefined => {
   return trimmed.length > 0 ? trimmed : undefined;
 };
 
+const normalizeSettings = (
+  data: Settings,
+  readPersistedLanguage: () => Language,
+): SettingsFormState => {
+  const normalizedLanguage = normalizeLanguage(
+    data.language ?? readPersistedLanguage(),
+  );
+
+  const normalized: SettingsFormState = {
+    ...data,
+    showInTray: data.showInTray ?? true,
+    minimizeToTrayOnClose: data.minimizeToTrayOnClose ?? true,
+    useAppWindowControls: data.useAppWindowControls ?? false,
+    enableClaudePluginIntegration: data.enableClaudePluginIntegration ?? false,
+    silentStartup: data.silentStartup ?? false,
+    skipClaudeOnboarding: data.skipClaudeOnboarding ?? false,
+    preserveCodexOfficialAuthOnSwitch:
+      data.preserveCodexOfficialAuthOnSwitch ?? false,
+    unifyCodexSessionHistory: data.unifyCodexSessionHistory ?? false,
+    enableMultiKeyBalanceQuery: data.enableMultiKeyBalanceQuery ?? false,
+    claudeConfigDir: sanitizeDir(data.claudeConfigDir),
+    codexConfigDir: sanitizeDir(data.codexConfigDir),
+    geminiConfigDir: sanitizeDir(data.geminiConfigDir),
+    grokConfigDir: sanitizeDir(data.grokConfigDir),
+    opencodeConfigDir: sanitizeDir(data.opencodeConfigDir),
+    openclawConfigDir: sanitizeDir(data.openclawConfigDir),
+    piConfigDir: sanitizeDir(data.piConfigDir),
+    language: normalizedLanguage,
+  };
+
+  return normalized;
+};
+
 export interface UseSettingsFormResult {
   settings: SettingsFormState | null;
   isLoading: boolean;
@@ -73,12 +106,6 @@ export function useSettingsForm(): UseSettingsFormResult {
   const { i18n } = useTranslation();
   const { data, isLoading } = useSettingsQuery();
 
-  const [settingsState, setSettingsState] = useState<SettingsFormState | null>(
-    null,
-  );
-
-  const initialLanguageRef = useRef<Language>("zh");
-
   const readPersistedLanguage = useCallback((): Language => {
     if (typeof window !== "undefined") {
       const stored = window.localStorage.getItem("language");
@@ -88,6 +115,15 @@ export function useSettingsForm(): UseSettingsFormResult {
     }
     return normalizeLanguage(i18n.language);
   }, [i18n]);
+
+  const savedSettings = useMemo(
+    () => (data ? normalizeSettings(data, readPersistedLanguage) : null),
+    [data, readPersistedLanguage],
+  );
+  const [settingsState, setSettingsState] = useState<SettingsFormState | null>(
+    savedSettings,
+  );
+  const initialLanguageRef = useRef<Language>(savedSettings?.language ?? "zh");
 
   const syncLanguage = useCallback(
     (lang: Language) => {
@@ -103,37 +139,14 @@ export function useSettingsForm(): UseSettingsFormResult {
   useEffect(() => {
     if (!data) return;
 
-    const normalizedLanguage = normalizeLanguage(
-      data.language ?? readPersistedLanguage(),
-    );
-
-    const normalized: SettingsFormState = {
-      ...data,
-      showInTray: data.showInTray ?? true,
-      minimizeToTrayOnClose: data.minimizeToTrayOnClose ?? true,
-      useAppWindowControls: data.useAppWindowControls ?? false,
-      enableClaudePluginIntegration:
-        data.enableClaudePluginIntegration ?? false,
-      silentStartup: data.silentStartup ?? false,
-      skipClaudeOnboarding: data.skipClaudeOnboarding ?? false,
-      preserveCodexOfficialAuthOnSwitch:
-        data.preserveCodexOfficialAuthOnSwitch ?? false,
-      unifyCodexSessionHistory: data.unifyCodexSessionHistory ?? false,
-      enableMultiKeyBalanceQuery: data.enableMultiKeyBalanceQuery ?? false,
-      claudeConfigDir: sanitizeDir(data.claudeConfigDir),
-      codexConfigDir: sanitizeDir(data.codexConfigDir),
-      geminiConfigDir: sanitizeDir(data.geminiConfigDir),
-      grokConfigDir: sanitizeDir(data.grokConfigDir),
-      opencodeConfigDir: sanitizeDir(data.opencodeConfigDir),
-      openclawConfigDir: sanitizeDir(data.openclawConfigDir),
-      piConfigDir: sanitizeDir(data.piConfigDir),
-      language: normalizedLanguage,
-    };
+    const normalized = savedSettings;
+    if (!normalized) return;
+    const normalizedLanguage = normalized.language;
 
     setSettingsState(normalized);
     initialLanguageRef.current = normalizedLanguage;
     syncLanguage(normalizedLanguage);
-  }, [data, readPersistedLanguage, syncLanguage]);
+  }, [data, savedSettings, syncLanguage]);
 
   const updateSettings = useCallback(
     (updates: Partial<SettingsFormState>) => {

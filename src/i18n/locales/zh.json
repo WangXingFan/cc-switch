@@ -170,7 +170,13 @@
         "oauthTitle": "OAuth 认证模式",
         "oauthHint": "Google 官方使用 OAuth 个人认证，无需填写 API Key。首次使用时会自动打开浏览器进行登录。",
         "apiKeyPlaceholder": "请输入 Gemini API Key"
-      }
+      },
+      "agy": {},
+      "managedAccount": {},
+      "claudeAccount": {
+        "plan": {}
+      },
+      "grokAccount": {}
     },
     "multiKey": {
       "count": "共 {{count}} 个 Key",
@@ -211,7 +217,9 @@
       "message": "打开编辑器之后，下面这些设置被其他程序（比如 Claude Code）改过。要用你的修改覆盖，还是保留外部的修改？其余改动都会照常保存。",
       "keepTheirs": "保留外部修改",
       "keepMine": "用我的修改覆盖"
-    }
+    },
+    "officialModelsReason": {},
+    "openTerminalDialog": {}
   },
   "claudeCode": {
     "needsRouting": "需要路由",
@@ -326,7 +334,8 @@
     "windowControlFailed": "窗口控制失败：{{error}}",
     "officialBlockedByProxy": "本地路由模式下不能切换到官方供应商，使用路由访问官方 API 可能导致账号被封禁",
     "proxyOfficialWarning": "当前供应商 {{name}} 是官方供应商，建议切换到第三方供应商后再使用本地路由",
-    "proxyReasonClaudeDesktop": "使用 Claude Desktop 本地路由模式"
+    "proxyReasonClaudeDesktop": "使用 Claude Desktop 本地路由模式",
+    "codexHistorySplit": {}
   },
   "confirm": {
     "deleteProvider": "删除供应商",
@@ -476,7 +485,8 @@
           "debug": "详细信息，包含 SSE 流和请求/响应详情",
           "trace": "全部日志，最详细"
         }
-      }
+      },
+      "privacyFilter": {}
     },
     "language": "界面语言",
     "languageHint": "切换后立即预览界面语言，保存后永久生效。",
@@ -613,7 +623,8 @@
         "warning": "将覆盖云端已有的同步数据",
         "legacyNotice": "检测到旧版云端路径数据。本次上传将写入新路径 v2/db-v6，不会覆盖旧路径。",
         "confirm": "确认上传"
-      }
+      },
+      "clearConfirm": {}
     },
     "syncType": {
       "label": "同步方式",
@@ -714,7 +725,8 @@
         "createdAt": "上传时间",
         "warning": "将覆盖该 S3 路径下已有的同步数据",
         "confirm": "确认上传"
-      }
+      },
+      "clearConfirm": {}
     },
     "autoReload": "数据已刷新",
     "languageOptionChinese": "简体中文",
@@ -942,7 +954,35 @@
       "defaultCostMultiplierRequired": "默认倍率不能为空",
       "defaultCostMultiplierInvalid": "默认倍率格式不正确"
     },
-    "saveFailedGeneric": "保存失败，请重试"
+    "saveFailedGeneric": "保存失败，请重试",
+    "backupStorage": {
+      "items": {
+        "database": {},
+        "skills": {},
+        "codexHistoryUnify": {},
+        "codexHistoryUnifyRestore": {},
+        "codexHistoryProviderMigration": {},
+        "liveFirstWrite": {},
+        "hermes": {},
+        "openclaw": {},
+        "proxyLiveBackup": {},
+        "envVars": {},
+        "legacyConfigBackups": {},
+        "legacyConfigArchive": {},
+        "legacyDbUpgrade": {},
+        "legacyToolSearch": {}
+      }
+    },
+    "copilotVscode": {},
+    "codexQuotaProtection": {},
+    "codexPauseOfficialLogin": {},
+    "sections": {},
+    "appConfig": {},
+    "routing": {},
+    "data": {},
+    "ipDiagnostics": {
+      "errors": {}
+    }
   },
   "apps": {
     "claude": "Claude",
@@ -1668,7 +1708,10 @@
     "fetchModelsNotSupported": "该供应商不支持获取模型列表",
     "fetchModelsEndpointNotFound": "未找到可用的模型列表端点，请检查 Base URL 或确认供应商是否开放该接口",
     "fetchModelsTimeout": "请求超时，请检查网络连接",
-    "requiredFields": "请填写供应商名称、API 地址、API Key 和模型"
+    "requiredFields": "请填写供应商名称、API 地址、API Key 和模型",
+    "nativeConfig": {},
+    "stackLayout": {},
+    "modelPicker": {}
   },
   "copilot": {
     "authSection": "GitHub Copilot 认证",
@@ -1707,7 +1750,9 @@
     "deploymentType": "GitHub 部署类型",
     "deploymentGitHubCom": "GitHub.com",
     "deploymentEnterprise": "GitHub Enterprise Server",
-    "enterpriseDomainPlaceholder": "例如：company.ghe.com"
+    "enterpriseDomainPlaceholder": "例如：company.ghe.com",
+    "form": {},
+    "quota": {}
   },
   "codexOauth": {
     "authStatus": "认证状态",
@@ -1774,7 +1819,8 @@
   "managedAuth": {
     "accountRemoved": "账号已移除",
     "selectedAccountNeedsReauth": "已绑定账号不存在或需要重新登录",
-    "selectedAccountUnavailable": "已绑定账号不存在或需要重新登录，请重新选择账号"
+    "selectedAccountUnavailable": "已绑定账号不存在或需要重新登录，请重新选择账号",
+    "remove": {}
   },
   "endpointTest": {
     "title": "请求地址管理",
@@ -1993,7 +2039,14 @@
     "sortAriaLabel": "切换预设排序",
     "sortNameAscTooltip": "按名称 A-Z 排序",
     "sortOriginalTooltip": "恢复原始顺序",
-    "noSearchResults": "没有匹配的预设供应商。"
+    "noSearchResults": "没有匹配的预设供应商。",
+    "group": {},
+    "groupHint": {},
+    "loginWith": {},
+    "family": {},
+    "version": {},
+    "plan": {},
+    "region": {}
   },
   "usage": {
     "title": "使用统计",
@@ -2364,7 +2417,8 @@
       "noFirstToken": "没有首字计时，不算速度",
       "providerId": "供应商 ID",
       "copyRequestId": "复制请求 ID",
-      "requestIdCopied": "已复制请求 ID"
+      "requestIdCopied": "已复制请求 ID",
+      "speedBurst": "疑似缓冲后突发吐出，不算速度"
     },
     "sources": {
       "scanTitle": "自动扫描会话日志",
@@ -2755,7 +2809,10 @@
     "confirm": {
       "deleteTitle": "确认删除",
       "deleteMessage": "确定要删除提示词 \"{{name}}\" 吗？"
-    }
+    },
+    "importReason": {},
+    "copyDialog": {},
+    "toast": {}
   },
   "profiles": {
     "switcherAriaLabel": "项目：{{name}}",
@@ -3127,7 +3184,8 @@
       "addFailed": "添加失败",
       "removeSuccess": "仓库 {{owner}}/{{name}} 已删除",
       "removeFailed": "删除失败",
-      "skillCount": "识别到 {{count}} 个技能"
+      "skillCount": "识别到 {{count}} 个技能",
+      "token": {}
     },
     "search": "搜索技能",
     "searchPlaceholder": "搜索技能名称或仓库名称...",
@@ -3204,7 +3262,8 @@
       "successSingle": "技能 {{name}} 已安装",
       "successMultiple": "成功安装 {{count}} 个技能",
       "noSkillsFound": "ZIP 文件中未找到技能（需包含 SKILL.md 文件）"
-    }
+    },
+    "storageSheet": {}
   },
   "deeplink": {
     "confirmImport": "确认导入供应商配置",
@@ -3302,7 +3361,8 @@
       "cloud": "云平台",
       "tool": "开发工具",
       "other": "其他"
-    }
+    },
+    "uploadError": {}
   },
   "providerIcon": {
     "label": "图标",
@@ -3524,7 +3584,10 @@
       "stopFailed": "停止路由服务失败：{{detail}}"
     },
     "stoppedWithRestore": "路由服务已关闭，所有应用已退回直连",
-    "stopWithRestoreFailed": "停止失败: {{detail}}"
+    "stopWithRestoreFailed": "停止失败: {{detail}}",
+    "stackMode": {
+      "codexStale": {}
+    }
   },
   "streamCheck": {
     "reachable": "{{providerName}} 连通正常 ({{responseTimeMs}}ms)",
@@ -3538,7 +3601,8 @@
     "timeout": "超时时间（秒）",
     "maxRetries": "最大重试次数",
     "degradedThreshold": "较慢阈值（毫秒）",
-    "error": "{{providerName}} 检查出错: {{error}}"
+    "error": "{{providerName}} 检查出错: {{error}}",
+    "hint": {}
   },
   "proxyConfig": {
     "proxyEnabled": "路由总开关",
@@ -3815,7 +3879,9 @@
     "expired": "会话已过期",
     "expiredHint": "请运行 {{tool}} 命令刷新登录",
     "queryFailed": "查询失败",
-    "refresh": "刷新"
+    "refresh": "刷新",
+    "manualQueryHint": "点击刷新查询额度。",
+    "short": {}
   },
   "pluginsPage": {
     "title": "插件",
@@ -3929,5 +3995,129 @@
     "needsAttention": "需要处理",
     "back": "返回",
     "plugins": "插件"
-  }
+  },
+  "authCenter": {
+    "autoQuota": {
+      "title": "自动查询额度",
+      "description": "关闭后，官方账号的额度只在点击刷新时查询。第三方供应商余额查询不受影响。"
+    },
+    "group": {},
+    "pending": {},
+    "toast": {},
+    "quota": {},
+    "agy": {},
+    "codebuddy": {
+      "quota": {}
+    },
+    "workbuddy": {
+      "plan": {}
+    },
+    "claude": {},
+    "openBrowser": {}
+  },
+  "mcode": {
+    "empty": {}
+  },
+  "workbuddy": {
+    "empty": {},
+    "form": {},
+    "official": {},
+    "quota": {}
+  },
+  "backgroundTask": {
+    "updateCheckFailed": {},
+    "modelsDevSyncFailed": {}
+  },
+  "appsPage": {
+    "installHint": {}
+  },
+  "appPage": {},
+  "mode": {
+    "names": {},
+    "stackSettings": {},
+    "status": {},
+    "activate": {},
+    "notice": {},
+    "toast": {},
+    "dialog": {},
+    "help": {}
+  },
+  "providerCard": {
+    "status": {},
+    "action": {},
+    "chip": {},
+    "reason": {},
+    "section": {}
+  },
+  "routingSettings": {},
+  "quota": {
+    "reason": {},
+    "resetCredits": {},
+    "credits": {},
+    "windows": {}
+  },
+  "appMatrix": {
+    "pop": {},
+    "toast": {},
+    "cell": {},
+    "ompDiscovery": {}
+  },
+  "mcpPage": {
+    "connection": {},
+    "toast": {},
+    "import": {},
+    "templateLabels": {},
+    "drawer": {
+      "pasteFormats": {},
+      "errors": {}
+    }
+  },
+  "skillsPage": {
+    "addMenu": {},
+    "moreMenu": {},
+    "banner": {},
+    "filter": {},
+    "source": {},
+    "bulk": {},
+    "pop": {},
+    "confirm": {},
+    "toast": {},
+    "installTo": {},
+    "discover": {},
+    "repos": {},
+    "import": {},
+    "restore": {},
+    "repoFail": {}
+  },
+  "newLayoutNotice": {},
+  "whatsNew": {
+    "types": {}
+  },
+  "kimi": {
+    "oauth": {},
+    "capabilities": {},
+    "capabilityHints": {},
+    "empty": {},
+    "error": {}
+  },
+  "omp": {
+    "empty": {},
+    "provider": {},
+    "current": {},
+    "form": {
+      "discoveryTypes": {}
+    },
+    "errors": {}
+  },
+  "codebuddy": {
+    "empty": {},
+    "official": {},
+    "login": {}
+  },
+  "dsh": {
+    "empty": {},
+    "account": {}
+  },
+  "autoUpdate": {},
+  "unreadableEntry": {}
 }

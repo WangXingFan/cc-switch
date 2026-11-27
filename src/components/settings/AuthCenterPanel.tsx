@@ -1,3 +1,4 @@
+import { AutoQuotaToggle } from "./AutoQuotaToggle";
 import { useEffect, useRef } from "react";
 import { Github, ShieldCheck } from "lucide-react";
 import { useTranslation } from "react-i18next";
@@ -45,6 +46,7 @@ export function AuthCenterPanel({ authScrollTarget }: AuthCenterPanelProps) {
 
   return (
     <div className="space-y-6">
+      <AutoQuotaToggle />
       <section className="rounded-xl border border-border/60 bg-card/60 p-6">
         <div className="flex items-start justify-between gap-4">
           <div className="space-y-2">

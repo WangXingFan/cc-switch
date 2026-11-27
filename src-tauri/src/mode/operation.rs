@@ -414,15 +414,22 @@ pub fn commit_target(
     }
     // 模式和写入记录在同一次状态文件写入里落定。
     if target.state.is_some() || target.written.is_some() {
+        let mut route_changed = false;
         state::update(store, |live| {
             let entry = live.apps.entry(app.to_string()).or_default();
             if let Some(mode) = &target.state {
+                route_changed |= entry.mode != mode.mode
+                    || entry.attached != mode.attached
+                    || entry.proxy_route != mode.proxy_route;
                 entry.set_mode_state(mode.clone());
             }
             if let Some(written) = &target.written {
                 entry.written = Some(written.clone());
             }
         })?;
+        if route_changed {
+            db.advance_route_revision(&app.parse()?);
+        }
     }
     if let Some(mode) = &target.state {
         mirror_proxy_flag(db, app, mode.is_proxy())?;

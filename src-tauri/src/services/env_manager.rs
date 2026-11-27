@@ -22,8 +22,21 @@ pub fn delete_env_vars(conflicts: Vec<EnvConflict>) -> Result<BackupInfo, String
     // Step 1: Create backup
     let backup_info = create_backup(&conflicts)?;
 
-    // Step 2: Delete variables
-    for conflict in &conflicts {
+    // Step 2: Delete variables. File rows go bottom-up, so removing one line does not
+    // shift the line numbers of the rows still to come.
+    #[cfg(target_os = "windows")]
+    let ordered: Vec<&EnvConflict> = conflicts.iter().collect();
+    #[cfg(not(target_os = "windows"))]
+    let ordered = {
+        let mut ordered: Vec<&EnvConflict> = conflicts.iter().collect();
+        ordered.sort_by_key(|conflict| {
+            std::cmp::Reverse(
+                parse_file_source_path(&conflict.source_path).map_or(0, |(_, line)| line),
+            )
+        });
+        ordered
+    };
+    for conflict in ordered {
         match delete_single_env(conflict) {
             Ok(_) => {}
             Err(e) => {
@@ -102,41 +115,57 @@ fn delete_single_env(conflict: &EnvConflict) -> Result<(), String> {
 }
 
 #[cfg(not(target_os = "windows"))]
+fn parse_file_source_path(source_path: &str) -> Result<(&str, usize), String> {
+    let (file_path, line_num) = source_path
+        .rsplit_once(':')
+        .ok_or_else(|| "无效的文件路径格式".to_string())?;
+
+    if file_path.is_empty() {
+        return Err("无效的文件路径格式".to_string());
+    }
+
+    let line_num = line_num
+        .parse::<usize>()
+        .map_err(|_| "无效的文件路径格式".to_string())?;
+
+    Ok((file_path, line_num))
+}
+
+#[cfg(not(target_os = "windows"))]
 fn delete_single_env(conflict: &EnvConflict) -> Result<(), String> {
     match conflict.source_type.as_str() {
         "file" => {
             // Parse file path and line number from source_path (format: "path:line")
-            let parts: Vec<&str> = conflict.source_path.split(':').collect();
-            if parts.len() < 2 {
-                return Err("无效的文件路径格式".to_string());
-            }
-
-            let file_path = parts[0];
+            let (file_path, line_num) = parse_file_source_path(&conflict.source_path)?;
 
             // Read file content
             let content = fs::read_to_string(file_path)
                 .map_err(|e| format!("读取文件失败 {file_path}: {e}"))?;
 
-            // Filter out the line containing the environment variable
-            let new_content: Vec<String> = content
-                .lines()
-                .filter(|line| {
-                    let trimmed = line.trim();
-                    let export_line = trimmed.strip_prefix("export ").unwrap_or(trimmed);
-
-                    // Check if this line sets the target variable
-                    if let Some(eq_pos) = export_line.find('=') {
-                        let var_name = export_line[..eq_pos].trim();
-                        var_name != conflict.var_name
-                    } else {
-                        true
-                    }
-                })
-                .map(|s| s.to_string())
-                .collect();
+            // Remove only the listed line. Each kept line carries its own line ending, so
+            // the file's final newline and CRLF endings stay as they are.
+            let mut lines: Vec<&str> = content.split_inclusive('\n').collect();
+            let sets_var = |line: &str| {
+                let trimmed = line.trim();
+                let export_line = trimmed.strip_prefix("export ").unwrap_or(trimmed);
+                export_line
+                    .find('=')
+                    .is_some_and(|eq_pos| export_line[..eq_pos].trim() == conflict.var_name)
+            };
+            // A line that no longer sets the variable means the file changed since the scan.
+            let index = line_num
+                .checked_sub(1)
+                .filter(|&index| lines.get(index).is_some_and(|line| sets_var(line)))
+                .ok_or_else(|| {
+                    format!(
+                        "{file_path} 第 {line_num} 行已不再设置 {}，文件可能已被修改，请重新检测",
+                        conflict.var_name
+                    )
+                })?;
+            lines.remove(index);
 
             // Write back to file
-            fs::write(file_path, new_content.join("\n"))
+            fs::write(file_path, lines.concat())
                 .map_err(|e| format!("写入文件失败 {file_path}: {e}"))?;
 
             Ok(())
@@ -236,5 +265,39 @@ mod tests {
     fn test_backup_dir_creation() {
         let backup_dir = get_backup_dir();
         assert!(backup_dir.is_ok());
+    }
+}
+
+#[cfg(all(test, not(target_os = "windows")))]
+mod selected_line_tests {
+    use super::*;
+    #[test]
+    fn deleting_one_assignment_keeps_other_assignments_and_line_endings() {
+        let temp = tempfile::tempdir().unwrap();
+        let path = temp.path().join("shell:profile");
+        for newline in ["\n", "\r\n"] {
+            for final_newline in ["", newline] {
+                let source = format!("# keep{newline}export API_KEY=first{newline}export API_KEY=second{newline}echo done{final_newline}");
+                fs::write(&path, source).unwrap();
+                let conflict = EnvConflict {
+                    var_name: "API_KEY".into(),
+                    var_value: "first".into(),
+                    source_type: "file".into(),
+                    source_path: format!("{}:2", path.display()),
+                };
+                delete_single_env(&conflict).unwrap();
+                assert_eq!(
+                    fs::read_to_string(&path).unwrap(),
+                    format!(
+                        "# keep{newline}export API_KEY=second{newline}echo done{final_newline}"
+                    )
+                );
+                let stale = EnvConflict {
+                    source_path: format!("{}:1", path.display()),
+                    ..conflict
+                };
+                assert!(delete_single_env(&stale).is_err());
+            }
+        }
     }
 }

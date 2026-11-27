@@ -873,8 +873,12 @@ fn codex_plugin_enabled_patch(id: &str, enabled: bool) -> TomlPatch {
 /// 跑一条输出 JSON 的命令，失败时返回 CLI 的报错。
 fn run_json(app: PluginApp, args: &[&str], timeout: Duration) -> Result<Value, String> {
     let out = run_cli(app, args, timeout)?;
+    parse_cli_json(app, args, &out)
+}
+
+fn parse_cli_json(app: PluginApp, args: &[&str], out: &CliOutput) -> Result<Value, String> {
     if !out.success {
-        return Err(failure_detail(&out));
+        return Err(failure_detail(out));
     }
     parse_json_payload(&out.stdout)
         .ok_or_else(|| format!("Unexpected output from `{} {}`", app.tool(), args.join(" ")))
@@ -952,19 +956,15 @@ fn catalog_from_listing(listing: PluginListing) -> Vec<PluginEntry> {
 }
 
 pub fn list_marketplaces(app: PluginApp) -> Result<Vec<PluginMarketplace>, String> {
-    // MiniMax Code 正式版禁用了市场管理；OpenClaw、Pi、Antigravity 没有可增删的市场。
+    // OpenClaw 和 Pi 没有可增删的市场。
     if matches!(app, PluginApp::Openclaw | PluginApp::Pi) {
         return Err(unsupported(app, "marketplace management"));
     }
-    let out = run_cli(
+    let value = run_json(
         app,
         &["plugin", "marketplace", "list", "--json"],
         LIST_TIMEOUT,
     )?;
-    if !out.success {
-        return Err(failure_detail(&out));
-    }
-    let value = parse_json_payload(&out.stdout).unwrap_or(Value::Null);
     Ok(match app {
         PluginApp::Claude => parse_claude_marketplaces(&value),
         PluginApp::Codex => {
@@ -1992,5 +1992,20 @@ enabled = false
         restore_codex_plugin_disabled_if_needed(&db, "a@m", true, epoch_before).unwrap();
         let text = std::fs::read_to_string(&config).unwrap();
         assert_eq!(codex_plugin_enabled_in_text(&text, "a@m"), Some(false));
+    }
+
+    #[test]
+    fn marketplace_list_reports_output_that_is_not_json() {
+        let args = ["plugin", "marketplace", "list", "--json"];
+        let mut output = CliOutput {
+            success: true,
+            stdout: include_str!("fixtures/claude-2.1.318/marketplace-list.json").to_string(),
+            stderr: String::new(),
+        };
+        let parsed = parse_cli_json(PluginApp::Claude, &args, &output).unwrap();
+        assert_eq!(parse_claude_marketplaces(&parsed)[0].name, "ccs-test");
+        output.stdout = "Error: settings.json is not valid\n".to_string();
+        let error = parse_cli_json(PluginApp::Claude, &args, &output).unwrap_err();
+        assert!(error.contains("claude plugin marketplace list --json"));
     }
 }

@@ -210,3 +210,22 @@ pub fn categorize_error(error: &reqwest::Error) -> ErrorCategory {
         ErrorCategory::Retryable
     }
 }
+
+pub fn describe_error_chain(error: &(dyn std::error::Error + 'static)) -> String {
+    let mut text = error.to_string();
+    let mut source = error.source();
+    while let Some(cause) = source {
+        let cause_text = cause.to_string();
+        // 有的错误会把原因也写进自己的文本，重复的就不再追加
+        if !cause_text.is_empty() && !text.ends_with(&cause_text) {
+            text.push_str(": ");
+            text.push_str(&cause_text);
+        }
+        source = cause.source();
+    }
+    text
+}
+
+pub fn describe_reqwest_error(error: reqwest::Error) -> String {
+    describe_error_chain(&error.without_url())
+}

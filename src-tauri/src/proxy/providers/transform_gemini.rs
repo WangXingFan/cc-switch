@@ -26,6 +26,8 @@ pub type AnthropicToolSchemaHints = HashMap<String, AnthropicToolSchemaHint>;
 /// often do). The prefix is how downstream request-path code recognizes that
 /// the id is not a real Gemini id and must be stripped before forwarding back
 /// to Gemini as `functionResponse.id`.
+const GEMINI_SKIP_THOUGHT_SIGNATURE: &str = "skip_thought_signature_validator";
+
 pub(crate) const SYNTHESIZED_ID_PREFIX: &str = "gemini_synth_";
 
 /// Generate a unique tool-call id that is safe to expose to Anthropic clients
@@ -58,12 +60,6 @@ pub fn anthropic_to_gemini_with_shadow(
     session_id: Option<&str>,
 ) -> Result<Value, ProxyError> {
     let mut result = json!({});
-    let shadow_turns = shadow_store
-        .zip(provider_id)
-        .zip(session_id)
-        .and_then(|((store, provider_id), session_id)| store.get_session(provider_id, session_id))
-        .map(|snapshot| snapshot.turns)
-        .unwrap_or_default();
     let supports_multimodal_function_response = body
         .get("model")
         .and_then(Value::as_str)
@@ -80,11 +76,45 @@ pub fn anthropic_to_gemini_with_shadow(
     }
 
     if let Some(messages) = messages {
-        result["contents"] = json!(convert_messages_to_contents(
+        let tool_ids: HashSet<&str> = messages
+            .iter()
+            .filter(|m| m.get("role").and_then(Value::as_str) == Some("assistant"))
+            .filter_map(|m| m.get("content").and_then(Value::as_array))
+            .flatten()
+            .filter(|b| b.get("type").and_then(Value::as_str) == Some("tool_use"))
+            .filter_map(|b| b.get("id").and_then(Value::as_str))
+            .collect();
+        let snapshot = shadow_store.zip(provider_id).zip(session_id).and_then(
+            |((store, provider), session)| {
+                store.get_session_with_signatures(provider, session, tool_ids)
+            },
+        );
+        let (shadow_turns, signatures) = snapshot
+            .map(|s| (s.turns, s.thought_signatures))
+            .unwrap_or_default();
+        let mut contents = convert_messages_to_contents(
             messages,
             &shadow_turns,
+            signatures,
             supports_multimodal_function_response,
-        )?);
+        )?;
+        if body
+            .get("model")
+            .and_then(Value::as_str)
+            .is_some_and(is_gemini_3_series)
+        {
+            let start = contents
+                .iter()
+                .rposition(|c| {
+                    c.get("role").and_then(Value::as_str) == Some("user")
+                        && c.get("parts")
+                            .and_then(Value::as_array)
+                            .is_some_and(|p| p.iter().all(|p| p.get("functionResponse").is_none()))
+                })
+                .map_or(0, |i| i + 1);
+            fill_skip_thought_signatures(&mut contents[start..]);
+        }
+        result["contents"] = json!(contents);
     }
 
     if let Some(generation_config) = build_generation_config(&body) {
@@ -372,6 +402,7 @@ fn build_generation_config(body: &Value) -> Option<Value> {
 fn convert_messages_to_contents(
     messages: &[Value],
     shadow_turns: &[GeminiAssistantTurn],
+    mut thought_signature_by_id: HashMap<String, String>,
     supports_multimodal_function_response: bool,
 ) -> Result<Vec<Value>, ProxyError> {
     let mut contents = Vec::new();
@@ -390,7 +421,7 @@ fn convert_messages_to_contents(
     // These are used to resolve tool_result→functionResponse names and to
     // attach thought signatures when replaying tool_use→functionCall.
     let mut tool_name_by_id = build_tool_name_map_from_shadow_turns(shadow_turns);
-    let mut thought_signature_by_id = build_thought_signature_map_from_shadow_turns(shadow_turns);
+    thought_signature_by_id.extend(build_thought_signature_map_from_shadow_turns(shadow_turns));
 
     // Pre-scan all assistant messages in the request body to seed
     // tool_name_by_id with every tool_use id mentioned in the conversation
@@ -433,10 +464,20 @@ fn convert_messages_to_contents(
         let gemini_role = if role == "assistant" { "model" } else { "user" };
 
         let parts = if role == "assistant" {
+            let (tool_ids, tool_names) = extract_assistant_tool_use_keys(message.get("content"));
+            let has_tools = !tool_ids.is_empty() || !tool_names.is_empty();
             let positional_shadow_index = assistant_seen_index
                 .checked_sub(shadow_start_index)
                 .filter(|index| *index < effective_shadow_turns.len())
-                .filter(|index| !used_shadow_indices.contains(index));
+                .filter(|index| !used_shadow_indices.contains(index))
+                .filter(|index| {
+                    !has_tools
+                        && effective_shadow_turns[*index].tool_calls.is_empty()
+                        && !stored_parts(&effective_shadow_turns[*index].assistant_content)
+                            .is_some_and(|parts| {
+                                parts.iter().any(|part| part.get("functionCall").is_some())
+                            })
+                });
             let tool_use_match_index = find_matching_shadow_turn_for_assistant_message(
                 message.get("content"),
                 effective_shadow_turns,
@@ -502,24 +543,26 @@ fn find_matching_shadow_turn_for_assistant_message(
         return None;
     }
 
-    // Prefer exact tool-call id match. With identical tool suffixes across
-    // servers (e.g. `server_a:search` and `server_b:search`) the
-    // normalized-name clause below would otherwise match an earlier shadow
-    // turn whose id is actually wrong for this message, mis-routing replay
-    // state (functionCall id / thoughtSignature) for later tool_result
-    // resolution. Only fall back to name matching when id-based lookup fails
-    // or when the incoming message carries no ids at all.
+    // Never replay another call just because its name matches. In long
+    // conversations an earlier id may have left the full-turn cache. Require
+    // the complete id set so a partial parallel turn cannot add phantom calls.
     if !tool_use_ids.is_empty() {
-        if let Some(index) = shadow_turns.iter().position(|turn| {
-            turn.tool_calls.iter().any(|tool_call| {
-                tool_call
-                    .id
-                    .as_deref()
-                    .is_some_and(|id| tool_use_ids.contains(id))
-            })
-        }) {
-            return Some(index);
-        }
+        return shadow_turns.iter().position(|turn| {
+            let mut ids = turn
+                .tool_calls
+                .iter()
+                .filter_map(|call| call.id.as_deref())
+                .filter(|id| !id.is_empty())
+                .collect::<HashSet<_>>();
+            if let Some(parts) = stored_parts(&turn.assistant_content) {
+                ids.extend(parts.iter().filter_map(|part| {
+                    part.pointer("/functionCall/id")
+                        .and_then(Value::as_str)
+                        .filter(|id| !id.is_empty())
+                }));
+            }
+            ids.len() == tool_use_ids.len() && ids.iter().all(|id| tool_use_ids.contains(*id))
+        });
     }
 
     shadow_turns.iter().enumerate().find_map(|(index, turn)| {
@@ -687,11 +730,12 @@ fn convert_message_content_to_parts(
                 // on every functionCall in a multi-turn tool-use exchange.
                 // Without replaying the stored signature the upstream may
                 // reject with "missing a `thought_signature`".
+                let mut part = json!({ "functionCall": function_call });
                 if let Some(sig) = thought_signature_by_id.get(id) {
-                    function_call["thoughtSignature"] = json!(sig);
+                    part["thoughtSignature"] = json!(sig);
                 }
 
-                parts.push(json!({ "functionCall": function_call }));
+                parts.push(part);
             }
             "tool_result" => {
                 let tool_use_id = block
@@ -844,12 +888,16 @@ fn gemini_part_from_chat_image(part: &Value) -> Option<Value> {
     None
 }
 
-fn shadow_parts(content: &Value) -> Option<Vec<Value>> {
-    let mut parts = content
+fn stored_parts(content: &Value) -> Option<&[Value]> {
+    content
         .get("parts")
         .and_then(|value| value.as_array())
-        .cloned()
-        .or_else(|| content.as_array().cloned())?;
+        .or_else(|| content.as_array())
+        .map(Vec::as_slice)
+}
+
+fn shadow_parts(content: &Value) -> Option<Vec<Value>> {
+    let mut parts = stored_parts(content)?.to_vec();
     // Strip synthesized ids before these parts are replayed into a Gemini
     // request body. The shadow store records the Anthropic-facing id so that
     // a tool_result round-trip can find the tool's name, but sending the
@@ -1088,7 +1136,9 @@ fn merge_thought_signatures_from_shadow(
 ) {
     for tool_call in &turn.tool_calls {
         if let (Some(id), Some(sig)) = (&tool_call.id, &tool_call.thought_signature) {
-            thought_signature_by_id.insert(id.clone(), sig.clone());
+            if !id.is_empty() && !sig.is_empty() {
+                thought_signature_by_id.insert(id.clone(), sig.clone());
+            }
         }
     }
 }
@@ -2690,4 +2740,43 @@ mod tests {
             "functionResponse.id must also be omitted for synthesized ids"
         );
     }
+}
+
+fn fill_skip_thought_signatures(contents: &mut [Value]) -> usize {
+    let mut filled = 0;
+    for content in contents {
+        if content.get("role").and_then(Value::as_str) != Some("model") {
+            continue;
+        }
+        let Some(first_call) = content
+            .get_mut("parts")
+            .and_then(Value::as_array_mut)
+            .and_then(|parts| {
+                parts
+                    .iter_mut()
+                    .find(|part| part.get("functionCall").is_some())
+            })
+            .and_then(Value::as_object_mut)
+        else {
+            continue;
+        };
+        let has_signature = ["thoughtSignature", "thought_signature"]
+            .iter()
+            .any(|field| {
+                first_call
+                    .get(*field)
+                    .and_then(Value::as_str)
+                    .is_some_and(|signature| !signature.is_empty())
+            });
+        if has_signature {
+            continue;
+        }
+        first_call.remove("thought_signature");
+        first_call.insert(
+            "thoughtSignature".into(),
+            json!(GEMINI_SKIP_THOUGHT_SIGNATURE),
+        );
+        filled += 1;
+    }
+    filled
 }

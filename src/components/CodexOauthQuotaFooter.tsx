@@ -25,6 +25,7 @@ const CodexOauthQuotaFooter: React.FC<CodexOauthQuotaFooterProps> = ({
 }) => {
   const {
     data: quota,
+    manualIdle,
     isFetching: loading,
     refetch,
   } = useCodexOauthQuota(meta, {
@@ -36,6 +37,7 @@ const CodexOauthQuotaFooter: React.FC<CodexOauthQuotaFooterProps> = ({
   return (
     <SubscriptionQuotaView
       quota={quota}
+      manualIdle={manualIdle}
       loading={loading}
       refetch={refetch}
       appIdForExpiredHint="codex_oauth"

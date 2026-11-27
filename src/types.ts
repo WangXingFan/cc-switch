@@ -415,6 +415,7 @@ export interface FetchedExchangeRates {
 // 应用设置类型（用于设置对话框与 Tauri API）
 // 存储在本地 ~/.cc-switch/settings.json，不随数据库同步
 export interface Settings {
+  officialQuotaManualOnly?: boolean;
   usageDisplay?: UsageDisplaySettings;
   sessionContentSearchEnabled?: boolean;
   // ===== 设备级 UI 设置 =====

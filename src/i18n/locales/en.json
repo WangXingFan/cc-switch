@@ -170,7 +170,13 @@
         "oauthTitle": "OAuth Authentication Mode",
         "oauthHint": "Google official uses OAuth personal authentication, no need to fill in API Key. The browser will automatically open for login on first use.",
         "apiKeyPlaceholder": "Enter Gemini API Key"
-      }
+      },
+      "agy": {},
+      "managedAccount": {},
+      "claudeAccount": {
+        "plan": {}
+      },
+      "grokAccount": {}
     },
     "multiKey": {
       "count": "{{count}} Keys",
@@ -211,7 +217,9 @@
       "message": "After the editor opened, the settings below were changed by another program (such as Claude Code). Overwrite them with your edits, or keep the external changes? Your other edits are saved either way.",
       "keepTheirs": "Keep external changes",
       "keepMine": "Overwrite with my edits"
-    }
+    },
+    "officialModelsReason": {},
+    "openTerminalDialog": {}
   },
   "claudeCode": {
     "needsRouting": "Needs Routing",
@@ -326,7 +334,8 @@
     "windowControlFailed": "Window control failed: {{error}}",
     "officialBlockedByProxy": "Cannot switch to official provider while local routing is active. Using routing with official APIs may cause account bans.",
     "proxyOfficialWarning": "Current provider {{name}} is official. Consider switching to a third-party provider before using local routing.",
-    "proxyReasonClaudeDesktop": "Using Claude Desktop local routing mode"
+    "proxyReasonClaudeDesktop": "Using Claude Desktop local routing mode",
+    "codexHistorySplit": {}
   },
   "confirm": {
     "deleteProvider": "Delete Provider",
@@ -476,7 +485,8 @@
           "debug": "Detailed info including SSE stream and request/response",
           "trace": "All logs, most verbose"
         }
-      }
+      },
+      "privacyFilter": {}
     },
     "language": "Language",
     "languageHint": "Preview interface language immediately after switching, takes effect permanently after saving.",
@@ -613,7 +623,8 @@
         "warning": "This will overwrite existing sync data on the remote server",
         "legacyNotice": "Legacy remote data was detected. This upload will write to the new v2/db-v6 path and will not overwrite the legacy path.",
         "confirm": "Confirm Upload"
-      }
+      },
+      "clearConfirm": {}
     },
     "syncType": {
       "label": "Sync Type",
@@ -714,7 +725,8 @@
         "createdAt": "Uploaded at",
         "warning": "This will overwrite existing sync data at the S3 path",
         "confirm": "Confirm Upload"
-      }
+      },
+      "clearConfirm": {}
     },
     "autoReload": "Data refreshed",
     "languageOptionChinese": "简体中文",
@@ -942,7 +954,35 @@
       "defaultCostMultiplierRequired": "Default multiplier is required",
       "defaultCostMultiplierInvalid": "Invalid multiplier format"
     },
-    "saveFailedGeneric": "Save failed, please try again"
+    "saveFailedGeneric": "Save failed, please try again",
+    "backupStorage": {
+      "items": {
+        "database": {},
+        "skills": {},
+        "codexHistoryUnify": {},
+        "codexHistoryUnifyRestore": {},
+        "codexHistoryProviderMigration": {},
+        "liveFirstWrite": {},
+        "hermes": {},
+        "openclaw": {},
+        "proxyLiveBackup": {},
+        "envVars": {},
+        "legacyConfigBackups": {},
+        "legacyConfigArchive": {},
+        "legacyDbUpgrade": {},
+        "legacyToolSearch": {}
+      }
+    },
+    "copilotVscode": {},
+    "codexQuotaProtection": {},
+    "codexPauseOfficialLogin": {},
+    "sections": {},
+    "appConfig": {},
+    "routing": {},
+    "data": {},
+    "ipDiagnostics": {
+      "errors": {}
+    }
   },
   "apps": {
     "claude": "Claude",
@@ -1668,7 +1708,10 @@
     "fetchModelsNotSupported": "This provider does not support fetching model list",
     "fetchModelsEndpointNotFound": "No reachable models endpoint found. Please check the Base URL or confirm whether the provider exposes this API.",
     "fetchModelsTimeout": "Request timed out, please check network connection",
-    "requiredFields": "Please fill in provider name, API endpoint, API Key and model"
+    "requiredFields": "Please fill in provider name, API endpoint, API Key and model",
+    "nativeConfig": {},
+    "stackLayout": {},
+    "modelPicker": {}
   },
   "copilot": {
     "authSection": "GitHub Copilot Authentication",
@@ -1707,7 +1750,9 @@
     "deploymentType": "GitHub Deployment Type",
     "deploymentGitHubCom": "GitHub.com",
     "deploymentEnterprise": "GitHub Enterprise Server",
-    "enterpriseDomainPlaceholder": "e.g. company.ghe.com"
+    "enterpriseDomainPlaceholder": "e.g. company.ghe.com",
+    "form": {},
+    "quota": {}
   },
   "codexOauth": {
     "authStatus": "Auth status",
@@ -1774,7 +1819,8 @@
   "managedAuth": {
     "accountRemoved": "Account removed",
     "selectedAccountNeedsReauth": "The linked account is missing or needs you to sign in again",
-    "selectedAccountUnavailable": "The linked account is missing or needs you to sign in again. Select another account."
+    "selectedAccountUnavailable": "The linked account is missing or needs you to sign in again. Select another account.",
+    "remove": {}
   },
   "endpointTest": {
     "title": "API Endpoint Management",
@@ -1993,7 +2039,14 @@
     "sortAriaLabel": "Toggle preset sorting",
     "sortNameAscTooltip": "Sort by name A-Z",
     "sortOriginalTooltip": "Restore original order",
-    "noSearchResults": "No provider presets match your search."
+    "noSearchResults": "No provider presets match your search.",
+    "group": {},
+    "groupHint": {},
+    "loginWith": {},
+    "family": {},
+    "version": {},
+    "plan": {},
+    "region": {}
   },
   "usage": {
     "title": "Usage Statistics",
@@ -2364,7 +2417,8 @@
       "noFirstToken": "No first-token timing, so no speed",
       "providerId": "Provider ID",
       "copyRequestId": "Copy request ID",
-      "requestIdCopied": "Request ID copied"
+      "requestIdCopied": "Request ID copied",
+      "speedBurst": "Arrived in a buffered burst, so no speed"
     },
     "sources": {
       "scanTitle": "Scan session logs automatically",
@@ -2755,7 +2809,10 @@
     "confirm": {
       "deleteTitle": "Confirm Delete",
       "deleteMessage": "Are you sure you want to delete prompt \"{{name}}\"?"
-    }
+    },
+    "importReason": {},
+    "copyDialog": {},
+    "toast": {}
   },
   "profiles": {
     "switcherAriaLabel": "Project: {{name}}",
@@ -3127,7 +3184,8 @@
       "addFailed": "Failed to add",
       "removeSuccess": "Repository {{owner}}/{{name}} removed",
       "removeFailed": "Failed to remove",
-      "skillCount": "{{count}} skills detected"
+      "skillCount": "{{count}} skills detected",
+      "token": {}
     },
     "search": "Search Skills",
     "searchPlaceholder": "Search skill name or repo...",
@@ -3204,7 +3262,8 @@
       "successSingle": "Skill {{name}} installed",
       "successMultiple": "Successfully installed {{count}} skills",
       "noSkillsFound": "No skills found in ZIP file (requires SKILL.md file)"
-    }
+    },
+    "storageSheet": {}
   },
   "deeplink": {
     "confirmImport": "Confirm Import Provider",
@@ -3302,7 +3361,8 @@
       "cloud": "Cloud Platforms",
       "tool": "Dev Tools",
       "other": "Other"
-    }
+    },
+    "uploadError": {}
   },
   "providerIcon": {
     "label": "Icon",
@@ -3524,7 +3584,10 @@
       "stopFailed": "Failed to stop routing service: {{detail}}"
     },
     "stoppedWithRestore": "Routing service stopped; all apps are back on direct connections",
-    "stopWithRestoreFailed": "Stop failed: {{detail}}"
+    "stopWithRestoreFailed": "Stop failed: {{detail}}",
+    "stackMode": {
+      "codexStale": {}
+    }
   },
   "streamCheck": {
     "reachable": "{{providerName}} is reachable ({{responseTimeMs}}ms)",
@@ -3538,7 +3601,8 @@
     "timeout": "Timeout (seconds)",
     "maxRetries": "Max Retries",
     "degradedThreshold": "Slow-response threshold (ms)",
-    "error": "{{providerName}} check error: {{error}}"
+    "error": "{{providerName}} check error: {{error}}",
+    "hint": {}
   },
   "proxyConfig": {
     "proxyEnabled": "Routing Master Switch",
@@ -3815,7 +3879,9 @@
     "expired": "Session expired",
     "expiredHint": "Run the {{tool}} command to refresh your login",
     "queryFailed": "Query failed",
-    "refresh": "Refresh"
+    "refresh": "Refresh",
+    "manualQueryHint": "Click refresh to query quota.",
+    "short": {}
   },
   "pluginsPage": {
     "title": "Plugins",
@@ -3929,5 +3995,129 @@
     "needsAttention": "Needs attention",
     "back": "Back",
     "plugins": "Plugins"
-  }
+  },
+  "authCenter": {
+    "autoQuota": {
+      "title": "Query quota automatically",
+      "description": "When off, official account quotas are queried only when you click refresh. Third-party balance queries are unaffected."
+    },
+    "group": {},
+    "pending": {},
+    "toast": {},
+    "quota": {},
+    "agy": {},
+    "codebuddy": {
+      "quota": {}
+    },
+    "workbuddy": {
+      "plan": {}
+    },
+    "claude": {},
+    "openBrowser": {}
+  },
+  "mcode": {
+    "empty": {}
+  },
+  "workbuddy": {
+    "empty": {},
+    "form": {},
+    "official": {},
+    "quota": {}
+  },
+  "backgroundTask": {
+    "updateCheckFailed": {},
+    "modelsDevSyncFailed": {}
+  },
+  "appsPage": {
+    "installHint": {}
+  },
+  "appPage": {},
+  "mode": {
+    "names": {},
+    "stackSettings": {},
+    "status": {},
+    "activate": {},
+    "notice": {},
+    "toast": {},
+    "dialog": {},
+    "help": {}
+  },
+  "providerCard": {
+    "status": {},
+    "action": {},
+    "chip": {},
+    "reason": {},
+    "section": {}
+  },
+  "routingSettings": {},
+  "quota": {
+    "reason": {},
+    "resetCredits": {},
+    "credits": {},
+    "windows": {}
+  },
+  "appMatrix": {
+    "pop": {},
+    "toast": {},
+    "cell": {},
+    "ompDiscovery": {}
+  },
+  "mcpPage": {
+    "connection": {},
+    "toast": {},
+    "import": {},
+    "templateLabels": {},
+    "drawer": {
+      "pasteFormats": {},
+      "errors": {}
+    }
+  },
+  "skillsPage": {
+    "addMenu": {},
+    "moreMenu": {},
+    "banner": {},
+    "filter": {},
+    "source": {},
+    "bulk": {},
+    "pop": {},
+    "confirm": {},
+    "toast": {},
+    "installTo": {},
+    "discover": {},
+    "repos": {},
+    "import": {},
+    "restore": {},
+    "repoFail": {}
+  },
+  "newLayoutNotice": {},
+  "whatsNew": {
+    "types": {}
+  },
+  "kimi": {
+    "oauth": {},
+    "capabilities": {},
+    "capabilityHints": {},
+    "empty": {},
+    "error": {}
+  },
+  "omp": {
+    "empty": {},
+    "provider": {},
+    "current": {},
+    "form": {
+      "discoveryTypes": {}
+    },
+    "errors": {}
+  },
+  "codebuddy": {
+    "empty": {},
+    "official": {},
+    "login": {}
+  },
+  "dsh": {
+    "empty": {},
+    "account": {}
+  },
+  "autoUpdate": {},
+  "unreadableEntry": {}
 }

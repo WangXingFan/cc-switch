@@ -78,6 +78,7 @@ pub(crate) use lock_conn;
 /// 使用 Mutex 包装 Connection 以支持在多线程环境（如 Tauri State）中共享。
 /// rusqlite::Connection 本身不是 Sync 的，因此需要这层包装。
 pub struct Database {
+    route_revisions: Mutex<std::collections::HashMap<String, u64>>,
     pub(crate) conn: Mutex<Connection>,
     pub(crate) log_count_cache: Mutex<Option<crate::services::usage_stats::LogCountCache>>,
 }
@@ -95,6 +96,22 @@ fn register_db_change_hook(conn: &Connection) {
 }
 
 impl Database {
+    pub(crate) fn route_revision(&self, app: &crate::app_config::AppType) -> u64 {
+        *self
+            .route_revisions
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .get(app.as_str())
+            .unwrap_or(&0)
+    }
+    pub(crate) fn advance_route_revision(&self, app: &crate::app_config::AppType) {
+        let mut revisions = self
+            .route_revisions
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        *revisions.entry(app.as_str().to_string()).or_default() += 1;
+    }
+
     /// 初始化数据库连接并创建表
     ///
     /// 数据库文件位于 `~/.cc-switch/cc-switch.db`
@@ -122,6 +139,7 @@ impl Database {
 
         let db = Self {
             conn: Mutex::new(conn),
+            route_revisions: Mutex::default(),
             log_count_cache: Mutex::new(None),
         };
         db.create_tables()?;
@@ -197,6 +215,7 @@ impl Database {
 
         let db = Self {
             conn: Mutex::new(conn),
+            route_revisions: Mutex::default(),
             log_count_cache: Mutex::new(None),
         };
         db.create_tables()?;

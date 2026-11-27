@@ -9,9 +9,8 @@ use crate::settings::{effective_backup_retain_count, get_openclaw_override_dir};
 use chrono::Local;
 use indexmap::IndexMap;
 use json_five::rt::parser::{
-    from_str as rt_from_str, JSONKeyValuePair as RtJSONKeyValuePair,
-    JSONObjectContext as RtJSONObjectContext, JSONText as RtJSONText, JSONValue as RtJSONValue,
-    KeyValuePairContext as RtKeyValuePairContext,
+    JSONKeyValuePair as RtJSONKeyValuePair, JSONObjectContext as RtJSONObjectContext,
+    JSONText as RtJSONText, JSONValue as RtJSONValue, KeyValuePairContext as RtKeyValuePairContext,
 };
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Map, Value};
@@ -245,10 +244,10 @@ impl OpenClawConfigDocument {
         let source = original_source
             .clone()
             .unwrap_or_else(|| OPENCLAW_DEFAULT_SOURCE.to_string());
-        let text = rt_from_str(&source).map_err(|e| {
+        let text = parse_round_trip(&source).map_err(|e| {
             AppError::Config(format!(
                 "Failed to parse OpenClaw config as round-trip JSON5 document: {}",
-                e.message
+                e
             ))
         })?;
 
@@ -494,12 +493,8 @@ fn value_to_rt_value(value: &Value, parent_indent: &str) -> Result<RtJSONValue, 
         .map_err(|e| AppError::Config(format!("Failed to serialize JSON section: {e}")))?;
 
     let adjusted = reindent_json5_block(&source, parent_indent);
-    let text = rt_from_str(&adjusted).map_err(|e| {
-        AppError::Config(format!(
-            "Failed to parse generated JSON5 section: {}",
-            e.message
-        ))
-    })?;
+    let text = parse_round_trip(&adjusted)
+        .map_err(|e| AppError::Config(format!("Failed to parse generated JSON5 section: {}", e)))?;
     Ok(text.value)
 }
 
@@ -1085,5 +1080,47 @@ mod tests {
             let written = fs::read_to_string(get_openclaw_config_path()).unwrap();
             assert!(written.contains("\"providers\": {}"));
         });
+    }
+}
+
+use json_five::tokenize::{tokenize_rt_str, TokType};
+fn parse_round_trip(source: &str) -> Result<RtJSONText, AppError> {
+    let mut tokens = tokenize_rt_str(source)
+        .map_err(|e| AppError::Config(format!("Failed to tokenize JSONC config: {e}")))?;
+    // json-five 0.3.1 consumes the closing slash of a block comment but leaves
+    // its exclusive end offset on that slash. Line comments ending at EOF or
+    // U+2028/U+2029 can also end inside the last UTF-8 character. Repair only
+    // these token boundaries; leave the source and already valid spans intact.
+    for (start, kind, end) in &mut tokens.tok_spans {
+        if *kind == TokType::BlockComment
+            && source.as_bytes().get(*end) == Some(&b'/')
+            && source
+                .get(*start..*end)
+                .is_some_and(|text| text.ends_with('*'))
+        {
+            *end += 1;
+        }
+        if *kind == TokType::LineComment {
+            while *end < source.len() && !source.is_char_boundary(*end) {
+                *end += 1;
+            }
+        }
+    }
+    json_five::rt::parser::from_tokens(&tokens).map_err(|e| {
+        AppError::Config(format!(
+            "Failed to parse round-trip JSONC config: {}",
+            e.message
+        ))
+    })
+}
+
+#[cfg(test)]
+mod block_comment_regression_tests {
+    use super::*;
+    #[test]
+    fn block_comments_survive_round_trip_including_unicode_eof_comment() {
+        let source = "{/*账户*/ models: {/*models*/ providers: {}},} //备注";
+        let parsed = parse_round_trip(source).unwrap();
+        assert_eq!(parsed.to_string(), source);
     }
 }

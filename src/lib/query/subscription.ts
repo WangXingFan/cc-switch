@@ -1,3 +1,4 @@
+import { isManualIdle, useQuotaPolicy, type QuotaPolicy } from "./quotaPolicy";
 import { useRef } from "react";
 import { useQuery, type UseQueryResult } from "@tanstack/react-query";
 import { subscriptionApi } from "@/lib/api/subscription";
@@ -47,6 +48,7 @@ const QUERY_REJECTED_PLACEHOLDER: SubscriptionQuota = {
 function useQuotaKeepLastGood(
   query: UseQueryResult<SubscriptionQuota>,
   scopeKey: string,
+  policy: QuotaPolicy,
 ) {
   const lastGoodRef = useRef<{
     key: string;
@@ -65,6 +67,7 @@ function useQuotaKeepLastGood(
   lastGoodRef.current.snap = lastGood;
   return {
     ...query,
+    manualIdle: isManualIdle(policy, query),
     data:
       data ??
       (query.isError
@@ -82,8 +85,9 @@ export function useSubscriptionQuota(
   autoQuery = false,
   autoQueryIntervalMinutes = 5,
 ) {
+  const policy = useQuotaPolicy();
   const refetchInterval =
-    autoQuery && autoQueryIntervalMinutes > 0
+    policy.autoAllowed && autoQuery && autoQueryIntervalMinutes > 0
       ? Math.max(autoQueryIntervalMinutes, 1) * 60 * 1000
       : false;
 
@@ -91,7 +95,9 @@ export function useSubscriptionQuota(
     queryKey: subscriptionKeys.quota(appId),
     queryFn: () => subscriptionApi.getQuota(appId),
     enabled:
-      enabled && ["claude", "codex", "gemini", "grokbuild"].includes(appId),
+      policy.autoAllowed &&
+      enabled &&
+      ["claude", "codex", "gemini", "grokbuild"].includes(appId),
     refetchInterval,
     refetchIntervalInBackground: Boolean(refetchInterval),
     refetchOnWindowFocus: Boolean(refetchInterval),
@@ -102,7 +108,7 @@ export function useSubscriptionQuota(
     retry: 1,
   });
 
-  return useQuotaKeepLastGood(query, appId);
+  return useQuotaKeepLastGood(query, appId, policy);
 }
 
 export interface UseCodexOauthQuotaOptions {
@@ -129,14 +135,15 @@ export function useCodexOauthQuotaByAccountId(
     autoQuery = false,
     autoQueryIntervalMinutes = 5,
   } = options;
+  const policy = useQuotaPolicy();
   const refetchInterval =
-    autoQuery && autoQueryIntervalMinutes > 0
+    policy.autoAllowed && autoQuery && autoQueryIntervalMinutes > 0
       ? Math.max(autoQueryIntervalMinutes, 1) * 60 * 1000
       : false;
   const query = useQuery({
     queryKey: ["codex_oauth", "quota", accountId ?? "default"],
     queryFn: () => subscriptionApi.getCodexOauthQuota(accountId),
-    enabled,
+    enabled: policy.autoAllowed && enabled,
     refetchInterval,
     refetchIntervalInBackground: Boolean(refetchInterval),
     refetchOnWindowFocus: Boolean(refetchInterval),
@@ -147,7 +154,7 @@ export function useCodexOauthQuotaByAccountId(
     retry: 1,
   });
 
-  return useQuotaKeepLastGood(query, accountId ?? "default");
+  return useQuotaKeepLastGood(query, accountId ?? "default", policy);
 }
 
 /**
@@ -176,12 +183,14 @@ export function useXaiOauthQuota(
   meta: ProviderMeta | undefined,
   options: UseCodexOauthQuotaOptions = {},
 ) {
-  const { enabled = true, autoQuery = false } = options;
+  const { enabled = true } = options;
+  const policy = useQuotaPolicy();
+  const autoQuery = policy.autoAllowed && (options.autoQuery ?? false);
   const accountId = resolveManagedAccountId(meta, PROVIDER_TYPES.XAI_OAUTH);
   const query = useQuery({
     queryKey: ["xai_oauth", "quota", accountId ?? "default"],
     queryFn: () => subscriptionApi.getXaiOauthQuota(accountId),
-    enabled,
+    enabled: policy.autoAllowed && enabled,
     refetchInterval: autoQuery ? REFETCH_INTERVAL : false,
     refetchIntervalInBackground: autoQuery,
     refetchOnWindowFocus: autoQuery,
@@ -189,5 +198,5 @@ export function useXaiOauthQuota(
     retry: 1,
   });
 
-  return useQuotaKeepLastGood(query, accountId ?? "default");
+  return useQuotaKeepLastGood(query, accountId ?? "default", policy);
 }

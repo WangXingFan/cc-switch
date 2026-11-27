@@ -501,3 +501,7 @@ describe("CodexOAuthSection", () => {
     expect(onSelectionConfirmed).toHaveBeenCalledOnce();
   });
 });
+
+vi.mock("@/components/settings/AutoQuotaToggle", () => ({
+  AutoQuotaToggle: () => <div />,
+}));

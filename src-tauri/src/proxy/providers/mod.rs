@@ -546,3 +546,5 @@ mod tests {
         assert_eq!(adapter.name(), "Gemini");
     }
 }
+
+pub(crate) mod transform_codex_chat_gemini_schema;

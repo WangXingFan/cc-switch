@@ -995,9 +995,9 @@ pub(crate) async fn refresh_all_usage_in_tray(app: &tauri::AppHandle) {
 
     // 与 `create_tray_menu` 保持一致：用户隐藏的 app 不参与外部 API 查询，
     // 避免在未使用的 app 上浪费请求、撞 rate limit 或反复触发鉴权失败日志。
-    let visible_apps = crate::settings::get_settings()
-        .visible_apps
-        .unwrap_or_default();
+    let settings = crate::settings::get_settings();
+    let visible_apps = settings.visible_apps.unwrap_or_default();
+    let official_manual_only = settings.official_quota_manual_only;
 
     let mut usage_futures = Vec::new();
 
@@ -1034,7 +1034,20 @@ pub(crate) async fn refresh_all_usage_in_tray(app: &tauri::AppHandle) {
             }
         };
 
-        if let Some(source) = tray_usage_source(&section.app_type, &current) {
+        if let Some(source) = tray_usage_source(&section.app_type, &current).filter(|source| {
+            !official_manual_only
+                || match source {
+                    TrayUsageSource::ManagedCodex(_) => false,
+                    TrayUsageSource::Script => !current
+                        .meta
+                        .as_ref()
+                        .and_then(|m| m.usage_script.as_ref())
+                        .and_then(|s| s.template_type.as_deref())
+                        .is_some_and(|t| {
+                            t == "github_copilot" || t == TEMPLATE_TYPE_OFFICIAL_SUBSCRIPTION
+                        }),
+                }
+        }) {
             let app_clone = app.clone();
             let state = app.state::<AppState>();
             let copilot_state = app.state::<CopilotAuthState>();
