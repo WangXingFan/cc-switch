@@ -1,9 +1,10 @@
-const MAX_TAIL_USAGE_EVENTS: usize = 256;
-const MAX_HEAD_USAGE_EVENTS: usize = 32;
-use std::collections::VecDeque;
 //! 响应处理器模块
 //!
 //! 统一处理流式和非流式 API 响应
+
+const MAX_TAIL_USAGE_EVENTS: usize = 256;
+const MAX_HEAD_USAGE_EVENTS: usize = 32;
+use std::collections::VecDeque;
 
 use super::{
     content_encoding::{decompress_body_with_limit, get_content_encoding, DecompressError},

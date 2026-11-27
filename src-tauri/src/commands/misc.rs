@@ -970,7 +970,7 @@ async fn get_single_tool_version_impl(
         "grok" => fetch_npm_latest_for_tool(&client, "@xai-official/grok", tool, local).await,
         "opencode" => {
             if let Some(version) =
-                fetch_npm_latest_for_tool(&client, if local.is_some_and(|v| v.trim_start_matches('v').starts_with("2.")) { "@opencode/cli" } else { "opencode-ai" }, tool, local).await
+                fetch_npm_latest_for_tool(&client, if local.is_some_and(is_opencode_v2_version) { "@opencode/cli" } else { "opencode-ai" }, tool, local).await
             {
                 Some(version)
             } else {
@@ -1971,6 +1971,20 @@ fn build_tool_search_paths(tool: &str) -> Vec<std::path::PathBuf> {
         let extra_paths = grok_extra_search_paths(&home, std::env::var_os("GROK_BIN_DIR"));
         for path in extra_paths {
             push_unique_path(&mut search_paths, path);
+        }
+    }
+    if tool == "pi" {
+        if let Some(agent_dir) = std::env::var_os("PI_CODING_AGENT_DIR")
+            .filter(|value| !value.is_empty())
+            .map(PathBuf::from)
+        {
+            push_unique_path(&mut search_paths, agent_dir.join("bin"));
+        }
+        if !home.as_os_str().is_empty() {
+            push_unique_path(
+                &mut search_paths,
+                home.join(".pi").join("agent").join("bin"),
+            );
         }
     }
     if !home.as_os_str().is_empty() {
@@ -3140,7 +3154,8 @@ fn package_manager_anchored_command_from_paths(
         let brew = sibling_bin(bin_path, "brew")?;
         return Some(format!("{} upgrade {formula}", quote_path_if_spaced(&brew)));
     }
-    let pkg = installed_npm_package(tool, real_target)?;
+    let pkg = installed_npm_package(tool, bin_path, real_target)?;
+    let install_args = if pkg == "@opencode/cli" { " --ignore-scripts=false --include=optional --allow-scripts=@opencode/cli" } else { "" };
     match infer_install_source(Path::new(bin_path)) {
         "volta" => {
             let volta = sibling_bin(bin_path, "volta")?;
@@ -3149,7 +3164,7 @@ fn package_manager_anchored_command_from_paths(
         "bun" => {
             let bun = sibling_bin(bin_path, "bun")?;
             return Some(format!(
-                "{} add -g {pkg}@latest",
+                "{} add -g {pkg}@latest{install_args}",
                 quote_path_if_spaced(&bun)
             ));
         }
@@ -3159,7 +3174,7 @@ fn package_manager_anchored_command_from_paths(
         // self-update，上层会直接锚到 CLI 自身；否则返回 None 走静态兜底。
         _ => return None,
     }
-    anchored_npm_command(bin_path, &format!("i -g {pkg}@latest"))
+    anchored_npm_command(bin_path, &format!("i -g {pkg}@latest{install_args}"))
 }
 
 /// 给定工具、原始 bin 路径（命令行命中的入口）、canonicalize 后的真身路径，
@@ -3231,8 +3246,9 @@ fn anchored_command_from_paths(tool: &str, bin_path: &str, real_target: &str) ->
 }
 
 #[cfg(target_os = "windows")]
-fn package_manager_anchored_command_from_paths(tool: &str, bin_path: &str) -> Option<String> {
-    let pkg = installed_npm_package(tool, real_target)?;
+fn package_manager_anchored_command_from_paths(tool: &str, bin_path: &str, real_target: &str) -> Option<String> {
+    let pkg = installed_npm_package(tool, bin_path, real_target)?;
+    let install_args = if pkg == "@opencode/cli" { " --ignore-scripts=false --include=optional --allow-scripts=@opencode/cli" } else { "" };
 
     match infer_install_source(Path::new(bin_path)) {
         "volta" => {
@@ -3245,7 +3261,7 @@ fn package_manager_anchored_command_from_paths(tool: &str, bin_path: &str) -> Op
         "pnpm" => {
             let pnpm = sibling_bin_with_ext(bin_path, "pnpm", &["cmd", "exe"])?;
             Some(format!(
-                "{} add -g {pkg}@latest",
+                "{} add -g {pkg}@latest{install_args}",
                 win_quote_path_for_batch(&pnpm)
             ))
         }
@@ -3254,7 +3270,7 @@ fn package_manager_anchored_command_from_paths(tool: &str, bin_path: &str) -> Op
         _ => {
             let npm = sibling_bin_with_ext(bin_path, "npm", &["cmd", "exe"])?;
             Some(format!(
-                "{} i -g {pkg}@latest",
+                "{} i -g {pkg}@latest{install_args}",
                 win_quote_path_for_batch(&npm)
             ))
         }
@@ -3303,7 +3319,7 @@ fn anchored_command_from_paths(tool: &str, bin_path: &str, real_target: &str) ->
             return Some(codex_installer_update_command(&install));
         }
     }
-    let package_command = package_manager_anchored_command_from_paths(tool, bin_path);
+    let package_command = package_manager_anchored_command_from_paths(tool, bin_path, real_target);
     if prefers_official_update(tool, LifecycleCommandShell::WindowsBatch) {
         let update = anchored_official_update_command(tool, bin_path)?;
         return Some(match package_command {
@@ -3858,16 +3874,13 @@ enum UpdateCommand {
 fn resolve_update_command(tool: &str, installs: &[ToolInstallation]) -> UpdateCommand {
     if tool == "pi" {
         if let Some(install) = default_install(installs) {
-            let real = install.real.to_string_lossy().replace('\\', "/").to_ascii_lowercase();
-            if !real.contains("/node_modules/") && (real.contains("/.pi/") || real.contains("/pi/releases/")) {
+            let real = install.real.to_string_lossy();
+            if [install.path.as_str(), real.as_ref()].into_iter().any(is_pi_managed_install) {
                 return UpdateCommand::Anchored(format!("{} update", quote_tool_update_path(&install.path)));
             }
         }
     }
     if let Some(command) = installs_anchored_command(tool, installs) {
-        let command = if tool == "opencode" && default_install(installs).is_some_and(|install| opencode_package_for_path(&install.real.to_string_lossy()) == "@opencode/cli") {
-            command.replace("opencode-ai", "@opencode/cli")
-        } else { command };
         return UpdateCommand::Anchored(command);
     }
     if default_install(installs).is_some_and(is_unmanaged_native_install) {
@@ -8340,11 +8353,49 @@ fn opencode_package_for_path(path: &str) -> &'static str {
         "@opencode/cli"
     } else { "opencode-ai" }
 }
-fn installed_npm_package(tool: &str, path: &str) -> Option<&'static str> {
-    if tool == "opencode" { Some(opencode_package_for_path(path)) } else { npm_package_for(tool) }
+fn installed_npm_package(tool: &str, bin_path: &str, real: &str) -> Option<&'static str> {
+    if tool == "opencode" {
+        if opencode_package_for_path(real) == "@opencode/cli" || windows_shim_is_opencode_v2(bin_path) {
+            Some("@opencode/cli")
+        } else { Some("opencode-ai") }
+    } else { npm_package_for(tool) }
 }
+
+#[cfg(target_os = "windows")]
+fn windows_shim_is_opencode_v2(path: &str) -> bool {
+    path.to_ascii_lowercase().ends_with(".cmd") && std::fs::read_to_string(path)
+        .is_ok_and(|shim| opencode_package_for_path(&shim) == "@opencode/cli")
+}
+#[cfg(not(target_os = "windows"))]
+fn windows_shim_is_opencode_v2(_path: &str) -> bool { false }
+
 
 fn quote_tool_update_path(path: &str) -> String {
     #[cfg(target_os = "windows")] { format!("\"{}\"", path) }
     #[cfg(not(target_os = "windows"))] { shell_single_quote(path) }
+}
+
+fn is_opencode_v2_version(version: &str) -> bool {
+    parse_semver(version).is_some_and(|([major, ..], _)| major >= 2)
+}
+
+fn is_pi_managed_install(entry: &str) -> bool {
+    let Some(bin_dir) = Path::new(entry).parent() else {
+        return false;
+    };
+    if !bin_dir.join("pi-launcher.js").is_file() {
+        return false;
+    }
+    let Some(agent_dir) = bin_dir.parent() else {
+        return false;
+    };
+    let Ok(text) = std::fs::read_to_string(agent_dir.join("install").join("managed-install.json"))
+    else {
+        return false;
+    };
+    let text = text.strip_prefix('\u{feff}').unwrap_or(&text);
+    serde_json::from_str::<serde_json::Value>(text)
+        .ok()
+        .and_then(|v| v.get("kind")?.as_str().map(|s| s == "pi-managed-install"))
+        .unwrap_or(false)
 }

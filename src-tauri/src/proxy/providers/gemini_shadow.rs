@@ -141,6 +141,7 @@ impl Default for GeminiShadowStore {
 }
 
 impl GeminiShadowStore {
+    #[cfg(test)]
     pub fn get_session(&self, provider_id: &str, session_id: &str) -> Option<GeminiShadowSessionSnapshot> {
         self.get_session_with_signatures(provider_id, session_id, [])
     }
