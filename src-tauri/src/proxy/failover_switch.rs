@@ -57,7 +57,13 @@ impl FailoverSwitchManager {
 
         // 执行切换（确保最后清理 pending 标记）
         let result = self
-            .do_switch(app_handle, app_type, provider_id, provider_name, route_revision)
+            .do_switch(
+                app_handle,
+                app_type,
+                provider_id,
+                provider_name,
+                route_revision,
+            )
             .await;
 
         // 清理 pending 标记

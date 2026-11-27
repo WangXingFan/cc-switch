@@ -294,23 +294,33 @@ mod tests {
 }
 
 pub(crate) fn strip_responses_markers(schema: &mut Value) {
-    let Value::Object(map) = schema else { return; };
+    let Value::Object(map) = schema else {
+        return;
+    };
     map.remove("encrypted");
     for key in SCHEMA_MAP_KEYWORDS {
         if let Some(children) = map.get_mut(*key).and_then(Value::as_object_mut) {
-            for child in children.values_mut() { strip_responses_markers(child); }
+            for child in children.values_mut() {
+                strip_responses_markers(child);
+            }
         }
     }
     for key in SINGLE_SCHEMA_KEYWORDS {
         match map.get_mut(*key) {
-            Some(Value::Array(children)) => { for child in children { strip_responses_markers(child); } }
+            Some(Value::Array(children)) => {
+                for child in children {
+                    strip_responses_markers(child);
+                }
+            }
             Some(child) => strip_responses_markers(child),
             None => {}
         }
     }
     for key in SCHEMA_LIST_KEYWORDS {
         if let Some(children) = map.get_mut(*key).and_then(Value::as_array_mut) {
-            for child in children { strip_responses_markers(child); }
+            for child in children {
+                strip_responses_markers(child);
+            }
         }
     }
 }
@@ -327,7 +337,10 @@ mod marker_tests {
         strip_responses_markers(&mut schema);
         assert!(schema.get("encrypted").is_none());
         assert!(schema["properties"]["encrypted"].get("encrypted").is_none());
-        assert_eq!(schema["properties"]["encrypted"]["default"], json!({"encrypted":true}));
+        assert_eq!(
+            schema["properties"]["encrypted"]["default"],
+            json!({"encrypted":true})
+        );
         assert_eq!(schema["examples"], json!([{"encrypted":true}]));
         assert_eq!(schema["required"], json!(["encrypted"]));
     }

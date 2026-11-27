@@ -142,7 +142,11 @@ impl Default for GeminiShadowStore {
 
 impl GeminiShadowStore {
     #[cfg(test)]
-    pub fn get_session(&self, provider_id: &str, session_id: &str) -> Option<GeminiShadowSessionSnapshot> {
+    pub fn get_session(
+        &self,
+        provider_id: &str,
+        session_id: &str,
+    ) -> Option<GeminiShadowSessionSnapshot> {
         self.get_session_with_signatures(provider_id, session_id, [])
     }
 
@@ -377,7 +381,9 @@ mod tests {
             )],
         );
         store.record_assistant_turn("p", "s", json!({"text": "later"}), vec![]);
-        let snapshot = store.get_session_with_signatures("p", "s", ["call_1"]).unwrap();
+        let snapshot = store
+            .get_session_with_signatures("p", "s", ["call_1"])
+            .unwrap();
         assert_eq!(snapshot.turns.len(), 1);
         assert_eq!(
             snapshot
@@ -387,7 +393,9 @@ mod tests {
             Some("real-signature")
         );
         store.record_assistant_turn("p", "another", json!({"text": "another session"}), vec![]);
-        let retained = store.get_session_with_signatures("p", "s", ["call_1"]).unwrap();
+        let retained = store
+            .get_session_with_signatures("p", "s", ["call_1"])
+            .unwrap();
         assert!(retained.turns.is_empty());
         assert_eq!(
             retained
@@ -396,7 +404,9 @@ mod tests {
                 .map(String::as_str),
             Some("real-signature")
         );
-        assert!(store.get_session_with_signatures("p", "another", []).is_some());
+        assert!(store
+            .get_session_with_signatures("p", "another", [])
+            .is_some());
     }
 
     #[test]
@@ -514,7 +524,9 @@ mod tests {
             )],
         );
 
-        let snapshot = store.get_session_with_signatures("provider-a", "session-1", []).unwrap();
+        let snapshot = store
+            .get_session_with_signatures("provider-a", "session-1", [])
+            .unwrap();
         assert!(snapshot.thought_signatures.is_empty());
         assert_eq!(snapshot.provider_id, "provider-a");
         assert_eq!(snapshot.session_id, "session-1");
@@ -583,8 +595,14 @@ mod tests {
         store.record_assistant_turn("provider-a", "session-2", json!({"idx": 2}), vec![]);
         store.record_assistant_turn("provider-a", "session-3", json!({"idx": 3}), vec![]);
 
-        assert!(store.get_session_with_signatures("provider-a", "session-1", []).is_none());
-        assert!(store.get_session_with_signatures("provider-a", "session-2", []).is_some());
-        assert!(store.get_session_with_signatures("provider-a", "session-3", []).is_some());
+        assert!(store
+            .get_session_with_signatures("provider-a", "session-1", [])
+            .is_none());
+        assert!(store
+            .get_session_with_signatures("provider-a", "session-2", [])
+            .is_some());
+        assert!(store
+            .get_session_with_signatures("provider-a", "session-3", [])
+            .is_some());
     }
 }

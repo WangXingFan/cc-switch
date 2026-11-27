@@ -636,7 +636,11 @@ pub async fn switch_route_locked(
 }
 
 /// 代理模式下手动换路由（拿切换锁）。不支持代理的官方供应商拒绝切入。
-pub async fn switch_route(state: &AppState, app: &AppType, provider_id: &str) -> Result<(), String> {
+pub async fn switch_route(
+    state: &AppState,
+    app: &AppType,
+    provider_id: &str,
+) -> Result<(), String> {
     let _guard = lock_settled(state, app).await.map_err(|e| e.to_string())?;
     switch_route_by_id_locked(state, app, provider_id).await
 }
@@ -714,7 +718,14 @@ pub async fn record_failover_route(
     if !mode.is_proxy() || mode.proxy_route.as_deref() == Some(provider_id) {
         return Ok(false);
     }
-    if state.db.route_revision(app) != route_revision || !state.db.get_proxy_config_for_app(app.as_str()).await.map_err(|e| e.to_string())?.auto_failover_enabled {
+    if state.db.route_revision(app) != route_revision
+        || !state
+            .db
+            .get_proxy_config_for_app(app.as_str())
+            .await
+            .map_err(|e| e.to_string())?
+            .auto_failover_enabled
+    {
         return Ok(false);
     }
     let Some(target) = provider(state, app, provider_id)? else {
@@ -1822,9 +1833,11 @@ mod mode_tests {
         config.auto_failover_enabled = true;
         state.db.update_proxy_config_for_app(config).await.unwrap();
         let revision = state.db.route_revision(&AppType::Claude);
-        assert!(record_failover_route(&state, &AppType::Claude, "b", revision)
-            .await
-            .expect("record failover"));
+        assert!(
+            record_failover_route(&state, &AppType::Claude, "b", revision)
+                .await
+                .expect("record failover")
+        );
         assert_eq!(fs::read(settings_path()).unwrap(), before);
         assert_eq!(in_use(&state, &AppType::Claude).as_deref(), Some("b"));
         assert_eq!(direct(&state, &AppType::Claude).as_deref(), Some("a"));
@@ -1836,22 +1849,37 @@ mod mode_tests {
     async fn stale_failover_cannot_override_manual_switch_or_disabled_failover() {
         let _home = Home::new();
         seed_settings(USER_SETTINGS);
-        let state = state_with(AppType::Claude, &[
-            claude("a", "https://a.example", json!({})),
-            claude("b", "https://b.example", json!({})),
-        ], "a").await;
+        let state = state_with(
+            AppType::Claude,
+            &[
+                claude("a", "https://a.example", json!({})),
+                claude("b", "https://b.example", json!({})),
+            ],
+            "a",
+        )
+        .await;
         enter(&state, &AppType::Claude).await.unwrap();
         let mut config = state.db.get_proxy_config_for_app("claude").await.unwrap();
         config.auto_failover_enabled = true;
-        state.db.update_proxy_config_for_app(config.clone()).await.unwrap();
+        state
+            .db
+            .update_proxy_config_for_app(config.clone())
+            .await
+            .unwrap();
         let stale = state.db.route_revision(&AppType::Claude);
         switch_route(&state, &AppType::Claude, "b").await.unwrap();
         switch_route(&state, &AppType::Claude, "a").await.unwrap();
-        assert!(!record_failover_route(&state, &AppType::Claude, "b", stale).await.unwrap());
+        assert!(!record_failover_route(&state, &AppType::Claude, "b", stale)
+            .await
+            .unwrap());
         let before_disable = state.db.route_revision(&AppType::Claude);
         config.auto_failover_enabled = false;
         state.db.update_proxy_config_for_app(config).await.unwrap();
-        assert!(!record_failover_route(&state, &AppType::Claude, "b", before_disable).await.unwrap());
+        assert!(
+            !record_failover_route(&state, &AppType::Claude, "b", before_disable)
+                .await
+                .unwrap()
+        );
         assert_eq!(in_use(&state, &AppType::Claude).as_deref(), Some("a"));
         exit(&state, &AppType::Claude).await.unwrap();
     }

@@ -1491,174 +1491,174 @@ mod tests {
 
 #[cfg(test)]
 mod semantic_first_token_tests {
-use super::*;
-#[test]
-fn sse_data_starts_output_skips_metadata_events() {
-    // Common empty / keepalive / non-JSON payloads
-    assert!(!sse_data_starts_output(Some("ping"), r#"{"type":"ping"}"#));
-    assert!(!sse_data_starts_output(
-        Some("keepalive"),
-        r#"{"type":"keepalive"}"#
-    ));
-    assert!(!sse_data_starts_output(None, "[DONE]"));
-    assert!(!sse_data_starts_output(None, "  "));
-    assert!(!sse_data_starts_output(None, "not-json"));
+    use super::*;
+    #[test]
+    fn sse_data_starts_output_skips_metadata_events() {
+        // Common empty / keepalive / non-JSON payloads
+        assert!(!sse_data_starts_output(Some("ping"), r#"{"type":"ping"}"#));
+        assert!(!sse_data_starts_output(
+            Some("keepalive"),
+            r#"{"type":"keepalive"}"#
+        ));
+        assert!(!sse_data_starts_output(None, "[DONE]"));
+        assert!(!sse_data_starts_output(None, "  "));
+        assert!(!sse_data_starts_output(None, "not-json"));
 
-    // Anthropic Messages API: skip lifecycle/empty shells, trigger on real content/thinking/tool starts
-    assert!(!sse_data_starts_output(
-        Some("message_start"),
-        r#"{"type":"message_start","message":{"id":"msg_1","content":[]}}"#
-    ));
-    assert!(!sse_data_starts_output(
-        Some("content_block_start"),
-        r#"{"type":"content_block_start","index":0,"content_block":{"type":"text","text":""}}"#
-    ));
-    assert!(!sse_data_starts_output(
-        Some("content_block_delta"),
-        r#"{"type":"content_block_delta","index":0,"delta":{"type":"text_delta","text":""}}"#
-    ));
-    assert!(!sse_data_starts_output(
-        Some("content_block_delta"),
-        r#"{"type":"content_block_delta","index":0,"delta":{"type":"signature_delta","signature":"sig"}}"#
-    ));
-    assert!(!sse_data_starts_output(
-        Some("message_delta"),
-        r#"{"type":"message_delta","delta":{"stop_reason":"end_turn"},"usage":{"output_tokens":10}}"#
-    ));
-    assert!(!sse_data_starts_output(
-        Some("message_stop"),
-        r#"{"type":"message_stop"}"#
-    ));
-    assert!(sse_data_starts_output(
-        Some("content_block_delta"),
-        r#"{"type":"content_block_delta","index":0,"delta":{"type":"text_delta","text":"hi"}}"#
-    ));
-    assert!(sse_data_starts_output(
-        Some("content_block_delta"),
-        r#"{"type":"content_block_delta","index":0,"delta":{"type":"thinking_delta","thinking":"hmm"}}"#
-    ));
-    assert!(sse_data_starts_output(
-        Some("content_block_delta"),
-        r#"{"type":"content_block_delta","index":0,"delta":{"type":"input_json_delta","partial_json":"{\"a\":"}}"#
-    ));
-    assert!(sse_data_starts_output(
-        Some("content_block_start"),
-        r#"{"type":"content_block_start","index":0,"content_block":{"type":"tool_use","id":"t1","name":"ls"}}"#
-    ));
-    assert!(sse_data_starts_output(
-        Some("content_block_start"),
-        r#"{"type":"content_block_start","index":0,"content_block":{"type":"thinking","thinking":""}}"#
-    ));
-    assert!(sse_data_starts_output(
-        Some("content_block_start"),
-        r#"{"type":"content_block_start","index":0,"content_block":{"type":"redacted_thinking","data":"abc"}}"#
-    ));
+        // Anthropic Messages API: skip lifecycle/empty shells, trigger on real content/thinking/tool starts
+        assert!(!sse_data_starts_output(
+            Some("message_start"),
+            r#"{"type":"message_start","message":{"id":"msg_1","content":[]}}"#
+        ));
+        assert!(!sse_data_starts_output(
+            Some("content_block_start"),
+            r#"{"type":"content_block_start","index":0,"content_block":{"type":"text","text":""}}"#
+        ));
+        assert!(!sse_data_starts_output(
+            Some("content_block_delta"),
+            r#"{"type":"content_block_delta","index":0,"delta":{"type":"text_delta","text":""}}"#
+        ));
+        assert!(!sse_data_starts_output(
+            Some("content_block_delta"),
+            r#"{"type":"content_block_delta","index":0,"delta":{"type":"signature_delta","signature":"sig"}}"#
+        ));
+        assert!(!sse_data_starts_output(
+            Some("message_delta"),
+            r#"{"type":"message_delta","delta":{"stop_reason":"end_turn"},"usage":{"output_tokens":10}}"#
+        ));
+        assert!(!sse_data_starts_output(
+            Some("message_stop"),
+            r#"{"type":"message_stop"}"#
+        ));
+        assert!(sse_data_starts_output(
+            Some("content_block_delta"),
+            r#"{"type":"content_block_delta","index":0,"delta":{"type":"text_delta","text":"hi"}}"#
+        ));
+        assert!(sse_data_starts_output(
+            Some("content_block_delta"),
+            r#"{"type":"content_block_delta","index":0,"delta":{"type":"thinking_delta","thinking":"hmm"}}"#
+        ));
+        assert!(sse_data_starts_output(
+            Some("content_block_delta"),
+            r#"{"type":"content_block_delta","index":0,"delta":{"type":"input_json_delta","partial_json":"{\"a\":"}}"#
+        ));
+        assert!(sse_data_starts_output(
+            Some("content_block_start"),
+            r#"{"type":"content_block_start","index":0,"content_block":{"type":"tool_use","id":"t1","name":"ls"}}"#
+        ));
+        assert!(sse_data_starts_output(
+            Some("content_block_start"),
+            r#"{"type":"content_block_start","index":0,"content_block":{"type":"thinking","thinking":""}}"#
+        ));
+        assert!(sse_data_starts_output(
+            Some("content_block_start"),
+            r#"{"type":"content_block_start","index":0,"content_block":{"type":"redacted_thinking","data":"abc"}}"#
+        ));
 
-    // OpenAI Responses API: skip created/in_progress/message shell/content_part.added/completed
-    assert!(!sse_data_starts_output(
-        Some("response.created"),
-        r#"{"type":"response.created"}"#
-    ));
-    assert!(!sse_data_starts_output(
-        None,
-        r#"{"type":"response.in_progress","response":{}}"#
-    ));
-    assert!(!sse_data_starts_output(
-        Some("response.output_item.added"),
-        r#"{"type":"response.output_item.added","item":{"type":"message","role":"assistant","content":[]}}"#
-    ));
-    assert!(!sse_data_starts_output(
-        Some("response.content_part.added"),
-        r#"{"type":"response.content_part.added","part":{"type":"output_text","text":""}}"#
-    ));
-    assert!(!sse_data_starts_output(
-        Some("response.output_text.delta"),
-        r#"{"type":"response.output_text.delta","delta":""}"#
-    ));
-    assert!(!sse_data_starts_output(
-        Some("response.completed"),
-        r#"{"type":"response.completed","response":{"usage":{"output_tokens":5}}}"#
-    ));
-    assert!(!sse_data_starts_output(
-        Some("response.failed"),
-        r#"{"type":"response.failed","response":{"error":{"message":"boom"}}}"#
-    ));
-    assert!(sse_data_starts_output(
-        Some("response.output_text.delta"),
-        r#"{"type":"response.output_text.delta","delta":"hi"}"#
-    ));
-    assert!(sse_data_starts_output(
-        Some("response.reasoning_text.delta"),
-        r#"{"type":"response.reasoning_text.delta","delta":"step"}"#
-    ));
-    assert!(sse_data_starts_output(
-        Some("response.reasoning.delta"),
-        r#"{"type":"response.reasoning.delta","delta":"step"}"#
-    ));
-    assert!(sse_data_starts_output(
-        Some("response.function_call_arguments.delta"),
-        r#"{"type":"response.function_call_arguments.delta","delta":"{"}"#
-    ));
-    assert!(sse_data_starts_output(
-        Some("response.output_item.added"),
-        r#"{"type":"response.output_item.added","item":{"type":"reasoning","id":"rs_1"}}"#
-    ));
-    assert!(sse_data_starts_output(
-        Some("response.output_item.added"),
-        r#"{"type":"response.output_item.added","item":{"type":"function_call","id":"fc_1"}}"#
-    ));
+        // OpenAI Responses API: skip created/in_progress/message shell/content_part.added/completed
+        assert!(!sse_data_starts_output(
+            Some("response.created"),
+            r#"{"type":"response.created"}"#
+        ));
+        assert!(!sse_data_starts_output(
+            None,
+            r#"{"type":"response.in_progress","response":{}}"#
+        ));
+        assert!(!sse_data_starts_output(
+            Some("response.output_item.added"),
+            r#"{"type":"response.output_item.added","item":{"type":"message","role":"assistant","content":[]}}"#
+        ));
+        assert!(!sse_data_starts_output(
+            Some("response.content_part.added"),
+            r#"{"type":"response.content_part.added","part":{"type":"output_text","text":""}}"#
+        ));
+        assert!(!sse_data_starts_output(
+            Some("response.output_text.delta"),
+            r#"{"type":"response.output_text.delta","delta":""}"#
+        ));
+        assert!(!sse_data_starts_output(
+            Some("response.completed"),
+            r#"{"type":"response.completed","response":{"usage":{"output_tokens":5}}}"#
+        ));
+        assert!(!sse_data_starts_output(
+            Some("response.failed"),
+            r#"{"type":"response.failed","response":{"error":{"message":"boom"}}}"#
+        ));
+        assert!(sse_data_starts_output(
+            Some("response.output_text.delta"),
+            r#"{"type":"response.output_text.delta","delta":"hi"}"#
+        ));
+        assert!(sse_data_starts_output(
+            Some("response.reasoning_text.delta"),
+            r#"{"type":"response.reasoning_text.delta","delta":"step"}"#
+        ));
+        assert!(sse_data_starts_output(
+            Some("response.reasoning.delta"),
+            r#"{"type":"response.reasoning.delta","delta":"step"}"#
+        ));
+        assert!(sse_data_starts_output(
+            Some("response.function_call_arguments.delta"),
+            r#"{"type":"response.function_call_arguments.delta","delta":"{"}"#
+        ));
+        assert!(sse_data_starts_output(
+            Some("response.output_item.added"),
+            r#"{"type":"response.output_item.added","item":{"type":"reasoning","id":"rs_1"}}"#
+        ));
+        assert!(sse_data_starts_output(
+            Some("response.output_item.added"),
+            r#"{"type":"response.output_item.added","item":{"type":"function_call","id":"fc_1"}}"#
+        ));
 
-    // OpenAI Chat Completions API: skip empty choices / usage-only / empty delta chunks,
-    // while keeping `delta.role` so hidden-reasoning models don't drop reasoning time (#9858).
-    assert!(!sse_data_starts_output(
-        None,
-        r#"{"choices":[],"usage":{"prompt_tokens":10,"completion_tokens":20}}"#
-    ));
-    assert!(!sse_data_starts_output(
-        None,
-        r#"{"choices":[{"index":0,"delta":{},"finish_reason":"stop"}]}"#
-    ));
-    assert!(sse_data_starts_output(
-        None,
-        r#"{"choices":[{"index":0,"delta":{"role":"assistant","content":""}}]}"#
-    ));
-    assert!(sse_data_starts_output(
-        None,
-        r#"{"choices":[{"delta":{"content":"hi"}}]}"#
-    ));
-    assert!(sse_data_starts_output(
-        None,
-        r#"{"choices":[{"delta":{"reasoning_content":"think"}}]}"#
-    ));
-    assert!(sse_data_starts_output(
-        None,
-        r#"{"choices":[{"delta":{"tool_calls":[{"index":0,"id":"c1"}]}}]}"#
-    ));
+        // OpenAI Chat Completions API: skip empty choices / usage-only / empty delta chunks,
+        // while keeping `delta.role` so hidden-reasoning models don't drop reasoning time (#9858).
+        assert!(!sse_data_starts_output(
+            None,
+            r#"{"choices":[],"usage":{"prompt_tokens":10,"completion_tokens":20}}"#
+        ));
+        assert!(!sse_data_starts_output(
+            None,
+            r#"{"choices":[{"index":0,"delta":{},"finish_reason":"stop"}]}"#
+        ));
+        assert!(sse_data_starts_output(
+            None,
+            r#"{"choices":[{"index":0,"delta":{"role":"assistant","content":""}}]}"#
+        ));
+        assert!(sse_data_starts_output(
+            None,
+            r#"{"choices":[{"delta":{"content":"hi"}}]}"#
+        ));
+        assert!(sse_data_starts_output(
+            None,
+            r#"{"choices":[{"delta":{"reasoning_content":"think"}}]}"#
+        ));
+        assert!(sse_data_starts_output(
+            None,
+            r#"{"choices":[{"delta":{"tool_calls":[{"index":0,"id":"c1"}]}}]}"#
+        ));
 
-    // Gemini API: skip empty candidates/parts/usage-only chunks, trigger on text or functionCall
-    assert!(!sse_data_starts_output(
-        None,
-        r#"{"candidates":[{"content":{"parts":[]}}]}"#
-    ));
-    assert!(!sse_data_starts_output(
-        None,
-        r#"{"candidates":[{"content":{"parts":[{"text":""}]}}]}"#
-    ));
-    assert!(!sse_data_starts_output(
-        None,
-        r#"{"usageMetadata":{"promptTokenCount":10,"totalTokenCount":20}}"#
-    ));
-    assert!(sse_data_starts_output(
-        None,
-        r#"{"candidates":[{"content":{"parts":[{"text":"hi"}]}}]}"#
-    ));
-    assert!(sse_data_starts_output(
-        None,
-        r#"{"candidates":[{"content":{"parts":[{"thought":true,"text":"hmm"}]}}]}"#
-    ));
-    assert!(sse_data_starts_output(
-        None,
-        r#"{"candidates":[{"content":{"parts":[{"functionCall":{"name":"ls","args":{}}}]}}]}"#
-    ));
-}
+        // Gemini API: skip empty candidates/parts/usage-only chunks, trigger on text or functionCall
+        assert!(!sse_data_starts_output(
+            None,
+            r#"{"candidates":[{"content":{"parts":[]}}]}"#
+        ));
+        assert!(!sse_data_starts_output(
+            None,
+            r#"{"candidates":[{"content":{"parts":[{"text":""}]}}]}"#
+        ));
+        assert!(!sse_data_starts_output(
+            None,
+            r#"{"usageMetadata":{"promptTokenCount":10,"totalTokenCount":20}}"#
+        ));
+        assert!(sse_data_starts_output(
+            None,
+            r#"{"candidates":[{"content":{"parts":[{"text":"hi"}]}}]}"#
+        ));
+        assert!(sse_data_starts_output(
+            None,
+            r#"{"candidates":[{"content":{"parts":[{"thought":true,"text":"hmm"}]}}]}"#
+        ));
+        assert!(sse_data_starts_output(
+            None,
+            r#"{"candidates":[{"content":{"parts":[{"functionCall":{"name":"ls","args":{}}}]}}]}"#
+        ));
+    }
 }

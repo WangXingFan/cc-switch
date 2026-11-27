@@ -9,9 +9,8 @@ use crate::settings::{effective_backup_retain_count, get_openclaw_override_dir};
 use chrono::Local;
 use indexmap::IndexMap;
 use json_five::rt::parser::{
-    JSONKeyValuePair as RtJSONKeyValuePair,
-    JSONObjectContext as RtJSONObjectContext, JSONText as RtJSONText, JSONValue as RtJSONValue,
-    KeyValuePairContext as RtKeyValuePairContext,
+    JSONKeyValuePair as RtJSONKeyValuePair, JSONObjectContext as RtJSONObjectContext,
+    JSONText as RtJSONText, JSONValue as RtJSONValue, KeyValuePairContext as RtKeyValuePairContext,
 };
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Map, Value};
@@ -497,7 +496,7 @@ fn value_to_rt_value(value: &Value, parent_indent: &str) -> Result<RtJSONValue, 
     let text = parse_round_trip(&adjusted).map_err(|e| {
         AppError::Config(format!(
             "Failed to parse generated JSON5 section: {}",
-            e.message
+            e
         ))
     })?;
     Ok(text.value)

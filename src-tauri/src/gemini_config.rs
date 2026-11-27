@@ -656,8 +656,8 @@ KEY_WITH-DASH=value";
 mod quoted_env_regressions {
     use super::*;
     #[test]
-fn test_parse_env_file_strips_quotes_and_inline_comments() {
-    let content = r#"GOOGLE_CLOUD_PROJECT="your-project-id"
+    fn test_parse_env_file_strips_quotes_and_inline_comments() {
+        let content = r#"GOOGLE_CLOUD_PROJECT="your-project-id"
 export GEMINI_API_KEY='AIza-user-key'
 GOOGLE_GEMINI_BASE_URL=`https://relay.example`
 GEMINI_MODEL=gemini-2.5-pro # default model
@@ -665,38 +665,38 @@ GOOGLE_CLOUD_LOCATION="us-central1" # region
 GEMINI_SANDBOX=""
 "#;
 
-    let map = parse_env_file(content);
+        let map = parse_env_file(content);
 
-    for (key, value) in [
-        ("GOOGLE_CLOUD_PROJECT", "your-project-id"),
-        ("GEMINI_API_KEY", "AIza-user-key"),
-        ("GOOGLE_GEMINI_BASE_URL", "https://relay.example"),
-        ("GEMINI_MODEL", "gemini-2.5-pro"),
-        ("GOOGLE_CLOUD_LOCATION", "us-central1"),
-        ("GEMINI_SANDBOX", ""),
-    ] {
-        assert_eq!(map.get(key).map(String::as_str), Some(value), "{key}");
+        for (key, value) in [
+            ("GOOGLE_CLOUD_PROJECT", "your-project-id"),
+            ("GEMINI_API_KEY", "AIza-user-key"),
+            ("GOOGLE_GEMINI_BASE_URL", "https://relay.example"),
+            ("GEMINI_MODEL", "gemini-2.5-pro"),
+            ("GOOGLE_CLOUD_LOCATION", "us-central1"),
+            ("GEMINI_SANDBOX", ""),
+        ] {
+            assert_eq!(map.get(key).map(String::as_str), Some(value), "{key}");
+        }
     }
-}
     #[test]
-fn test_parse_env_file_keeps_values_that_need_their_quotes() {
-    // Values are written back as `KEY=value`, so one that dotenv would read
-    // differently without its quotes stays as written.
-    for value in [
-        r#""a#b""#,
-        r#"" padded ""#,
-        r#""line\nbreak""#,
-        r#""'x'""#,
-        r#""a\" # x""#,
-        r#""a" b"#,
-        r#""unterminated"#,
-        "'it''s'",
-    ] {
-        let map = parse_env_file(&format!("GEMINI_CLI_CUSTOM_HEADERS={value}\n"));
-        assert_eq!(
-            map.get("GEMINI_CLI_CUSTOM_HEADERS").map(String::as_str),
-            Some(value)
-        );
+    fn test_parse_env_file_keeps_values_that_need_their_quotes() {
+        // Values are written back as `KEY=value`, so one that dotenv would read
+        // differently without its quotes stays as written.
+        for value in [
+            r#""a#b""#,
+            r#"" padded ""#,
+            r#""line\nbreak""#,
+            r#""'x'""#,
+            r#""a\" # x""#,
+            r#""a" b"#,
+            r#""unterminated"#,
+            "'it''s'",
+        ] {
+            let map = parse_env_file(&format!("GEMINI_CLI_CUSTOM_HEADERS={value}\n"));
+            assert_eq!(
+                map.get("GEMINI_CLI_CUSTOM_HEADERS").map(String::as_str),
+                Some(value)
+            );
+        }
     }
-}
 }

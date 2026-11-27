@@ -35,7 +35,9 @@ pub fn get_global_proxy_url(state: tauri::State<'_, AppState>) -> Result<Option<
 /// 这样确保 DB 写失败时不会出现运行态与持久化不一致的问题
 #[tauri::command]
 pub fn set_global_proxy_url(state: tauri::State<'_, AppState>, url: String) -> Result<(), String> {
-    let _update = PROXY_UPDATE.lock().map_err(|_| "Global proxy update lock poisoned")?;
+    let _update = PROXY_UPDATE
+        .lock()
+        .map_err(|_| "Global proxy update lock poisoned")?;
     // 调试：显示接收到的 URL 信息（不包含敏感内容）
     let has_auth = url.contains('@') && (url.starts_with("http://") || url.starts_with("socks"));
     log::debug!(

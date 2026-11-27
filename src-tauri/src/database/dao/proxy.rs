@@ -279,11 +279,14 @@ impl Database {
         config: AppProxyConfig,
     ) -> Result<(), AppError> {
         let conn = lock_conn!(self.conn);
-        let previous_failover = conn.query_row(
-            "SELECT auto_failover_enabled != 0 FROM proxy_config WHERE app_type = ?1",
-            [&config.app_type], |row| row.get::<_, bool>(0),
-        ).optional().map_err(|e| AppError::Database(e.to_string()))?;
-
+        let previous_failover = conn
+            .query_row(
+                "SELECT auto_failover_enabled != 0 FROM proxy_config WHERE app_type = ?1",
+                [&config.app_type],
+                |row| row.get::<_, bool>(0),
+            )
+            .optional()
+            .map_err(|e| AppError::Database(e.to_string()))?;
 
         conn.execute(
             "UPDATE proxy_config SET

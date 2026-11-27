@@ -164,7 +164,9 @@ pub async fn update_proxy_config_for_app(
     let app_type = config.app_type.clone();
     let app = require_proxy_app(&app_type)?;
     let circuit_config = CircuitBreakerConfig::from(&config);
-    let guard = crate::mode::controller::lock_settled(state.inner(), &app).await.map_err(|e| e.to_string())?;
+    let guard = crate::mode::controller::lock_settled(state.inner(), &app)
+        .await
+        .map_err(|e| e.to_string())?;
     // `enabled` 是模式的镜像，只由进入 / 退出代理改写。
     let mut config = config;
     config.enabled = crate::mode::current::is_proxy(&app);
@@ -410,7 +412,13 @@ pub async fn reset_circuit_breaker(
                     let switch_manager =
                         crate::proxy::failover_switch::FailoverSwitchManager::new();
                     if let Err(e) = switch_manager
-                        .try_switch(Some(&app_handle), &app_type, &provider_id, &provider_name, route_revision)
+                        .try_switch(
+                            Some(&app_handle),
+                            &app_type,
+                            &provider_id,
+                            &provider_name,
+                            route_revision,
+                        )
                         .await
                     {
                         log::error!("[Recovery] 自动切换失败: {e}");

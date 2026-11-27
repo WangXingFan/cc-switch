@@ -250,7 +250,8 @@ impl RequestContext {
             self.copilot_optimizer_config.clone(),
             max_retries,
             state.key_rotator.clone(),
-        ).with_route_revision(self.route_revision)
+        )
+        .with_route_revision(self.route_revision)
     }
 
     /// 获取 Provider 列表（用于故障转移）

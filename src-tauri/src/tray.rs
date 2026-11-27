@@ -1035,10 +1035,18 @@ pub(crate) async fn refresh_all_usage_in_tray(app: &tauri::AppHandle) {
         };
 
         if let Some(source) = tray_usage_source(&section.app_type, &current).filter(|source| {
-            !official_manual_only || match source {
-                TrayUsageSource::ManagedCodex(_) => false,
-                TrayUsageSource::Script => !current.meta.as_ref().and_then(|m| m.usage_script.as_ref()).and_then(|s| s.template_type.as_deref()).is_some_and(|t| t == "github_copilot" || t == TEMPLATE_TYPE_OFFICIAL_SUBSCRIPTION),
-            }
+            !official_manual_only
+                || match source {
+                    TrayUsageSource::ManagedCodex(_) => false,
+                    TrayUsageSource::Script => !current
+                        .meta
+                        .as_ref()
+                        .and_then(|m| m.usage_script.as_ref())
+                        .and_then(|s| s.template_type.as_deref())
+                        .is_some_and(|t| {
+                            t == "github_copilot" || t == TEMPLATE_TYPE_OFFICIAL_SUBSCRIPTION
+                        }),
+                }
         }) {
             let app_clone = app.clone();
             let state = app.state::<AppState>();

@@ -178,7 +178,6 @@ fn delete_single_env(conflict: &EnvConflict) -> Result<(), String> {
     }
 }
 
-
 /// Restore environment variables from backup
 pub fn restore_from_backup(backup_path: String) -> Result<(), String> {
     // Read backup file
@@ -280,10 +279,23 @@ mod selected_line_tests {
             for final_newline in ["", newline] {
                 let source = format!("# keep{newline}export API_KEY=first{newline}export API_KEY=second{newline}echo done{final_newline}");
                 fs::write(&path, source).unwrap();
-                let conflict = EnvConflict { var_name: "API_KEY".into(), var_value: "first".into(), source_type: "file".into(), source_path: format!("{}:2", path.display()) };
+                let conflict = EnvConflict {
+                    var_name: "API_KEY".into(),
+                    var_value: "first".into(),
+                    source_type: "file".into(),
+                    source_path: format!("{}:2", path.display()),
+                };
                 delete_single_env(&conflict).unwrap();
-                assert_eq!(fs::read_to_string(&path).unwrap(), format!("# keep{newline}export API_KEY=second{newline}echo done{final_newline}"));
-                let stale = EnvConflict { source_path: format!("{}:1", path.display()), ..conflict };
+                assert_eq!(
+                    fs::read_to_string(&path).unwrap(),
+                    format!(
+                        "# keep{newline}export API_KEY=second{newline}echo done{final_newline}"
+                    )
+                );
+                let stale = EnvConflict {
+                    source_path: format!("{}:1", path.display()),
+                    ..conflict
+                };
                 assert!(delete_single_env(&stale).is_err());
             }
         }

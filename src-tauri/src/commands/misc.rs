@@ -969,8 +969,17 @@ async fn get_single_tool_version_impl(
         "gemini" => fetch_npm_latest_for_tool(&client, "@google/gemini-cli", tool, local).await,
         "grok" => fetch_npm_latest_for_tool(&client, "@xai-official/grok", tool, local).await,
         "opencode" => {
-            if let Some(version) =
-                fetch_npm_latest_for_tool(&client, if local.is_some_and(is_opencode_v2_version) { "@opencode/cli" } else { "opencode-ai" }, tool, local).await
+            if let Some(version) = fetch_npm_latest_for_tool(
+                &client,
+                if local.is_some_and(is_opencode_v2_version) {
+                    "@opencode/cli"
+                } else {
+                    "opencode-ai"
+                },
+                tool,
+                local,
+            )
+            .await
             {
                 Some(version)
             } else {
@@ -2529,7 +2538,9 @@ fn resolve_path_default(
         .stdout(Stdio::piped())
         .stderr(Stdio::piped());
     #[cfg(not(target_os = "windows"))]
-    if let Some(env) = cached_login_shell_env() { apply_login_shell_vars(&mut cmd, &env.vars); }
+    if let Some(env) = cached_login_shell_env() {
+        apply_login_shell_vars(&mut cmd, &env.vars);
+    }
     isolate_child_process_group(&mut cmd);
     let child = cmd
         .spawn()
@@ -2637,7 +2648,9 @@ fn run_probe_version_command(
         .stdout(Stdio::piped())
         .stderr(Stdio::piped());
     #[cfg(not(target_os = "windows"))]
-    if let Some(env) = cached_login_shell_env() { apply_login_shell_vars(&mut cmd, &env.vars); }
+    if let Some(env) = cached_login_shell_env() {
+        apply_login_shell_vars(&mut cmd, &env.vars);
+    }
     isolate_child_process_group(&mut cmd);
     let child = cmd.spawn().map_err(|e| e.to_string())?;
     wait_child_output(
@@ -3155,7 +3168,11 @@ fn package_manager_anchored_command_from_paths(
         return Some(format!("{} upgrade {formula}", quote_path_if_spaced(&brew)));
     }
     let pkg = installed_npm_package(tool, bin_path, real_target)?;
-    let install_args = if pkg == "@opencode/cli" { " --ignore-scripts=false --include=optional --allow-scripts=@opencode/cli" } else { "" };
+    let install_args = if pkg == "@opencode/cli" {
+        " --ignore-scripts=false --include=optional --allow-scripts=@opencode/cli"
+    } else {
+        ""
+    };
     match infer_install_source(Path::new(bin_path)) {
         "volta" => {
             let volta = sibling_bin(bin_path, "volta")?;
@@ -3246,9 +3263,17 @@ fn anchored_command_from_paths(tool: &str, bin_path: &str, real_target: &str) ->
 }
 
 #[cfg(target_os = "windows")]
-fn package_manager_anchored_command_from_paths(tool: &str, bin_path: &str, real_target: &str) -> Option<String> {
+fn package_manager_anchored_command_from_paths(
+    tool: &str,
+    bin_path: &str,
+    real_target: &str,
+) -> Option<String> {
     let pkg = installed_npm_package(tool, bin_path, real_target)?;
-    let install_args = if pkg == "@opencode/cli" { " --ignore-scripts=false --include=optional --allow-scripts=@opencode/cli" } else { "" };
+    let install_args = if pkg == "@opencode/cli" {
+        " --ignore-scripts=false --include=optional --allow-scripts=@opencode/cli"
+    } else {
+        ""
+    };
 
     match infer_install_source(Path::new(bin_path)) {
         "volta" => {
@@ -3612,8 +3637,10 @@ pub(crate) fn run_detected_tool_command_with_timeout(
             .stderr(Stdio::piped());
         apply_extra_env(&mut cmd, extra_env);
         #[cfg(not(target_os = "windows"))]
-    if let Some(env) = cached_login_shell_env() { apply_login_shell_vars(&mut cmd, &env.vars); }
-    isolate_child_process_group(&mut cmd);
+        if let Some(env) = cached_login_shell_env() {
+            apply_login_shell_vars(&mut cmd, &env.vars);
+        }
+        isolate_child_process_group(&mut cmd);
         let child = cmd
             .spawn()
             .map_err(|e| format!("Failed to run {tool}: {e}"))?;
@@ -3875,8 +3902,14 @@ fn resolve_update_command(tool: &str, installs: &[ToolInstallation]) -> UpdateCo
     if tool == "pi" {
         if let Some(install) = default_install(installs) {
             let real = install.real.to_string_lossy();
-            if [install.path.as_str(), real.as_ref()].into_iter().any(is_pi_managed_install) {
-                return UpdateCommand::Anchored(format!("{} update", quote_tool_update_path(&install.path)));
+            if [install.path.as_str(), real.as_ref()]
+                .into_iter()
+                .any(is_pi_managed_install)
+            {
+                return UpdateCommand::Anchored(format!(
+                    "{} update",
+                    quote_tool_update_path(&install.path)
+                ));
             }
         }
     }
@@ -4707,8 +4740,8 @@ fn launch_linux_terminal(config_file: &std::path::Path, cwd: Option<&Path>) -> R
         ("alacritty", vec!["-e"]),
         ("kitty", vec!["-e"]),
         ("ghostty", vec!["-e"]),
-            ("x-terminal-emulator", vec!["-e"]),
-            ("xdg-terminal-exec", vec!["--"]),
+        ("x-terminal-emulator", vec!["-e"]),
+        ("xdg-terminal-exec", vec!["--"]),
     ];
 
     // Create temp script file
@@ -5317,8 +5350,10 @@ mod tests {
             .stdout(Stdio::piped())
             .stderr(Stdio::piped());
         #[cfg(not(target_os = "windows"))]
-    if let Some(env) = cached_login_shell_env() { apply_login_shell_vars(&mut cmd, &env.vars); }
-    isolate_child_process_group(&mut cmd);
+        if let Some(env) = cached_login_shell_env() {
+            apply_login_shell_vars(&mut cmd, &env.vars);
+        }
+        isolate_child_process_group(&mut cmd);
         let child = cmd.spawn().expect("spawn sleep");
         let started = std::time::Instant::now();
         let result = wait_child_output(
@@ -8291,8 +8326,6 @@ pub(super) fn apply_login_shell_vars(cmd: &mut std::process::Command, vars: &[(S
     }
 }
 
-
-
 #[cfg(not(target_os = "windows"))]
 pub(super) fn login_shell_env(deadline: Option<CommandDeadline>) -> Option<LoginShellEnv> {
     use std::process::{Command, Stdio};
@@ -8351,28 +8384,44 @@ fn opencode_package_for_path(path: &str) -> &'static str {
     let normalized = path.replace('\\', "/").to_ascii_lowercase();
     if normalized.contains("/@opencode/cli/") || normalized.contains("/opencode-v2/") {
         "@opencode/cli"
-    } else { "opencode-ai" }
+    } else {
+        "opencode-ai"
+    }
 }
 fn installed_npm_package(tool: &str, bin_path: &str, real: &str) -> Option<&'static str> {
     if tool == "opencode" {
-        if opencode_package_for_path(real) == "@opencode/cli" || windows_shim_is_opencode_v2(bin_path) {
+        if opencode_package_for_path(real) == "@opencode/cli"
+            || windows_shim_is_opencode_v2(bin_path)
+        {
             Some("@opencode/cli")
-        } else { Some("opencode-ai") }
-    } else { npm_package_for(tool) }
+        } else {
+            Some("opencode-ai")
+        }
+    } else {
+        npm_package_for(tool)
+    }
 }
 
 #[cfg(target_os = "windows")]
 fn windows_shim_is_opencode_v2(path: &str) -> bool {
-    path.to_ascii_lowercase().ends_with(".cmd") && std::fs::read_to_string(path)
-        .is_ok_and(|shim| opencode_package_for_path(&shim) == "@opencode/cli")
+    path.to_ascii_lowercase().ends_with(".cmd")
+        && std::fs::read_to_string(path)
+            .is_ok_and(|shim| opencode_package_for_path(&shim) == "@opencode/cli")
 }
 #[cfg(not(target_os = "windows"))]
-fn windows_shim_is_opencode_v2(_path: &str) -> bool { false }
-
+fn windows_shim_is_opencode_v2(_path: &str) -> bool {
+    false
+}
 
 fn quote_tool_update_path(path: &str) -> String {
-    #[cfg(target_os = "windows")] { format!("\"{}\"", path) }
-    #[cfg(not(target_os = "windows"))] { shell_single_quote(path) }
+    #[cfg(target_os = "windows")]
+    {
+        format!("\"{}\"", path)
+    }
+    #[cfg(not(target_os = "windows"))]
+    {
+        shell_single_quote(path)
+    }
 }
 
 fn is_opencode_v2_version(version: &str) -> bool {
@@ -8433,7 +8482,6 @@ mod maintenance_tests {
             version: Some("1.5.2".to_string()),
             runnable: true,
             error: None,
-            exited_with_error: false,
             source: infer_install_source(&entry).to_string(),
             is_path_default: true,
             real: entry.clone(),
@@ -8462,11 +8510,24 @@ mod maintenance_tests {
         assert!(!is_pi_managed_install(&entry_str));
     }
 
-
     #[test]
     fn opencode_package_selection_tracks_installed_release_line() {
-        assert_eq!(installed_npm_package("opencode", "/bin/opencode", "/lib/node_modules/@opencode/cli/bin/opencode"), Some("@opencode/cli"));
-        assert_eq!(installed_npm_package("opencode", "/bin/opencode", "/lib/node_modules/opencode-ai/bin/opencode"), Some("opencode-ai"));
+        assert_eq!(
+            installed_npm_package(
+                "opencode",
+                "/bin/opencode",
+                "/lib/node_modules/@opencode/cli/bin/opencode"
+            ),
+            Some("@opencode/cli")
+        );
+        assert_eq!(
+            installed_npm_package(
+                "opencode",
+                "/bin/opencode",
+                "/lib/node_modules/opencode-ai/bin/opencode"
+            ),
+            Some("opencode-ai")
+        );
         assert!(!is_opencode_v2_version("1.9.0"));
         assert!(is_opencode_v2_version("v2.0.0-beta.1"));
         assert!(is_opencode_v2_version("3.0.0"));
@@ -8476,7 +8537,11 @@ mod maintenance_tests {
     fn opencode_windows_shim_preserves_v2_package_and_install_arguments() {
         let dir = tempfile::tempdir().unwrap();
         let bin = dir.path().join("opencode.cmd");
-        std::fs::write(&bin, r"node %~dp0\node_modules\@opencode\cli\bin\opencode.js").unwrap();
+        std::fs::write(
+            &bin,
+            r"node %~dp0\node_modules\@opencode\cli\bin\opencode.js",
+        )
+        .unwrap();
         std::fs::write(dir.path().join("npm.cmd"), "@echo off").unwrap();
         let path = bin.to_string_lossy();
         let command = anchored_command_from_paths("opencode", &path, &path).unwrap();

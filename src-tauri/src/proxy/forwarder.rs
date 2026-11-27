@@ -195,7 +195,10 @@ pub struct RequestForwarder {
 }
 
 impl RequestForwarder {
-    pub(crate) fn with_route_revision(mut self, revision: u64) -> Self { self.route_revision = Some(revision); self }
+    pub(crate) fn with_route_revision(mut self, revision: u64) -> Self {
+        self.route_revision = Some(revision);
+        self
+    }
 
     /// 预防式 media 降级：发送前对 text-only 模型把图片块替换为标记。
     ///
@@ -445,7 +448,9 @@ impl RequestForwarder {
         extensions: Extensions,
         providers: Vec<Provider>,
     ) -> Result<ForwardResult, ForwardError> {
-        let route_revision = self.route_revision.unwrap_or_else(|| self.provider_router.route_revision(app_type));
+        let route_revision = self
+            .route_revision
+            .unwrap_or_else(|| self.router.route_revision(app_type));
         // 获取适配器
         let adapter = get_adapter(app_type).ok_or_else(|| ForwardError {
             error: ProxyError::ConfigError(format!(
@@ -557,12 +562,12 @@ impl RequestForwarder {
                     // 更新当前应用类型使用的 provider
                     {
                         let mut current_providers = self.current_providers.write().await;
-                        if self.provider_router.route_revision(app_type) == route_revision {
-current_providers.insert(
-                            app_type_str.to_string(),
-                            (provider.id.clone(), provider.name.clone()),
-                        );
-}
+                        if self.router.route_revision(app_type) == route_revision {
+                            current_providers.insert(
+                                app_type_str.to_string(),
+                                (provider.id.clone(), provider.name.clone()),
+                            );
+                        }
                     }
 
                     // 更新成功统计
@@ -570,8 +575,9 @@ current_providers.insert(
                         let mut status = self.status.write().await;
                         status.success_requests += 1;
                         status.last_error = None;
-                        let should_switch =
-                            self.provider_router.route_revision(app_type) == route_revision && (self.current_provider_id_at_start.as_str() != provider.id.as_str());
+                        let should_switch = self.router.route_revision(app_type)
+                            == route_revision
+                            && (self.current_provider_id_at_start.as_str() != provider.id.as_str());
                         if should_switch {
                             status.failover_count += 1;
 
@@ -583,7 +589,9 @@ current_providers.insert(
                             let at = app_type_str.to_string();
 
                             tokio::spawn(async move {
-                                let _ = fm.try_switch(ah.as_ref(), &at, &pid, &pname, route_revision).await;
+                                let _ = fm
+                                    .try_switch(ah.as_ref(), &at, &pid, &pname, route_revision)
+                                    .await;
                             });
                         }
                         // 重新计算成功率
@@ -661,12 +669,14 @@ current_providers.insert(
                                     {
                                         let mut current_providers =
                                             self.current_providers.write().await;
-                                        if self.provider_router.route_revision(app_type) == route_revision {
-current_providers.insert(
-                                            app_type_str.to_string(),
-                                            (provider.id.clone(), provider.name.clone()),
-                                        );
-}
+                                        if self.router.route_revision(app_type)
+                                            == route_revision
+                                        {
+                                            current_providers.insert(
+                                                app_type_str.to_string(),
+                                                (provider.id.clone(), provider.name.clone()),
+                                            );
+                                        }
                                     }
 
                                     {
@@ -674,8 +684,10 @@ current_providers.insert(
                                         status.success_requests += 1;
                                         status.last_error = None;
                                         let should_switch =
-                                            self.provider_router.route_revision(app_type) == route_revision && (self.current_provider_id_at_start.as_str()
-                                                != provider.id.as_str());
+                                            self.router.route_revision(app_type)
+                                                == route_revision
+                                                && (self.current_provider_id_at_start.as_str()
+                                                    != provider.id.as_str());
                                         if should_switch {
                                             status.failover_count += 1;
                                             let fm = self.failover_manager.clone();
@@ -686,7 +698,13 @@ current_providers.insert(
 
                                             tokio::spawn(async move {
                                                 let _ = fm
-                                                    .try_switch(ah.as_ref(), &at, &pid, &pname, route_revision)
+                                                    .try_switch(
+                                                        ah.as_ref(),
+                                                        &at,
+                                                        &pid,
+                                                        &pname,
+                                                        route_revision,
+                                                    )
                                                     .await;
                                             });
                                         }
@@ -808,12 +826,14 @@ current_providers.insert(
                                         {
                                             let mut current_providers =
                                                 self.current_providers.write().await;
-                                            if self.provider_router.route_revision(app_type) == route_revision {
-current_providers.insert(
-                                                app_type_str.to_string(),
-                                                (provider.id.clone(), provider.name.clone()),
-                                            );
-}
+                                            if self.router.route_revision(app_type)
+                                                == route_revision
+                                            {
+                                                current_providers.insert(
+                                                    app_type_str.to_string(),
+                                                    (provider.id.clone(), provider.name.clone()),
+                                                );
+                                            }
                                         }
 
                                         // 更新成功统计
@@ -822,8 +842,10 @@ current_providers.insert(
                                             status.success_requests += 1;
                                             status.last_error = None;
                                             let should_switch =
-                                                self.provider_router.route_revision(app_type) == route_revision && (self.current_provider_id_at_start.as_str()
-                                                    != provider.id.as_str());
+                                                self.router.route_revision(app_type)
+                                                    == route_revision
+                                                    && (self.current_provider_id_at_start.as_str()
+                                                        != provider.id.as_str());
                                             if should_switch {
                                                 status.failover_count += 1;
 
@@ -836,7 +858,13 @@ current_providers.insert(
 
                                                 tokio::spawn(async move {
                                                     let _ = fm
-                                                        .try_switch(ah.as_ref(), &at, &pid, &pname, route_revision)
+                                                        .try_switch(
+                                                            ah.as_ref(),
+                                                            &at,
+                                                            &pid,
+                                                            &pname,
+                                                            route_revision,
+                                                        )
                                                         .await;
                                                 });
                                             }
@@ -975,12 +1003,14 @@ current_providers.insert(
                                     {
                                         let mut current_providers =
                                             self.current_providers.write().await;
-                                        if self.provider_router.route_revision(app_type) == route_revision {
-current_providers.insert(
-                                            app_type_str.to_string(),
-                                            (provider.id.clone(), provider.name.clone()),
-                                        );
-}
+                                        if self.router.route_revision(app_type)
+                                            == route_revision
+                                        {
+                                            current_providers.insert(
+                                                app_type_str.to_string(),
+                                                (provider.id.clone(), provider.name.clone()),
+                                            );
+                                        }
                                     }
 
                                     {
@@ -988,8 +1018,10 @@ current_providers.insert(
                                         status.success_requests += 1;
                                         status.last_error = None;
                                         let should_switch =
-                                            self.provider_router.route_revision(app_type) == route_revision && (self.current_provider_id_at_start.as_str()
-                                                != provider.id.as_str());
+                                            self.router.route_revision(app_type)
+                                                == route_revision
+                                                && (self.current_provider_id_at_start.as_str()
+                                                    != provider.id.as_str());
                                         if should_switch {
                                             status.failover_count += 1;
                                             let fm = self.failover_manager.clone();
@@ -999,7 +1031,13 @@ current_providers.insert(
                                             let at = app_type_str.to_string();
                                             tokio::spawn(async move {
                                                 let _ = fm
-                                                    .try_switch(ah.as_ref(), &at, &pid, &pname, route_revision)
+                                                    .try_switch(
+                                                        ah.as_ref(),
+                                                        &at,
+                                                        &pid,
+                                                        &pname,
+                                                        route_revision,
+                                                    )
                                                     .await;
                                             });
                                         }
@@ -1717,7 +1755,9 @@ current_providers.insert(
                 mapped_body,
                 reasoning_config.as_ref(),
             )?;
-            super::providers::transform_codex_chat_gemini_schema::adapt_chat_tools_for_gemini(&mut chat_body);
+            super::providers::transform_codex_chat_gemini_schema::adapt_chat_tools_for_gemini(
+                &mut chat_body,
+            );
             super::providers::inject_codex_chat_prompt_cache_key(
                 provider,
                 &mut chat_body,
@@ -4122,6 +4162,7 @@ mod tests {
             failover_manager: Arc::new(FailoverSwitchManager::new()),
             app_handle: None,
             current_provider_id_at_start: String::new(),
+            route_revision: None,
             session_id: String::new(),
             session_client_provided: false,
             rectifier_config: RectifierConfig::default(),

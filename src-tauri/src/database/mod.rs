@@ -97,10 +97,18 @@ fn register_db_change_hook(conn: &Connection) {
 
 impl Database {
     pub(crate) fn route_revision(&self, app: &crate::app_config::AppType) -> u64 {
-        *self.route_revisions.lock().unwrap_or_else(std::sync::PoisonError::into_inner).get(app.as_str()).unwrap_or(&0)
+        *self
+            .route_revisions
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .get(app.as_str())
+            .unwrap_or(&0)
     }
     pub(crate) fn advance_route_revision(&self, app: &crate::app_config::AppType) {
-        let mut revisions = self.route_revisions.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+        let mut revisions = self
+            .route_revisions
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
         *revisions.entry(app.as_str().to_string()).or_default() += 1;
     }
 

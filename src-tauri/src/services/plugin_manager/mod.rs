@@ -873,8 +873,12 @@ fn codex_plugin_enabled_patch(id: &str, enabled: bool) -> TomlPatch {
 /// 跑一条输出 JSON 的命令，失败时返回 CLI 的报错。
 fn run_json(app: PluginApp, args: &[&str], timeout: Duration) -> Result<Value, String> {
     let out = run_cli(app, args, timeout)?;
+    parse_cli_json(app, args, &out)
+}
+
+fn parse_cli_json(app: PluginApp, args: &[&str], out: &CliOutput) -> Result<Value, String> {
     if !out.success {
-        return Err(failure_detail(&out));
+        return Err(failure_detail(out));
     }
     parse_json_payload(&out.stdout)
         .ok_or_else(|| format!("Unexpected output from `{} {}`", app.tool(), args.join(" ")))
@@ -952,7 +956,7 @@ fn catalog_from_listing(listing: PluginListing) -> Vec<PluginEntry> {
 }
 
 pub fn list_marketplaces(app: PluginApp) -> Result<Vec<PluginMarketplace>, String> {
-    // MiniMax Code 正式版禁用了市场管理；OpenClaw、Pi、Antigravity 没有可增删的市场。
+    // OpenClaw 和 Pi 没有可增删的市场。
     if matches!(app, PluginApp::Openclaw | PluginApp::Pi) {
         return Err(unsupported(app, "marketplace management"));
     }
@@ -1990,36 +1994,18 @@ enabled = false
         assert_eq!(codex_plugin_enabled_in_text(&text, "a@m"), Some(false));
     }
 
-    /// The marketplace list comes from `claude plugin marketplace list --json`. Output
-    /// that is not JSON must be reported, not shown as "no marketplaces".
-    #[cfg(not(target_os = "windows"))]
     #[test]
-    #[serial_test::serial]
     fn marketplace_list_reports_output_that_is_not_json() {
-        use std::os::unix::fs::PermissionsExt;
-
-        let home = crate::test_support::TempUserHome::new();
-        let bin = home.path().join(".local/bin");
-        std::fs::create_dir_all(&bin).unwrap();
-        let output = home.path().join("cli-output");
-        let claude = bin.join("claude");
-        std::fs::write(&claude, format!("#!/bin/sh\ncat '{}'\n", output.display())).unwrap();
-        std::fs::set_permissions(&claude, std::fs::Permissions::from_mode(0o755)).unwrap();
-        let _env = crate::test_support::EnvVars::new()
-            .set("PATH", format!("{}:/usr/bin:/bin", bin.display()))
-            .set("SHELL", "/bin/sh");
-
-        std::fs::write(
-            &output,
-            include_str!("fixtures/claude-2.1.318/marketplace-list.json"),
-        )
-        .unwrap();
-        let markets = list_marketplaces(PluginApp::Claude).unwrap();
-        assert_eq!(markets.len(), 1, "the fake CLI was not the one run");
-        assert_eq!(markets[0].name, "ccs-test");
-
-        std::fs::write(&output, "Error: settings.json is not valid\n").unwrap();
-        let result = list_marketplaces(PluginApp::Claude);
-        assert!(result.is_err(), "unreadable output was shown as {result:?}");
+        let args = ["plugin", "marketplace", "list", "--json"];
+        let mut output = CliOutput {
+            success: true,
+            stdout: include_str!("fixtures/claude-2.1.318/marketplace-list.json").to_string(),
+            stderr: String::new(),
+        };
+        let parsed = parse_cli_json(PluginApp::Claude, &args, &output).unwrap();
+        assert_eq!(parse_claude_marketplaces(&parsed)[0].name, "ccs-test");
+        output.stdout = "Error: settings.json is not valid\n".to_string();
+        let error = parse_cli_json(PluginApp::Claude, &args, &output).unwrap_err();
+        assert!(error.contains("claude plugin marketplace list --json"));
     }
 }

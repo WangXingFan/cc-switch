@@ -11,7 +11,10 @@ use std::sync::RwLock;
 use std::time::Duration;
 
 /// 全局 HTTP 客户端实例
-struct ProxyState { client: Client, proxy_url: Option<String> }
+struct ProxyState {
+    client: Client,
+    proxy_url: Option<String>,
+}
 static GLOBAL_CLIENT: OnceCell<RwLock<ProxyState>> = OnceCell::new();
 
 /// CC Switch 代理服务器当前监听的端口
@@ -78,9 +81,21 @@ pub fn validate_proxy(proxy_url: Option<&str>) -> Result<(), String> {
 /// * `proxy_url` - 代理 URL，None 或空字符串表示直连
 pub fn apply_proxy(proxy_url: Option<&str>) -> Result<(), String> {
     let effective_url = proxy_url.filter(|s| !s.trim().is_empty());
-    let new_state = ProxyState { client: build_client(effective_url)?, proxy_url: effective_url.map(str::to_owned) };
-    let state = GLOBAL_CLIENT.get_or_try_init(|| build_client(None).map(|client| RwLock::new(ProxyState { client, proxy_url: None })))?;
-    *state.write().map_err(|_| "Failed to update proxy: lock poisoned")? = new_state;
+    let new_state = ProxyState {
+        client: build_client(effective_url)?,
+        proxy_url: effective_url.map(str::to_owned),
+    };
+    let state = GLOBAL_CLIENT.get_or_try_init(|| {
+        build_client(None).map(|client| {
+            RwLock::new(ProxyState {
+                client,
+                proxy_url: None,
+            })
+        })
+    })?;
+    *state
+        .write()
+        .map_err(|_| "Failed to update proxy: lock poisoned")? = new_state;
     Ok(())
 }
 
@@ -100,21 +115,30 @@ pub fn update_proxy(proxy_url: Option<&str>) -> Result<(), String> {
 /// 获取全局 HTTP 客户端
 ///
 /// 返回配置了代理的客户端（如果已配置代理），否则返回跟随系统代理的客户端。
-pub fn get() -> Client { upstream_snapshot().1 }
+pub fn get() -> Client {
+    upstream_snapshot().1
+}
 
 /// URL and request client always come from the same published configuration.
 pub(crate) fn upstream_snapshot() -> (Option<String>, Client) {
-    let state = GLOBAL_CLIENT.get_or_init(|| RwLock::new(ProxyState {
-        client: build_client(None).unwrap_or_else(|_| Client::new()), proxy_url: None,
-    }));
-    let state = state.read().unwrap_or_else(std::sync::PoisonError::into_inner);
+    let state = GLOBAL_CLIENT.get_or_init(|| {
+        RwLock::new(ProxyState {
+            client: build_client(None).unwrap_or_else(|_| Client::new()),
+            proxy_url: None,
+        })
+    });
+    let state = state
+        .read()
+        .unwrap_or_else(std::sync::PoisonError::into_inner);
     (state.proxy_url.clone(), state.client.clone())
 }
 
 /// 获取当前代理 URL
 ///
 /// 返回当前配置的代理 URL，None 表示直连。
-pub fn get_current_proxy_url() -> Option<String> { upstream_snapshot().0 }
+pub fn get_current_proxy_url() -> Option<String> {
+    upstream_snapshot().0
+}
 
 /// 检查是否正在使用代理
 #[allow(dead_code)]

@@ -26,6 +26,8 @@ pub type AnthropicToolSchemaHints = HashMap<String, AnthropicToolSchemaHint>;
 /// often do). The prefix is how downstream request-path code recognizes that
 /// the id is not a real Gemini id and must be stripped before forwarding back
 /// to Gemini as `functionResponse.id`.
+const GEMINI_SKIP_THOUGHT_SIGNATURE: &str = "skip_thought_signature_validator";
+
 pub(crate) const SYNTHESIZED_ID_PREFIX: &str = "gemini_synth_";
 
 /// Generate a unique tool-call id that is safe to expose to Anthropic clients
@@ -74,17 +76,42 @@ pub fn anthropic_to_gemini_with_shadow(
     }
 
     if let Some(messages) = messages {
-        let tool_ids: HashSet<&str> = messages.iter()
+        let tool_ids: HashSet<&str> = messages
+            .iter()
             .filter(|m| m.get("role").and_then(Value::as_str) == Some("assistant"))
-            .filter_map(|m| m.get("content").and_then(Value::as_array)).flatten()
+            .filter_map(|m| m.get("content").and_then(Value::as_array))
+            .flatten()
             .filter(|b| b.get("type").and_then(Value::as_str) == Some("tool_use"))
-            .filter_map(|b| b.get("id").and_then(Value::as_str)).collect();
-        let snapshot = shadow_store.zip(provider_id).zip(session_id)
-            .and_then(|((store, provider), session)| store.get_session_with_signatures(provider, session, tool_ids));
-        let (shadow_turns, signatures) = snapshot.map(|s| (s.turns, s.thought_signatures)).unwrap_or_default();
-        let mut contents = convert_messages_to_contents(messages, &shadow_turns, signatures, supports_multimodal_function_response)?;
-        if body.get("model").and_then(Value::as_str).is_some_and(is_gemini_3_series) {
-            let start = contents.iter().rposition(|c| c.get("role").and_then(Value::as_str) == Some("user") && c.get("parts").and_then(Value::as_array).is_some_and(|p| p.iter().all(|p| p.get("functionResponse").is_none()))).map_or(0, |i| i + 1);
+            .filter_map(|b| b.get("id").and_then(Value::as_str))
+            .collect();
+        let snapshot = shadow_store.zip(provider_id).zip(session_id).and_then(
+            |((store, provider), session)| {
+                store.get_session_with_signatures(provider, session, tool_ids)
+            },
+        );
+        let (shadow_turns, signatures) = snapshot
+            .map(|s| (s.turns, s.thought_signatures))
+            .unwrap_or_default();
+        let mut contents = convert_messages_to_contents(
+            messages,
+            &shadow_turns,
+            signatures,
+            supports_multimodal_function_response,
+        )?;
+        if body
+            .get("model")
+            .and_then(Value::as_str)
+            .is_some_and(is_gemini_3_series)
+        {
+            let start = contents
+                .iter()
+                .rposition(|c| {
+                    c.get("role").and_then(Value::as_str) == Some("user")
+                        && c.get("parts")
+                            .and_then(Value::as_array)
+                            .is_some_and(|p| p.iter().all(|p| p.get("functionResponse").is_none()))
+                })
+                .map_or(0, |i| i + 1);
             fill_skip_thought_signatures(&mut contents[start..]);
         }
         result["contents"] = json!(contents);
