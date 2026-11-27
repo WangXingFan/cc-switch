@@ -1,15 +1,15 @@
-name: Selected Feature Port
+name: Upstream Maintenance
 
 on:
   push:
-    branches: [feat/selected-upstream-features-20261125]
+    branches: [feat/upstream-maintenance-20261127]
   workflow_dispatch:
 
 permissions:
   contents: read
 
 concurrency:
-  group: selected-feature-port-${{ github.sha }}
+  group: upstream-maintenance-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -43,21 +43,6 @@ jobs:
         with:
           name: renderer-preview
           path: dist
-      - name: Render feature previews
-        id: preview
-        if: steps.build.outcome == 'success'
-        continue-on-error: true
-        env:
-          UI_PREVIEW_TOOLS: ${{ runner.temp }}/feature-preview
-        run: |
-          npm install --prefix "$UI_PREVIEW_TOOLS" playwright@1.56.1
-          "$UI_PREVIEW_TOOLS/node_modules/.bin/playwright" install --with-deps chromium
-          node .github/scripts/selected-feature-preview.mjs
-      - uses: actions/upload-artifact@v7
-        if: always()
-        with:
-          name: ui-preview
-          path: ui-preview
       - name: Save formatting and dependency changes
         if: always()
         run: git diff --binary > frontend-generated.patch
@@ -72,17 +57,25 @@ jobs:
           TYPES: ${{ steps.types.outcome }}
           TESTS: ${{ steps.tests.outcome }}
           BUILD: ${{ steps.build.outcome }}
-          PREVIEW: ${{ steps.preview.outcome }}
-        run: test "$TYPES" = success && test "$TESTS" = success && test "$BUILD" = success && test "$PREVIEW" = success
+        run: test "$TYPES" = success && test "$TESTS" = success && test "$BUILD" = success
 
   backend:
-    runs-on: windows-2022
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-2022, ubuntu-22.04]
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@v6
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: rustfmt, clippy
+      - name: Install Linux dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends build-essential pkg-config libssl-dev libgtk-3-dev librsvg2-dev libayatana-appindicator3-dev libwebkit2gtk-4.1-dev libsoup-3.0-dev
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: src-tauri -> target
@@ -107,7 +100,7 @@ jobs:
       - uses: actions/upload-artifact@v7
         if: always()
         with:
-          name: backend-generated
+          name: backend-generated-${{ runner.os }}
           path: backend-generated.patch
       - name: Require backend checks
         if: always()
