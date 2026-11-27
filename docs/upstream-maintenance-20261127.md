@@ -32,4 +32,12 @@
 
 关键回归覆盖额度手动刷新与缓存、旧故障转移结果、首字事件识别、连接复用与失效、Gemini 签名与工具 schema、配置注释和行尾保留、工具安装渠道选择。
 
-首次检查：[46006875624](https://github.com/WangXingFan/cc-switch/actions/runs/46006875624)。前端 170 个测试文件、2,094 个测试通过，前端构建成功；类型检查与 Rust 语法问题随后修复。最终结果待后续运行完成后记录。
+最终代码提交：`6520849fbb100276be8735467f2e2f6d6757d485`。
+
+GitHub Actions：[46011758181](https://github.com/WangXingFan/cc-switch/actions/runs/46011758181)，结果 **success**。
+
+- 前端：TypeScript、2,094 个单元测试、renderer 构建全部通过。
+- Linux：Clippy 与后端测试通过，合计 3,474 个测试通过、7 个忽略。
+- Windows：Clippy 与后端测试通过，合计 3,449 个测试通过、9 个忽略。
+- 最终代码已应用 CI 产生的格式化结果；后续提交只记录验证信息。
+- 草稿 PR：[#3](https://github.com/WangXingFan/cc-switch/pull/3)，基于 PR #2 分支。
