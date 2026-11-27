@@ -8327,7 +8327,7 @@ pub(super) fn apply_login_shell_vars(cmd: &mut std::process::Command, vars: &[(S
 }
 
 #[cfg(not(target_os = "windows"))]
-pub(super) fn login_shell_env(deadline: Option<CommandDeadline>) -> Option<LoginShellEnv> {
+fn login_shell_env(deadline: Option<CommandDeadline>) -> Option<LoginShellEnv> {
     use std::process::{Command, Stdio};
     let shell = std::env::var("SHELL")
         .ok()
@@ -8425,7 +8425,7 @@ fn quote_tool_update_path(path: &str) -> String {
 }
 
 fn is_opencode_v2_version(version: &str) -> bool {
-    parse_semver(version).is_some_and(|([major, ..], _)| major >= 2)
+    parse_semver(version.trim_start_matches('v')).is_some_and(|([major, ..], _)| major >= 2)
 }
 
 fn is_pi_managed_install(entry: &str) -> bool {

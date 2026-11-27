@@ -493,12 +493,8 @@ fn value_to_rt_value(value: &Value, parent_indent: &str) -> Result<RtJSONValue, 
         .map_err(|e| AppError::Config(format!("Failed to serialize JSON section: {e}")))?;
 
     let adjusted = reindent_json5_block(&source, parent_indent);
-    let text = parse_round_trip(&adjusted).map_err(|e| {
-        AppError::Config(format!(
-            "Failed to parse generated JSON5 section: {}",
-            e
-        ))
-    })?;
+    let text = parse_round_trip(&adjusted)
+        .map_err(|e| AppError::Config(format!("Failed to parse generated JSON5 section: {}", e)))?;
     Ok(text.value)
 }
 

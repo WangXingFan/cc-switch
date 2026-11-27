@@ -575,8 +575,7 @@ impl RequestForwarder {
                         let mut status = self.status.write().await;
                         status.success_requests += 1;
                         status.last_error = None;
-                        let should_switch = self.router.route_revision(app_type)
-                            == route_revision
+                        let should_switch = self.router.route_revision(app_type) == route_revision
                             && (self.current_provider_id_at_start.as_str() != provider.id.as_str());
                         if should_switch {
                             status.failover_count += 1;
@@ -669,9 +668,7 @@ impl RequestForwarder {
                                     {
                                         let mut current_providers =
                                             self.current_providers.write().await;
-                                        if self.router.route_revision(app_type)
-                                            == route_revision
-                                        {
+                                        if self.router.route_revision(app_type) == route_revision {
                                             current_providers.insert(
                                                 app_type_str.to_string(),
                                                 (provider.id.clone(), provider.name.clone()),
@@ -683,11 +680,10 @@ impl RequestForwarder {
                                         let mut status = self.status.write().await;
                                         status.success_requests += 1;
                                         status.last_error = None;
-                                        let should_switch =
-                                            self.router.route_revision(app_type)
-                                                == route_revision
-                                                && (self.current_provider_id_at_start.as_str()
-                                                    != provider.id.as_str());
+                                        let should_switch = self.router.route_revision(app_type)
+                                            == route_revision
+                                            && (self.current_provider_id_at_start.as_str()
+                                                != provider.id.as_str());
                                         if should_switch {
                                             status.failover_count += 1;
                                             let fm = self.failover_manager.clone();
@@ -1003,9 +999,7 @@ impl RequestForwarder {
                                     {
                                         let mut current_providers =
                                             self.current_providers.write().await;
-                                        if self.router.route_revision(app_type)
-                                            == route_revision
-                                        {
+                                        if self.router.route_revision(app_type) == route_revision {
                                             current_providers.insert(
                                                 app_type_str.to_string(),
                                                 (provider.id.clone(), provider.name.clone()),
@@ -1017,11 +1011,10 @@ impl RequestForwarder {
                                         let mut status = self.status.write().await;
                                         status.success_requests += 1;
                                         status.last_error = None;
-                                        let should_switch =
-                                            self.router.route_revision(app_type)
-                                                == route_revision
-                                                && (self.current_provider_id_at_start.as_str()
-                                                    != provider.id.as_str());
+                                        let should_switch = self.router.route_revision(app_type)
+                                            == route_revision
+                                            && (self.current_provider_id_at_start.as_str()
+                                                != provider.id.as_str());
                                         if should_switch {
                                             status.failover_count += 1;
                                             let fm = self.failover_manager.clone();
